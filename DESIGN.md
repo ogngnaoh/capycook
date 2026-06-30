@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft **v0.3** — post-research-review; hero reframed to process/methodology, scope reshaped around two deep pillars |
+| **Status** | Draft **v0.3.1** — post-research-review (hero reframed to process/methodology, scope reshaped around two pillars); four v0-scope decisions locked (see below) |
 | **Type** | Product + system design doc (PRD + architecture) |
 | **Author** | _you_ |
 | **Last updated** | 2026-06-30 |
@@ -25,6 +25,15 @@
 - **Eval rigor added:** inter-rater reliability spot-check (double-label ~15–20% of the benchmark set) + a versioned benchmark set; **tracing promoted to the explicit P0 list.** — *Driver: architecture gaps & rec 5.*
 - **Minimal autonomy dial pulled into P0** (auto-advance deterministic moves only); **idempotent "accept,"** **"take-over" reconciled with the version log,** a "gate happens at the counter, not the stove" boundary, and one sentence on steering-conversation persistence. — *Driver: product recs 1, 2, 5; architecture gaps.*
 - **P0 + roadmap reshaped around two deep pillars** (the move/gate machine + proposal contract + version chain, hand-rolled; and the eval harness + methodology with sign-robust hero metrics). Everything else is deferred or thinned explicitly. — *Driver: critique "the 1–2 things to go deep on"; architecture "minimum viable P0."*
+
+### v0 scope decisions (locked 2026-06-30)
+
+Four open questions from the design review are now decided for the v0 build:
+
+1. **Benchmark labeling → a second serious cook double-labels ~15–20%** of the benchmark set — true *inter*-rater agreement, not intra-rater. (Refines §9.4.)
+2. **Cuisine scope → the v0 demo is restricted to the Western-cuisine subset** where FlavorGraph's compound-sharing signal has positive empirical support; the 3-arm ablation runs on that subset, and the cultural bias (inverted for East/South Asian cuisines) is logged as a finding + committed future work. (Refines §5, §8.5, §15.)
+3. **Safety gate → hard block in v0:** a proposal that trips the blocklist is refused outright and never reaches the cook; block-with-citation-override is deferred to P1. (Refines §8.7.)
+4. **Wk-0 user test → run it to steer scope, not as a hard kill switch:** the multi-iteration/multi-day protocol runs before heavy build, and a weak result reshapes which mode is emphasized — but the engineering deliverable ships regardless (the engineering is the point). (Refines §14, §15.)
 
 ---
 
@@ -235,6 +244,7 @@ The grounding layer is **not** "flavor-science grounding." It is precisely:
 - **One empirically-contested flavor-pairing signal — FlavorGraph** (Park et al. 2021). This is the only piece of the stack actually about flavor, and it inherits the food-pairing hypothesis's known problems: the shared-compound "principle" is statistically significant for North American/Western European cuisines, **inverted (negative pairing) for East Asian and all eight Indian regional cuisines**, and *not robust to which compound database is used* (the same analysis flips sign on a cleaner dataset). So:
   - Flavor suggestions are **cuisine-aware**: compound-sharing is surfaced as a *positive* signal for the Western subset and an explicitly *negative-or-irrelevant* one for East/South Asian dishes — never as universal "evidence this works."
   - FlavorGraph-derived suggestions are presented as **one contested signal among the rationale**, with a per-cuisine disclaimer — not a scientific fact pattern. FlavorGraph is vendored/pinned (it's stale, ~2020–21; its README still carries a "to appear" placeholder citation).
+  - **v0 demo scope (locked):** demo dishes are restricted to the **Western-cuisine subset** where the signal has positive support; all-cuisines support (handling the inverted East/South Asian case) is committed future work (§16).
 
 Engineering requirements:
 - **Toggleable** — the grounded path can be disabled per move for the ablation (the ungrounded baseline runs through the same orchestrator).
@@ -253,7 +263,7 @@ Engineering requirements:
 ### 8.7 Safety gate — the deterministic block (new in v0.3)
 A system whose job is proposing *novel* combinations to home cooks needs a safety category alongside generative and deterministic. This is a **deterministic safety-gate service that can BLOCK a proposal from ever reaching the human gate** — distinct from `[unverified]`, which is the wrong severity tool for "this could cause foodborne illness." LLMs have no model of pH, water activity, or the temperature danger zone, and general LLMs are documented to be only sparsely safety-aligned in the food domain (FoodGuardBench / "Cooking Up Risks").
 
-**Calibrated scope — a narrow hard-coded blocklist + a documented disclaimer, NOT a full FDA rules engine** (a full preservation rules engine would itself blow the scope budget):
+**Calibrated scope — a narrow hard-coded blocklist + a documented disclaimer, NOT a full FDA rules engine** (a full preservation rules engine would itself blow the scope budget). **In v0 the gate hard-blocks** — a proposal that trips any rule below is refused outright and never reaches the human gate; block-with-citation-override is a P1 refinement. The rules:
 - **Anaerobic preservation block.** Any proposal involving low-oxygen environments — oil infusions, vacuum/sous-vide-style anaerobic holds, home canning, fermentation, curing — is flagged for mandatory safety-citation or refusal (the raw-garlic-in-room-temp-oil → *Clostridium botulinum* vector is the textbook case, and a real reported 2024 LLM failure).
 - **Minimum cook-temp check.** Poultry, eggs, ground meat, and similar high-risk proteins are checked against deterministic minimum-safe-temperature/time rules — not generative "why" text.
 - **Allergen check.** Ingredient and substitution suggestions are checked deterministically against `constraints.allergens` (via FoodOn ingredient-class relationships), not trusted to LLM recall (ChatGPT has recommended almond milk in a "nut-free" context).
@@ -286,7 +296,7 @@ We **expect, and pre-register, a nuanced result**: grounding most plausibly help
 
 ### 9.4 Reproducibility & rigor
 - **Pin/vendor** all weights and data; **fix and version the benchmark set itself** (a git-tracked fixture with a changelog — the eval gets the same versioning discipline the draft does).
-- **Inter-rater reliability spot-check** — double-label ~15–20% of the benchmark set and report agreement; cheap, and it materially strengthens the credibility of the hero for reviewers who scrutinize methodology.
+- **Inter-rater reliability spot-check** — a **second serious cook** double-labels ~15–20% of the benchmark set and we report agreement (true inter-rater, not intra-rater); cheap, and it materially strengthens the credibility of the hero for reviewers who scrutinize methodology.
 - **Tracing is a hard dependency of the eval** (the harness replays the move/gate event log) — so tracing is an explicit P0 item, not an NFR afterthought.
 - Publish the methodology and a results table; ship the scripts. The README **opens** with the methodology and the **process** results — including a null/modest grounding result reported plainly in a clearly-labeled supporting section.
 
@@ -362,7 +372,7 @@ Version control; structured logging; error handling; automated tests (determinis
 
 ## 14. Risks & open questions
 
-- **[the hero now absorbs this] Does grounded/structured beat *raw ChatGPT* for this user?** The competitor is ChatGPT + companions, not ChefGPT; the real edge is **durability/resumability + trustable numbers**, which the hero process metrics measure directly. **Cheapest test (one afternoon, before heavy build):** run the wk-0 protocol (§15) on the **multi-iteration, multi-day** case — not a single shot — past five serious home cooks (r/AskCulinary flair-holders, a cooking Discord). Read it as: how many of 5 would return for iteration #2 *because of* the versioned/gated mechanism. A 0/5 or "either way" is a real no-go on Mode A as scoped — honor it.
+- **[the hero now absorbs this] Does grounded/structured beat *raw ChatGPT* for this user?** The competitor is ChatGPT + companions, not ChefGPT; the real edge is **durability/resumability + trustable numbers**, which the hero process metrics measure directly. **Cheapest test (one afternoon, before heavy build):** run the wk-0 protocol (§15) on the **multi-iteration, multi-day** case — not a single shot — past five serious home cooks (r/AskCulinary flair-holders, a cooking Discord). Read it as: how many of 5 would return for iteration #2 *because of* the versioned/gated mechanism. A 0/5 or "either way" **steers scope** — it reshapes which mode the build emphasizes (e.g., lean harder on Pillar 2, the eval/methodology) rather than killing the project, since the engineering deliverable ships regardless. *(Decision locked — see "v0 scope decisions.")*
 - **[supporting, pre-registered] Is grounding's value worth the infra?** Expect "helps correctness/provenance more than creativity," with much of the correctness win actually belonging to the deterministic path. Report honestly.
 - **[scope] Is the P0 loop achievable solo in a semester?** Yes — see §15. The reshape around two pillars, live-retrieval deferral, and the calibrated (not FDA-grade) safety gate are what make it fit.
 - **[data] FlavorGraph staleness/coverage + cultural bias** — pin a copy; make suggestions cuisine-aware; lean on P1 live retrieval for freshness later.
@@ -376,7 +386,7 @@ Version control; structured logging; error handling; automated tests (determinis
 
 | Phase | Goal | Exit criterion |
 |---|---|---|
-| **v0 — Validate + scaffold (wk 0–1)** | The multi-iteration beat-ChatGPT user test; repo skeleton; vendor FlavorGraph, load USDA/FoodOn; **stand up the eval harness shell + tracing**; sketch the safety blocklist | Go/no-go on mode A (multi-day case); the 3-arm harness can run an empty baseline; tracing emits a replayable event |
+| **v0 — Validate + scaffold (wk 0–1)** | The multi-iteration beat-ChatGPT user test; repo skeleton; vendor FlavorGraph, load USDA/FoodOn; **stand up the eval harness shell + tracing**; sketch the safety blocklist | User-test result **steers mode A scope** (multi-day case); the 3-arm harness can run an empty baseline; tracing emits a replayable event |
 | **v1 — Pillar 1: the loop (wk 2–6)** | P0-A + P0-1, P0-5, P0-6, P0-7, P0-7b, P0-9: hand-rolled gated loop + version chain + idempotent accept + deterministic services + cuisine-aware grounded capability with baseline toggle + safety gate + SSE/cancel + minimal autonomy dial | A cook takes a seed to a finished, grounded, costed, *safety-screened* dish entirely through gated moves; both ablation arms run; an unsafe proposal is blocked |
 | **v2 — Pillar 2: measure + iterate + deploy (wk 7–10)** | P0-B + P0-8, P0-11: hero process metrics + 3-arm ablation + versioned benchmark + inter-rater spot-check; post-cook iteration; provenance/safety UI; deploy | README results table led by **process metrics** (provenance/hallucination + gate dynamics), grounding ablation in a supporting section; live demo |
 | **v3 — Depth (wk 11–13)** | P1: live-literature retrieval (4th arm), technique explainer, flavor sandbox (under the safety gate), branching/compare, full autonomy dial | The "why" + exploration modes live; compare-variations works; the live-retrieval arm reports |
