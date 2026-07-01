@@ -15,7 +15,7 @@
 - No data-vendoring in S0.1 (that is S0.3).
 
 **Slices.**
-- `01-repo-scaffold.md` — compiling skeleton + docs + CLAUDE.md. **in-progress**
+- `01-repo-scaffold.md` — compiling skeleton + docs + CLAUDE.md. **shipped**
 - `02-eval-harness-shell` — store + eventlog + eval shell + telemetry; 3-arm empty baseline + one replayable traced event. **planned**
 - `03-data-vendoring` — vendor FlavorGraph, load USDA/FoodOn subset, seed `eval/fixtures`. **planned**
 

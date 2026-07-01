@@ -5,12 +5,12 @@
 **Plan.** See `docs/superpowers/plans/2026-07-01-repo-scaffold.md` (full task breakdown) and `docs/superpowers/specs/2026-07-01-repo-scaffold-design.md` (design).
 
 **Tasks.**
-- [ ] Milestone/slice orientation docs
-- [ ] Module + Makefile + config loader (TDD)
-- [ ] HTTP server `/healthz` + graceful shutdown (TDD)
-- [ ] Domain package `doc.go` stubs (11 packages)
-- [ ] Placeholder dirs + Dockerfile skeleton + ignore files
-- [ ] Project `CLAUDE.md` + handoff + slice-ship bookkeeping
+- [x] Milestone/slice orientation docs
+- [x] Module + Makefile + config loader (TDD)
+- [x] HTTP server `/healthz` + graceful shutdown (TDD)
+- [x] Domain package `doc.go` stubs (11 packages)
+- [x] Placeholder dirs + Dockerfile skeleton + ignore files
+- [x] Project `CLAUDE.md` + handoff + slice-ship bookkeeping
 
 **Acceptance.** On a clean checkout: `go build ./...` compiles all 13 packages; `make build` → `bin/capycook`; `make run` serves `/healthz`→200 with no secrets; `make test` green; `make vet`/`make fmt` clean.
 
