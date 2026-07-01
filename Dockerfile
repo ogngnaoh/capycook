@@ -15,9 +15,10 @@ RUN CGO_ENABLED=0 go build -o /out/capycook ./cmd/server
 # COPY web/ .
 # RUN npm ci && npm run build
 
-# --- Stage 3: minimal runtime ---
-FROM gcr.io/distroless/static-debian12
+# --- Stage 3: minimal runtime (nonroot: uid 65532, least privilege) ---
+FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/capycook /capycook
 # COPY --from=web /web/dist /web/dist   # TODO with the web stage
+USER nonroot:nonroot
 EXPOSE 8080
 ENTRYPOINT ["/capycook"]
