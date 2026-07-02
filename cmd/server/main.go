@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ogngnaoh/capycook/internal/config"
+	"github.com/ogngnaoh/capycook/web"
 )
 
 func newRouter() http.Handler {
@@ -23,6 +24,9 @@ func newRouter() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
+	mux.HandleFunc("GET /api/proposal", handleProposal)
+	mux.HandleFunc("POST /api/gate", handleGate)
+	mux.Handle("/", web.Handler())
 	return mux
 }
 
