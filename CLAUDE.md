@@ -23,7 +23,7 @@ docs: `DESIGN.md` (what/why, v0.4) · `docs/SPEC.md` (the Go/React stack) ·
 - Persistence (S0.2+): SQLite via pure-Go `modernc.org/sqlite` behind a store interface.
 - Model (milestone 01): DeepSeek-V4-Pro via OpenAI-compatible client, swappable `llm` iface.
 - Observability (S0.2): OTel-Go → OTLP/HTTP → Langfuse. Eval is hand-rolled Go (SPEC §5).
-- Frontend (v2): React + Vite in `web/` (placeholder for now).
+- Frontend: React + Vite + Tailwind in `web/`; graybox workbench skeleton (S0.4), styled per-slice thereafter (see docs/superpowers/specs/2026-07-01-frontend-ui-strategy-design.md).
 
 ## Repo structure
 - `cmd/server` — HTTP entrypoint. `internal/*` — one package per P0 item (see SPEC §6/§3).

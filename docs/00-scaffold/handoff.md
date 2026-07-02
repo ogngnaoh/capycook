@@ -18,6 +18,7 @@ _Overwrite each session. Last updated: 2026-07-01._
 - S0.1 repo-scaffold → **shipped**
 - S0.2 eval-harness-shell (store · eventlog · eval shell · telemetry) → planned
 - S0.3 data-vendoring (FlavorGraph · USDA/FoodOn · fixtures) → planned
+- S0.4 walking-skeleton (graybox workbench · serve · Docker) → planned
 
 ## Current state
 - `make build/run/test` green; `GET /healthz` → 200 (native + container). No domain
@@ -35,5 +36,3 @@ _Overwrite each session. Last updated: 2026-07-01._
 - PREREGISTRATION is frozen — amendments via its §9 log only.
 - Second labeler still needed for Cohen's κ (PREREGISTRATION §6).
 - Scope discipline: R1/R2 stay P1+; v0 = one deep loop + eval harness.
-- Slice S0.1 built on branch `s0.1-scaffold` — merge to `master` at ship (see
-  finishing-a-development-branch step).
