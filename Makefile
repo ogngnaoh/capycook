@@ -1,10 +1,15 @@
 BINARY := bin/capycook
 PKG := ./...
 
-.PHONY: build run test vet fmt tidy docker-build clean
+.PHONY: build build-all web run test vet fmt tidy docker-build clean
 
 build:
 	go build -o $(BINARY) ./cmd/server
+
+web:
+	cd web && npm ci && npm run build
+
+build-all: web build
 
 run:
 	go run ./cmd/server
