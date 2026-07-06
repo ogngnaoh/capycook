@@ -20,15 +20,15 @@ docs: `DESIGN.md` (what/why, v0.4) · `docs/SPEC.md` (the Go/React stack) ·
 ## Stack
 - Go 1.26 backend, stdlib `net/http` (1.22+ pattern routing), `log/slog`.
 - Module path: `github.com/ogngnaoh/capycook`.
-- Persistence (S0.2+): SQLite via pure-Go `modernc.org/sqlite` behind a store interface.
-- Model (milestone 01): DeepSeek-V4-Pro via OpenAI-compatible client, swappable `llm` iface.
-- Observability (S0.2): OTel-Go → OTLP/HTTP → Langfuse. Eval is hand-rolled Go (SPEC §5).
-- Frontend: React + Vite + Tailwind in `web/`; graybox workbench skeleton (S0.4), styled per-slice thereafter (see docs/superpowers/specs/2026-07-01-frontend-ui-strategy-design.md).
+- Persistence (end-to-end build, phase 1): SQLite via pure-Go `modernc.org/sqlite` behind a store interface; `DB_PATH` env.
+- Model (end-to-end build, phase 3 — the first real-DeepSeek phase): DeepSeek-V4-Pro via OpenAI-compatible client, swappable `llm` iface; stub mode w/ banner when no key.
+- Observability (end-to-end build, phase 3): OTel-Go → OTLP/HTTP → Langfuse (Cloud; self-host compose ships in repo). Eval is hand-rolled Go (SPEC §5).
+- Frontend: React + Vite + Tailwind in `web/`; graybox workbench (S0.4), styled in end-to-end build phase 5 — Acne structural system + Anthropic warm palette (see the 2026-07-06 end-to-end spec §8; process background in docs/superpowers/specs/2026-07-01-frontend-ui-strategy-design.md).
 
 ## Repo structure
 - `cmd/server` — HTTP entrypoint. `internal/*` — one package per P0 item (see SPEC §6/§3).
-- `data/` — pinned FlavorGraph + USDA/FoodOn subset (vendored in S0.3).
-- `eval/fixtures/` — versioned benchmark set (PREREGISTRATION §6; seeded S0.3).
+- `data/` — pinned FlavorGraph + USDA/FoodOn subset (vendored in end-to-end build phase 2).
+- `eval/fixtures/` — versioned benchmark set (PREREGISTRATION §6; seeds drafted phase 4, committed only after user ratification; synthetic test fixtures live in `internal/eval/testdata`, never here).
 - `docs/` — DESIGN, SPEC, PREREGISTRATION, milestones, per-milestone slices/handoff.
 
 ## Config / secrets
@@ -38,9 +38,10 @@ but are non-fatal — `make run` serves `/healthz` with none set.
 
 ## Gotchas
 - **Go is Homebrew-installed** — ensure `/opt/homebrew/bin` is on PATH for `go`/`make`.
-- **⚠ Verify-before-build:** before any DeepSeek integration (milestone 01), re-check
-  the model id, `/beta` strict mode, `json_object` caveat, and pricing/context figures
-  against live `api-docs.deepseek.com` (SPEC §4c).
+- **⚠ Verify-before-build:** before the first real-DeepSeek phase (end-to-end build
+  phase 3), re-check the model id, `/beta` strict mode, `json_object` caveat, and
+  pricing/context figures against live `api-docs.deepseek.com` (SPEC §4c). Cosmetic
+  drift: proceed + patch SPEC + log. Structural drift: stop at Gate B.
 - **PREREGISTRATION.md is frozen** — eval-methodology changes go through its §9
   amendment log, never a silent edit.
 - Makefile recipes are tab-indented.

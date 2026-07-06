@@ -8,7 +8,7 @@
 
 | | |
 |---|---|
-| **Status** | Approved scope (2026-07-03) — awaiting spec review before the build |
+| **Status** | Absorbed as Phase 1 of the end-to-end build spec (2026-07-06 — `docs/superpowers/specs/2026-07-06-end-to-end-build-design.md`); its §7 milestone mapping and §9 goal prompt are superseded by that spec |
 | **Type** | System design spec (whole-app strong skeleton) |
 | **Governed by** | `DESIGN.md` §6.1 (the move/gate loop), §8 (deterministic/generative split), §15 (v0→v2); `docs/SPEC.md` (Go/React stack, §3/§4a/§6/§7) |
 | **Supersedes (build order)** | The granular S0.2 → S0.3 → milestone-01 sequence — see §7 |

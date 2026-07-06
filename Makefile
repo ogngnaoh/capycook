@@ -1,6 +1,10 @@
 BINARY := bin/capycook
 PKG := ./...
 
+# Load .env (gitignored) so `make run`/`make test` see the keys .env.example documents.
+-include .env
+export
+
 .PHONY: build build-all web run test vet fmt tidy docker-build clean
 
 build:

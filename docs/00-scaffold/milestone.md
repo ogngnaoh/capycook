@@ -17,10 +17,10 @@
 
 **Slices.**
 - `01-repo-scaffold.md` — compiling skeleton + docs + CLAUDE.md. **shipped**
-- `02-eval-harness-shell` — store + eventlog + eval shell + telemetry; 3-arm empty baseline + one replayable traced event. **planned**
-- `03-data-vendoring` — vendor FlavorGraph, load USDA/FoodOn subset, seed `eval/fixtures`. **planned**
-- `04-walking-skeleton.md` — graybox workbench, Go-served + containerized (thin UI→serve→Docker; persistence deferred to S0.2). **shipped**
+- `02-eval-harness-shell` — **superseded 2026-07-06**: re-homed into milestone 01 (store/eventlog → phase 1; telemetry → phase 3; eval shell → phase 4) per the end-to-end build spec.
+- `03-data-vendoring` — **superseded 2026-07-06**: re-homed into milestone 01 phase 2 (benchmark-seed ratification at Gate C).
+- `04-walking-skeleton.md` — graybox workbench, Go-served + containerized (thin UI→serve→Docker; persistence deferred). **shipped**
 
 **Integration notes.** `internal/config` is consumed by `cmd/server` now and by `telemetry`/`llm` later. `eventlog` + `eval` (S0.2) are the two surfaces the DESIGN §15 v0 exit criterion is measured against. `eval/fixtures` (S0.3) is the git-tracked benchmark source of truth (PREREGISTRATION §6).
 
-**Exit criteria (milestone).** The 3-arm harness runs an empty baseline; tracing emits one replayable event; README/PREREGISTRATION pre-registers the ablation (already frozen, `6465455`). S0.1's own exit is the acceptance check in its slice doc.
+**Exit criteria (milestone — amended 2026-07-06, shipped as rescoped).** As shipped: compiling skeleton + `/healthz` (S0.1); graybox workbench served natively + in-container (S0.4); PREREGISTRATION frozen pre-run (`6465455`), satisfying DESIGN §15's pre-run registration requirement. The original "3-arm harness runs an empty baseline" and "tracing emits one replayable event" criteria are **re-homed to milestone 01 phases 4 and 3 respectively** (end-to-end build spec §2/§3).

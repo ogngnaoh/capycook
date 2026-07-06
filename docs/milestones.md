@@ -2,9 +2,9 @@
 
 Execution order. The `← active` milestone is current. Only the active milestone's folder is materialized; future folders appear when their work begins.
 
-00. scaffold        → docs/00-scaffold/       ← active
-01. loop            → docs/01-loop/           — planned  (v1, Pillar 1 — the gated loop)
-02. measure-deploy  → docs/02-measure-deploy/ — planned  (v2, Pillar 2 — eval + iterate + deploy)
-03. depth           → docs/03-depth/          — planned  (v3 — live retrieval, branching, sandbox)
+00. scaffold         → docs/00-scaffold/     — shipped (rescoped 2026-07-06: S0.1 + S0.4 shipped; S0.2/S0.3 re-homed into milestone 01; original v0 exit criteria re-homed to milestone 01 phases 3–4)
+01. end-to-end-build → docs/01-end-to-end/   ← active  (spec: docs/superpowers/specs/2026-07-06-end-to-end-build-design.md; folder is created as the build session's first commit)
+02. measure-run      → docs/02-measure-run/  — planned (human-led: T1 instrument freeze, operator sessions, labeling campaign + second labeler, κ, results table)
+03. depth            → docs/03-depth/        — planned (v3: live-retrieval 4th arm, branch-compare, flavor sandbox, technique explainer, full autonomy dial)
 
-Mapping: milestones follow SPEC §6 rollout / DESIGN §15 phases (v0→v3).
+Mapping note: build order is governed by the end-to-end spec (2026-07-06), which supersedes SPEC §6 / DESIGN §15 **sequencing**; their exit criteria stand and are re-homed as noted above.

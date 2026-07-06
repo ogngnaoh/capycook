@@ -183,6 +183,8 @@ Every `/internal/*` package maps to a named P0 item above; no package is unmappe
 
 **Rollout, mapped to DESIGN.md §15 phases:**
 
+> **Amended 2026-07-06:** build order below is superseded by `docs/superpowers/specs/2026-07-06-end-to-end-build-design.md` (milestone 01, end-to-end build). Exit criteria stand and are re-homed by that spec; the phase rows no longer govern sequencing. Langfuse note (§5): self-hostable — a compose file ships in the repo; the author's own runs use Langfuse Cloud.
+
 | Phase | Packages touched | Exit criterion (from DESIGN.md §15) |
 |---|---|---|
 | **v0 — Scaffold + pre-register (wk 0–1)** | `store`, `eventlog`, `eval` (shell), `telemetry`, `data/`, `eval/fixtures` | 3-arm harness runs an empty baseline; tracing emits one replayable event; README pre-registers (already frozen in PREREGISTRATION.md) |
