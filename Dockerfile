@@ -11,8 +11,7 @@ RUN npm run build
 # --- Stage 2: static Go binary embedding the built SPA (CGO_ENABLED=0) ---
 FROM golang:1.26-alpine AS build
 WORKDIR /src
-COPY go.mod ./
-# COPY go.sum ./            # add when the first dependency lands
+COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /web/dist ./web/dist

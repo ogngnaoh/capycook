@@ -27,6 +27,18 @@ func TestLoadDefaultsPort(t *testing.T) {
 	}
 }
 
+func TestLoadDBPath(t *testing.T) {
+	t.Setenv("DB_PATH", "")
+	if got := Load().DBPath; got != "./data/capycook.db" {
+		t.Fatalf("default DBPath = %q, want ./data/capycook.db", got)
+	}
+
+	t.Setenv("DB_PATH", "/data/other.db")
+	if got := Load().DBPath; got != "/data/other.db" {
+		t.Fatalf("DBPath = %q, want /data/other.db", got)
+	}
+}
+
 func TestLoadMissingSecretsNonFatal(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "")
 	c := Load() // must not panic / must not exit

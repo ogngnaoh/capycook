@@ -11,6 +11,7 @@ import (
 // Config holds runtime configuration read from the environment.
 type Config struct {
 	Port              string
+	DBPath            string
 	DeepSeekAPIKey    string
 	LangfusePublicKey string
 	LangfuseSecretKey string
@@ -22,6 +23,7 @@ type Config struct {
 func Load() Config {
 	c := Config{
 		Port:              getenvDefault("PORT", "8080"),
+		DBPath:            getenvDefault("DB_PATH", "./data/capycook.db"),
 		DeepSeekAPIKey:    os.Getenv("DEEPSEEK_API_KEY"),
 		LangfusePublicKey: os.Getenv("LANGFUSE_PUBLIC_KEY"),
 		LangfuseSecretKey: os.Getenv("LANGFUSE_SECRET_KEY"),

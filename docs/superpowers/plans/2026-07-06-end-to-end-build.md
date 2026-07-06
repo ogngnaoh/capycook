@@ -187,7 +187,7 @@ replayed token-cadence **after** the safety screen passes.
 
 ## Phase 1 — Skeleton (absorbed skeleton spec §3–§6 + this spec's contracts)
 
-- [ ] **1.1 store** — Create `internal/store/{store.go,sqlite.go,migrate.go}`,
+- [x] **1.1 store** — Create `internal/store/{store.go,sqlite.go,migrate.go}`,
   `internal/store/store_test.go`. `Store` iface: CRUD for
   `dishes(id, seed, constraints_json, current_version_id, autonomy_dial, created_at)`,
   `versions(id, dish_id, parent_version_id, draft_json, created_at)`, events table
