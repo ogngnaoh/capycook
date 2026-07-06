@@ -178,7 +178,7 @@ replayed token-cadence **after** the safety screen passes.
 
 ## Phase 0 — session bootstrap (first commit)
 
-- [ ] **0.1** Create branch `e2e`; create `docs/01-end-to-end/milestone.md` (goal =
+- [x] **0.1** Create branch `e2e`; create `docs/01-end-to-end/milestone.md` (goal =
   spec §0 quote; slices = the six phases pointing at this plan as the working doc;
   integration notes = spec §4 contracts; exit = spec §3 oracles + Gate D),
   `docs/01-end-to-end/handoff.md` ("Next session start here: continue at the first
