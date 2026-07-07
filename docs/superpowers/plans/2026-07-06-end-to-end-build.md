@@ -254,7 +254,7 @@ replayed token-cadence **after** the safety screen passes.
   error banner for move-failed distinct from safety block. Graybox styling only.
   Vitest: seed form validation, diff render from ops fixture, gate-bar verb dispatch,
   blocked-state affordances, EventSource message handling (mocked). Commit.
-- [ ] **1.10 CI + PREREG guard** — Create `.github/workflows/ci.yml`: jobs = go
+- [x] **1.10 CI + PREREG guard** — Create `.github/workflows/ci.yml`: jobs = go
   (vet+test, Go 1.26), web (npm ci+test+build, Node 22), docker build, and a guard
   step failing if `git diff origin/master...HEAD -- docs/PREREGISTRATION.md` is
   non-empty. Commit.
