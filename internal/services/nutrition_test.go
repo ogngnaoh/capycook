@@ -68,6 +68,10 @@ func approxPanel(t *testing.T, got, want draft.NutritionAnalysis) {
 	}
 }
 
+// oliveOil30MLFactor is the per-100g scale for 30 ml of olive oil converted
+// through its "1 tbsp = 13.5 g" portion row (1 tbsp = 14.78676478125 ml).
+const oliveOil30MLFactor = 30.0 / 14.78676478125 * 13.5 / 100
+
 func TestUSDANutritionComputeRealData(t *testing.T) {
 	n := realNutrition(t)
 	tests := []struct {
@@ -145,6 +149,19 @@ func TestUSDANutritionComputeRealData(t *testing.T) {
 				Calories: 884, FatG: 100, SatFatG: 13.808, SodiumMg: 2,
 			},
 		},
+		{
+			// metric volume converts to mass ONLY via the vendored portion
+			// rows (units.go, task 2.3): 30 ml -> tbsp exactly
+			// (14.78676478125 ml/tbsp), then "1 tbsp = 13.5 g" -> 27.39 g.
+			name: "metric volume bridges through the tbsp portion row",
+			d:    nutritionDraft(1, draft.Ingredient{Name: "olive oil", Qty: 30, Unit: "ml"}),
+			want: draft.NutritionAnalysis{
+				Calories: 884 * oliveOil30MLFactor,
+				FatG:     100 * oliveOil30MLFactor,
+				SatFatG:  13.808 * oliveOil30MLFactor,
+				SodiumMg: 2 * oliveOil30MLFactor,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -185,11 +202,11 @@ func TestUSDANutritionUnverifiedNeverGuessed(t *testing.T) {
 			want: draft.NutritionAnalysis{Unverified: allPanelFields},
 		},
 		{
-			// ml is volume; volume->mass without a portions-table row must
-			// stay unverified (units.go handles conversions in task 2.3,
-			// still via portions only).
-			name: "volume unit without portion row",
-			d:    nutritionDraft(1, draft.Ingredient{Name: "olive oil", Qty: 30, Unit: "ml"}),
+			// red onion's only portion row is "1 whole": a volume quantity
+			// has no portions-table path to mass, so it stays unverified —
+			// a density is never assumed (volume->mass ONLY via portions).
+			name: "volume unit with no volume portion rows",
+			d:    nutritionDraft(1, draft.Ingredient{Name: "red onion", Qty: 100, Unit: "ml"}),
 			want: draft.NutritionAnalysis{Unverified: allPanelFields},
 		},
 		{

@@ -15,15 +15,15 @@ import (
 // USDANutrition computes the per-serving nutrition panel from the vendored
 // USDA FoodData Central subset (data/usda/, provenance in its PROVENANCE.md):
 // per-serving value = sum over ingredients of (per-100g value x gram mass /
-// 100) / servings. Gram mass comes directly from g/kg quantities; every
-// household measure (cup, tbsp, whole, clove, ...) converts ONLY through the
-// vendored FDC foodPortion table. An ingredient with no USDA match or no
-// usable portion conversion contributes nothing and adds field-level
+// 100) / servings. Gram mass resolves through the shared PortionTable hook
+// (units.go): mass units directly, every household or volume measure ONLY
+// through the vendored FDC foodPortion table. An ingredient with no USDA
+// match or no usable conversion contributes nothing and adds field-level
 // [unverified] markers — values are never guessed.
 type USDANutrition struct {
-	byName   map[string]usdaFood      // normalized universe name -> food
-	byFDCID  map[string]usdaFood      // fdc_id -> food
-	portions map[string][]usdaPortion // universe name -> portion rows, table order
+	byName   map[string]usdaFood // normalized universe name -> food
+	byFDCID  map[string]usdaFood // fdc_id -> food
+	portions *PortionTable
 }
 
 var _ Nutrition = (*USDANutrition)(nil)
@@ -46,18 +46,11 @@ type usdaFood struct {
 	per100g [8]*float64 // nil = value absent upstream (never imputed)
 }
 
-type usdaPortion struct {
-	amount     float64 // e.g. 2 for "2 tbsp = 35.8 g"
-	unit       string  // normalized unit token
-	gramWeight float64
-}
-
 // NewUSDANutrition loads the vendored nutrient and portion tables.
 func NewUSDANutrition(nutrientsPath, portionsPath string) (*USDANutrition, error) {
 	n := &USDANutrition{
-		byName:   make(map[string]usdaFood),
-		byFDCID:  make(map[string]usdaFood),
-		portions: make(map[string][]usdaPortion),
+		byName:  make(map[string]usdaFood),
+		byFDCID: make(map[string]usdaFood),
 	}
 	if err := forEachCSVRow(nutrientsPath,
 		[]string{"name", "fdc_id"},
@@ -80,27 +73,11 @@ func NewUSDANutrition(nutrientsPath, portionsPath string) (*USDANutrition, error
 		}); err != nil {
 		return nil, fmt.Errorf("nutrition: load nutrients: %w", err)
 	}
-	if err := forEachCSVRow(portionsPath,
-		[]string{"name", "amount", "unit", "gram_weight"},
-		func(row map[string]string) error {
-			amount, err := strconv.ParseFloat(row["amount"], 64)
-			if err != nil {
-				return fmt.Errorf("bad amount for %q: %w", row["name"], err)
-			}
-			gramWeight, err := strconv.ParseFloat(row["gram_weight"], 64)
-			if err != nil {
-				return fmt.Errorf("bad gram_weight for %q: %w", row["name"], err)
-			}
-			name := row["name"]
-			n.portions[name] = append(n.portions[name], usdaPortion{
-				amount:     amount,
-				unit:       normalizeUnit(row["unit"]),
-				gramWeight: gramWeight,
-			})
-			return nil
-		}); err != nil {
-		return nil, fmt.Errorf("nutrition: load portions: %w", err)
+	portions, err := NewPortionTable(portionsPath)
+	if err != nil {
+		return nil, fmt.Errorf("nutrition: %w", err)
 	}
+	n.portions = portions
 	return n, nil
 }
 
@@ -122,8 +99,8 @@ func (n *USDANutrition) Compute(d draft.Draft) (draft.NutritionAnalysis, error) 
 			}
 			continue
 		}
-		grams, ok := n.gramMass(ing, food.name)
-		if !ok {
+		grams, err := n.portions.GramMass(food.name, ing.Qty, ing.Unit)
+		if err != nil {
 			for i := range unverified {
 				unverified[i] = true
 			}
@@ -168,25 +145,6 @@ func (n *USDANutrition) lookup(ing draft.Ingredient) (usdaFood, bool) {
 	return food, ok
 }
 
-// gramMass converts qty+unit to grams: direct for g/kg, household measures
-// only via the food's portion rows (first matching row in table order wins).
-// ok=false means no verifiable conversion exists.
-func (n *USDANutrition) gramMass(ing draft.Ingredient, foodName string) (float64, bool) {
-	switch unit := normalizeUnit(ing.Unit); unit {
-	case "g":
-		return ing.Qty, true
-	case "kg":
-		return ing.Qty * 1000, true
-	default:
-		for _, p := range n.portions[foodName] {
-			if p.unit == unit && p.amount > 0 && p.gramWeight > 0 {
-				return ing.Qty * p.gramWeight / p.amount, true
-			}
-		}
-		return 0, false
-	}
-}
-
 // normalizeName is the simple normalization shared with the vendoring
 // matcher: lowercase, collapse whitespace, naive-singularize each token.
 func normalizeName(s string) string {
@@ -195,24 +153,6 @@ func normalizeName(s string) string {
 		tokens[i] = singularizeToken(t)
 	}
 	return strings.Join(tokens, " ")
-}
-
-// normalizeUnit canonicalizes unit spellings so draft units match the
-// vendored portion units: case/space-insensitive, plural-insensitive, with
-// tbsp/tsp/gram synonym folding.
-func normalizeUnit(u string) string {
-	u = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(u)), ".")
-	switch u {
-	case "g", "gram", "grams":
-		return "g"
-	case "kg", "kilogram", "kilograms":
-		return "kg"
-	case "tbsp", "tbsps", "tablespoon", "tablespoons":
-		return "tbsp"
-	case "tsp", "tsps", "teaspoon", "teaspoons":
-		return "tsp"
-	}
-	return singularizeToken(u)
 }
 
 // singularizeToken applies the same naive plural rules as the vendoring
