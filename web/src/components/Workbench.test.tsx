@@ -1,9 +1,10 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import Workbench from './Workbench'
 import { MockEventSource, dishDetail, jsonResponse, sampleProposal } from '../fixtures'
-import type { DishDetail } from '../types'
+import type { DishDetail, LLMStatusResponse } from '../types'
 
 let detail: DishDetail
+let llmStatus: LLMStatusResponse
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
@@ -11,12 +12,14 @@ beforeEach(() => {
   MockEventSource.reset()
   vi.stubGlobal('EventSource', MockEventSource)
   detail = dishDetail()
+  llmStatus = { llm_mode: 'live', model: 'deepseek-v4-pro', budget_spent_usd: 0, budget_cap_usd: 10 }
   fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url === '/api/dishes/d1') return jsonResponse(detail)
     if (url === '/api/dishes/d1/versions') {
       return jsonResponse({ currentVersionId: detail.currentVersionId, versions: [] })
     }
+    if (url === '/api/status') return jsonResponse(llmStatus)
     return jsonResponse({})
   })
   vi.stubGlobal('fetch', fetchMock)
@@ -111,6 +114,19 @@ test('reconnect after a stream drop re-syncs state via GET', async () => {
   act(() => es.fail())
   act(() => es.open())
   await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/dishes/d1'))
+})
+
+test('stub mode: /api/status llm_mode=stub renders the header banner', async () => {
+  llmStatus = { llm_mode: 'stub', budget_spent_usd: 0, budget_cap_usd: 10 }
+  await mount()
+  const banner = await screen.findByTestId('stub-banner')
+  expect(banner).toHaveTextContent('stub mode — no model key')
+})
+
+test('live mode: no stub banner once /api/status has answered', async () => {
+  await mount()
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/status'))
+  expect(screen.queryByTestId('stub-banner')).not.toBeInTheDocument()
 })
 
 test('move_auto_advanced collapses into an auto-applied thread entry', async () => {

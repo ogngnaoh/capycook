@@ -3,9 +3,9 @@
 // auto-reconnect.
 import type {
   CancelResponse, CreateDishRequest, DialResponse, DishDetail, DishSummary,
-  GateRequestBody, GateResponse, MoveCancelledEvent, MoveFailedEvent,
-  MoveResponse, PromoteResponse, ProposalBlockedEvent, ProposalReadyEvent,
-  TokenEvent, VersionsResponse,
+  GateRequestBody, GateResponse, LLMStatusResponse, MoveCancelledEvent,
+  MoveFailedEvent, MoveResponse, PromoteResponse, ProposalBlockedEvent,
+  ProposalReadyEvent, TokenEvent, VersionsResponse,
 } from './types'
 
 // --- session (spec §4 session rule: H2's frozen "session" unit) ---
@@ -73,6 +73,9 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
 }
 
 // --- endpoints (spec §4 HTTP API) ---
+
+export const getLLMStatus = () =>
+  get<LLMStatusResponse>('/api/status')
 
 export const listDishes = () =>
   get<DishSummary[]>('/api/dishes')

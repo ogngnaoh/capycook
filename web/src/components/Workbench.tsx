@@ -5,8 +5,8 @@ import type {
 } from '../types'
 import { list } from '../types'
 import {
-  ApiError, getDish, getVersions, openDishStream, postCancel, postGate,
-  postMove, promoteVersion, setAutonomyDial,
+  ApiError, getDish, getLLMStatus, getVersions, openDishStream, postCancel,
+  postGate, postMove, promoteVersion, setAutonomyDial,
 } from '../api'
 import DraftPane from './DraftPane'
 import SteeringPane, { type ThreadEntry } from './SteeringPane'
@@ -52,6 +52,15 @@ export default function Workbench({ dishId, onNavigate }: {
   const [versions, setVersions] = useState<VersionsResponse | null>(null)
   const [showVersions, setShowVersions] = useState(false)
   const [snapshot, setSnapshot] = useState<VersionItem | null>(null)
+  const [stubMode, setStubMode] = useState(false)
+
+  // The stub-mode banner (task 3.3): GET /api/status reports which model
+  // edge is wired. Advisory only — a failed fetch leaves the banner off.
+  useEffect(() => {
+    getLLMStatus()
+      .then((s) => setStubMode(s.llm_mode === 'stub'))
+      .catch(() => {})
+  }, [])
 
   const resync = useCallback(async () => {
     try {
@@ -250,6 +259,12 @@ export default function Workbench({ dishId, onNavigate }: {
         <button onClick={() => onNavigate('/')} className="underline shrink-0">Dishes</button>
         <span className="font-semibold truncate">{detail.draft.title || detail.seed}</span>
         <span className="text-gray-300 shrink-0">— {STATE_LABEL[detail.state] ?? detail.state}</span>
+        {stubMode && (
+          <span data-testid="stub-banner"
+            className="px-2 py-0.5 text-xs bg-gray-200 text-gray-800 border border-gray-400 rounded shrink-0">
+            stub mode — no model key
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <DialToggle on={detail.autonomyDial} onToggle={(n) => void toggleDial(n)} />
           <button onClick={toggleVersionsPanel}

@@ -352,7 +352,7 @@ replayed token-cadence **after** the safety screen passes.
   `x-langfuse-ingestion-version: 4`; spans wrap `llm` calls ONLY (domain events stay
   in eventlog — SPEC §5 no-double-tracing); `session_id`/`arm`/`move_type` attrs on
   every span; no-op without keys. Test with in-memory span exporter. Commit.
-- [ ] **3.6 Phase-3 oracle** — Re-run suites + `scripts/e2e_check.sh` (stub mode).
+- [x] **3.6 Phase-3 oracle** — Re-run suites + `scripts/e2e_check.sh` (stub mode).
   **→ STOP: Gate B** — present live-docs verification, prompt pack, cost estimate;
   obtain DEEPSEEK + LANGFUSE keys and $10 confirmation. Then: one live smoke
   (`CAPYCOOK_LIVE_TEST=1`) driving seed→move→proposal with real model; verify one

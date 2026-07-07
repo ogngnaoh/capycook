@@ -21,6 +21,11 @@
 # redirect before the final accept. That is the only order in which every
 # §6 assertion (incl. "versions length 2 = seed version + accepted") holds.
 #
+# Phase-3 addition: both modes run in STUB mode (no DEEPSEEK_API_KEY —
+# forced empty for the local server; the container gets no env), asserted
+# up front via GET /api/status llm_mode=stub (the workbench banner's
+# source of truth). No live LLM calls are made.
+#
 # Usage: scripts/e2e_check.sh [local|docker|all]   (default: all)
 set -euo pipefail
 
@@ -140,6 +145,11 @@ wait_sse() { # wait_sse <file> <event-name> <substring> <what>
 drive_loop() { # drive_loop <base-url> <stream-capture-file>
     base="$1" stream="$2"
 
+    step "stub mode: /api/status reports llm_mode=stub (no model key)"
+    req 200 GET "$base/api/status"
+    assert_eq "$(jqr .llm_mode)" stub "llm_mode"
+    echo "    llm_mode: stub"
+
     step "create dish: seed + constraints (incl. peanuts allergen)"
     req 201 POST "$base/api/dishes" '{
         "seed": "charred carrot salad with herb yogurt",
@@ -254,8 +264,8 @@ run_local() {
     step "make build"
     make -C "$ROOT" build
 
-    step "start server (DB_PATH=$db, PORT=$LOCAL_PORT, DATA_DIR=$ROOT/data)"
-    DB_PATH="$db" PORT="$LOCAL_PORT" DATA_DIR="$ROOT/data" "$ROOT/bin/capycook" >"$WORK/server-1.log" 2>&1 &
+    step "start server (DB_PATH=$db, PORT=$LOCAL_PORT, DATA_DIR=$ROOT/data, stub mode)"
+    DB_PATH="$db" PORT="$LOCAL_PORT" DATA_DIR="$ROOT/data" DEEPSEEK_API_KEY="" "$ROOT/bin/capycook" >"$WORK/server-1.log" 2>&1 &
     SERVER_PID=$!
     wait_healthz "$base" "local server"
 
@@ -264,7 +274,7 @@ run_local() {
     step "restart server on the same DB_PATH"
     kill "$SERVER_PID"
     wait "$SERVER_PID" 2>/dev/null || true
-    DB_PATH="$db" PORT="$LOCAL_PORT" DATA_DIR="$ROOT/data" "$ROOT/bin/capycook" >"$WORK/server-2.log" 2>&1 &
+    DB_PATH="$db" PORT="$LOCAL_PORT" DATA_DIR="$ROOT/data" DEEPSEEK_API_KEY="" "$ROOT/bin/capycook" >"$WORK/server-2.log" 2>&1 &
     SERVER_PID=$!
     wait_healthz "$base" "restarted local server"
 

@@ -219,6 +219,15 @@ export interface PromoteResponse {
   currentVersionId: string
 }
 
+// GET /api/status (internal/httpapi LLMStatus): which model edge is wired
+// (stub vs live) and the budget meter — drives the workbench stub banner.
+export interface LLMStatusResponse {
+  llm_mode: 'stub' | 'live'
+  model?: string
+  budget_spent_usd: number
+  budget_cap_usd: number
+}
+
 // --- SSE payloads (internal/transport wire shapes) ---
 
 export interface TokenEvent {

@@ -1,0 +1,48 @@
+
+=====================================================
+== LOCAL MODE: built binary, DB_PATH in a temp dir
+=====================================================
+
+==> make build
+go build -o bin/capycook ./cmd/server
+
+==> start server (DB_PATH=/var/folders/m2/231mc3f95x33vkrglwb3sklr0000gn/T//capycook-e2e.bswtMy/capycook.db, PORT=18080, DATA_DIR=/Users/hoangngo/Documents/personal-projects/CapyCook/data, stub mode)
+
+==> stub mode: /api/status reports llm_mode=stub (no model key)
+    llm_mode: stub
+
+==> create dish: seed + constraints (incl. peanuts allergen)
+    dish: dish_418f931eff11c11a
+
+==> open SSE stream (curl -N, captured in background)
+
+==> move 1: seed_expand with a normal steer -> 202
+    move: mv_9eb58884057a09a8
+
+==> stream carries token events then proposal-ready for move 1
+    token events: 30, proposal-ready: yes
+
+==> gate accept the seed_expand proposal -> version 1 (seed version)
+    version: ver_92465a918bcdeb18
+
+==> move 2: steer contains 'garlic oil' -> proposal-blocked, NO tokens
+    move: mv_3fa7b7a9980b8fb8
+    proposal-blocked (anaerobic-garlic-oil), token events: 0
+
+==> gate redirect off the block with a safe steer -> new move
+    move: mv_2e81248d7c086f5a
+
+==> gate accept the safe proposal -> version 2
+    version: ver_c8805a6c1e9c797c
+
+==> versions chain has length 2; dish shows the updated draft
+    versions: 2 (chain ver_92465a918bcdeb18 -> ver_c8805a6c1e9c797c); draft: "Charred Carrot Salad with Herb Yogurt"
+
+==> restart server on the same DB_PATH
+
+==> dish + versions survive the restart
+    versions: 2 (chain ver_92465a918bcdeb18 -> ver_c8805a6c1e9c797c); draft: "Charred Carrot Salad with Herb Yogurt"
+
+LOCAL MODE: PASS
+
+E2E CHECK: PASS (local)
