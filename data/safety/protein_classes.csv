@@ -1,0 +1,55 @@
+name,protein_class,basis
+chicken breast,poultry,poultry cut (FSIS 165 F)
+chicken thigh,poultry,poultry cut (FSIS 165 F)
+whole chicken,poultry,whole poultry (FSIS 165 F)
+ground turkey,poultry,ground poultry (FSIS 165 F)
+turkey breast,poultry,poultry cut (FSIS 165 F)
+ground beef,ground_meat,ground red meat (FSIS 160 F)
+ground pork,ground_meat,ground red meat (FSIS 160 F)
+italian sausage,ground_meat,raw sausage from ground pork (FSIS 160 F)
+beef steak,whole_cut,beef whole cut (FSIS 145 F + 3 min rest)
+beef chuck roast,whole_cut,beef whole cut/roast (FSIS 145 F + 3 min rest)
+pork chop,whole_cut,pork whole cut (FSIS 145 F + 3 min rest)
+pork tenderloin,whole_cut,pork whole cut (FSIS 145 F + 3 min rest)
+pork shoulder,whole_cut,pork whole cut/roast (FSIS 145 F + 3 min rest)
+lamb,whole_cut,lamb whole cut (FSIS 145 F + 3 min rest)
+salmon,fish,finfish (FSIS 145 F)
+cod,fish,finfish (FSIS 145 F)
+tilapia,fish,finfish (FSIS 145 F)
+trout,fish,finfish (FSIS 145 F)
+halibut,fish,finfish (FSIS 145 F)
+anchovy,fish,"finfish (FSIS 145 F); note: usually salt-cured but classed as fish for the cook-temp rule"
+sardine,fish,finfish (FSIS 145 F)
+shrimp,shellfish,crustacean (FSIS 145 F)
+scallop,shellfish,mollusc (cook until opaque; FSIS 145 F applied)
+mussel,shellfish,mollusc (cook until shells open; FSIS 145 F applied)
+clam,shellfish,mollusc (cook until shells open; FSIS 145 F applied)
+crab,shellfish,crustacean (FSIS 145 F)
+egg,eggs,shell egg / egg dish (FSIS 160 F; raw preparations hard-block in v0)
+canned tuna,none,pre-cooked and shelf-stable; no cook-temp rule
+ham,none,cured / commercially fully-cooked pork (retail form assumed); fresh green ham would be whole_cut but is off-universe
+bacon,none,cured pork; typically fried to crisp; no internal-temp target applied in v0
+tofu,none,plant protein; no C. botulinum cook-temp rule
+tempeh,none,plant protein
+edamame,none,plant protein (soybean)
+black bean,none,legume
+kidney bean,none,legume
+pinto bean,none,legume
+cannellini bean,none,legume
+navy bean,none,legume
+chickpea,none,legume
+lentil,none,legume
+split pea,none,legume
+almond,none,tree nut/seed
+walnut,none,tree nut/seed
+pecan,none,tree nut/seed
+cashew,none,tree nut/seed
+pistachio,none,tree nut/seed
+hazelnut,none,tree nut/seed
+peanut,none,legume/nut
+pine nut,none,seed
+sunflower seed,none,seed
+pumpkin seed,none,seed
+sesame seed,none,seed
+chia seed,none,seed
+flax seed,none,seed

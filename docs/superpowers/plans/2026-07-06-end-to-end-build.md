@@ -295,7 +295,7 @@ replayed token-cadence **after** the safety screen passes.
   `internal/services/cost.go`: pro-rated by quantity at $/100g basis (shared mass
   machinery with nutrition); missing ingredient → "unknown", excluded from total +
   footnote flag — **never $0**. Table tests. Commit.
-- [ ] **2.6 safety gate** — Create `data/safety/{min_temps.csv,anaerobic_lexicon.csv,PROVENANCE.md}`
+- [x] **2.6 safety gate** — Create `data/safety/{min_temps.csv,anaerobic_lexicon.csv,PROVENANCE.md}`
   (FSIS-cited per row: poultry 74°C, ground meat 71°C, whole cuts 63°C+rest, eggs,
   fish; anaerobic technique/ingredient patterns); implement
   `internal/services/safety.go`: reads technique enum + internal_temp_c (structured,
