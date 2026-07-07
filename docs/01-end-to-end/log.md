@@ -34,3 +34,17 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   versions panel) — interactive via Chrome + committed PNGs captured headless with
   puppeteer-core (scratchpad-only tooling, not a repo dependency).
 - **2.1 ingredient-universe procedure:** union of the five USDA MyPlate food-group example lists + the Food Network Kitchen pantry/fridge/freezer essentials checklist (both verified via dated Wayback snapshots — live MyPlate deep links now redirect to the homepage and foodnetwork.com/fsis.usda.gov 403 automated clients), normalized to lowercase-singular canonicals with alias/category rules, plus builder-curated additions covering the plan's mandated high-risk-protein/Big-9-carrier/demo set → 246 rows, `big9_flags` left empty for the 2.4 FoodOn closure; snapshot URLs in `data/README.md`.
+
+## 2026-07-07
+
+- **2.5 cost-table procedure (two-tier, per the sanctioned split):** tier A (80 rows)
+  from live official series — BLS Average Price snapshot (all used series at 2026-05,
+  U.S. city average; discontinued series like canned tuna/peanut butter deliberately
+  skipped rather than presenting 2017 prices as current) preferred over USDA ERS
+  Fruit & Vegetable Prices (2023 Circana scanner data; vintage cross-checked against
+  the per-commodity workbook); tier B (166 rows) uniform builder-judgment estimates,
+  tagged as such per row. Volume-priced series (milk/gal, wine/L) convert to $/100g
+  via the food's own vendored USDA portion density — never an assumed density; egg is
+  the one per_unit row ($/doz ÷ 12, unit count recovered via the 50.3 g whole-egg
+  portion). Artifact pins + substitution list in `data/cost/PROVENANCE.md`;
+  `scripts/vendor_cost.py` re-runs the extraction and preserves tier-B rows.

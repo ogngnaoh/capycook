@@ -1,0 +1,247 @@
+name,usd_per_unit,unit_basis,source,as_of
+onion,0.2342,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Onions' (Fresh): $1.0622/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+red onion,0.3300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+garlic,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+shallot,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+scallion,1.1000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+leek,0.6600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+ginger,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+carrot,0.2217,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Carrots, raw whole' (Fresh): $1.0055/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+celery,0.2927,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Celery, trimmed bunches' (Fresh): $1.3278/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+bell pepper,0.3314,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Green peppers' (Fresh): $1.5033/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+jalapeno,0.3300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+tomato,0.5487,per_100g,"BLS Average Price series APU0000712311 (Tomatoes, field grown, per lb.), U.S. city average, 2026-05: $2.489/lb",2026-05
+cherry tomato,0.9161,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Tomatoes, grape and cherry' (Fresh): $4.1556/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+potato,0.1971,per_100g,"BLS Average Price series APU0000712112 (Potatoes, white, per lb.), U.S. city average, 2026-05: $0.894/lb",2026-05
+sweet potato,0.2568,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Sweet potatoes' (Fresh): $1.1646/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+broccoli,0.6666,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Broccoli heads' (Fresh): $3.0236/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+cauliflower,0.4684,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Cauliflower heads' (Fresh): $2.1244/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+cabbage,0.1822,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Cabbage, green' (Fresh): $0.8266/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+brussels sprout,0.6701,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Brussels sprouts' (Fresh): $3.0395/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+kale,0.7873,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Kale' (Fresh): $3.5711/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+spinach,0.9922,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Spinach, eaten raw' (Fresh): $4.5004/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+arugula,2.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+romaine lettuce,0.7990,per_100g,"BLS Average Price series APU0000FL2101 (Lettuce, romaine, per lb.), U.S. city average, 2026-05: $3.624/lb",2026-05
+lettuce,0.4330,per_100g,"BLS Average Price series APU0000712211 (Lettuce, iceberg, per lb.), U.S. city average, 2026-05: $1.964/lb",2026-05
+swiss chard,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+collard greens,0.5475,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Collard greens' (Fresh): $2.4833/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+zucchini,0.3614,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Zucchini' (Fresh): $1.6391/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+yellow squash,0.3900,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+butternut squash,0.2802,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Butternut squash' (Fresh): $1.2710/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+cucumber,0.2409,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Cucumbers with peel' (Fresh): $1.0928/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+mushroom,0.9159,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Mushrooms, whole' (Fresh): $4.1545/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+eggplant,0.4400,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+green bean,0.5863,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Green beans' (Fresh): $2.6592/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+asparagus,0.7082,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Asparagus' (Fresh): $3.2125/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+corn,0.4636,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Corn' (Fresh): $2.1028/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+green pea,0.4830,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Green peas' (Frozen): $2.1910/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+beet,0.2773,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Beets' (Canned): $1.2579/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+radish,0.4081,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Radish' (Fresh): $1.8510/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+turnip,0.3300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+parsnip,0.5500,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+pumpkin,0.4588,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Pumpkin' (Canned): $2.0809/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+avocado,0.4988,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Avocados' (Fresh): $2.2624/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+fennel,0.6600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+parsley,2.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cilantro,2.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+basil,8.8000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+mint,8.8000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+dill,8.8000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+chive,8.8000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+thyme,11.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+rosemary,11.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+sage,11.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+lemon,0.4610,per_100g,"BLS Average Price series APU0000711412 (Lemons, per lb.), U.S. city average, 2026-05: $2.091/lb",2026-05
+lime,0.5000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+orange,0.3400,per_100g,"BLS Average Price series APU0000711311 (Oranges, Navel, per lb.), U.S. city average, 2026-05: $1.542/lb",2026-05
+apple,0.4103,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Apples' (Fresh): $1.8609/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+banana,0.1424,per_100g,"BLS Average Price series APU0000711211 (Bananas, per lb.), U.S. city average, 2026-05: $0.646/lb",2026-05
+strawberry,0.7628,per_100g,"BLS Average Price series APU0000711415 (Strawberries, dry pint, per 12 oz.), U.S. city average, 2026-05: $2.595 per 12 oz",2026-05
+blueberry,1.1315,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Blueberries' (Fresh): $5.1325/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+raspberry,1.7564,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Raspberries' (Fresh): $7.9668/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+blackberry,1.5067,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Blackberries' (Fresh): $6.8345/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+grape,0.4957,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Grapes' (Fresh): $2.2484/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+peach,0.5417,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Peaches' (Fresh): $2.4571/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+pear,0.4226,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Pears' (Fresh): $1.9167/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+plum,0.5860,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Plum' (Fresh): $2.6582/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+cherry,0.8069,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Cherries' (Fresh): $3.6599/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+pineapple,0.1474,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Pineapple' (Fresh): $0.6684/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+mango,0.3216,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Mangoes' (Fresh): $1.4587/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+watermelon,0.0895,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Watermelon' (Fresh): $0.4058/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+cantaloupe,0.1746,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Cantaloupe' (Fresh): $0.7919/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+kiwi,0.6249,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Kiwi' (Fresh): $2.8347/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+grapefruit,0.3516,per_100g,"BLS Average Price series APU0000711411 (Grapefruit, per lb.), U.S. city average, 2026-05: $1.595/lb",2026-05
+raisin,0.9542,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Grapes (raisins)' (Dried): $4.3283/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+dried cranberry,1.1605,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Cranberries' (Dried): $5.2639/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+date,1.2981,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Dates' (Dried): $5.8879/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+dried apricot,1.9035,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Apricots' (Dried): $8.6343/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+chicken breast,0.9195,per_100g,"BLS Average Price series APU0000FF1101 (Chicken breast, boneless, per lb.), U.S. city average, 2026-05: $4.171/lb",2026-05
+chicken thigh,0.9900,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+whole chicken,0.4489,per_100g,"BLS Average Price series APU0000706111 (Chicken, fresh, whole, per lb.), U.S. city average, 2026-05: $2.036/lb",2026-05
+ground turkey,0.9900,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+turkey breast,1.1000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+ground beef,1.4870,per_100g,"BLS Average Price series APU0000703112 (Ground beef, 100% beef, per lb.), U.S. city average, 2026-05: $6.745/lb",2026-05
+beef steak,2.8224,per_100g,"BLS Average Price series APU0000FC3101 (All Uncooked Beef Steaks, per lb.), U.S. city average, 2026-05: $12.802/lb",2026-05
+beef chuck roast,2.1180,per_100g,"BLS Average Price series APU0000703213 (Chuck roast, USDA Choice, boneless, per lb.), U.S. city average, 2026-05: $9.607/lb",2026-05
+ground pork,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+pork chop,0.9676,per_100g,"BLS Average Price series APU0000FD3101 (All Pork Chops, per lb.), U.S. city average, 2026-05: $4.389/lb",2026-05
+pork tenderloin,0.9900,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+pork shoulder,0.5500,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+ham,0.9806,per_100g,"BLS Average Price series APU0000FD2101 (All Ham (Excluding Canned Ham and Luncheon Slices), per lb.), U.S. city average, 2026-05: $4.448/lb",2026-05
+bacon,1.4797,per_100g,"BLS Average Price series APU0000704111 (Bacon, sliced, per lb.), U.S. city average, 2026-05: $6.712/lb",2026-05
+italian sausage,0.9900,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+lamb,2.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+salmon,2.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cod,2.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+tilapia,1.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+trout,2.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+halibut,4.4000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+canned tuna,0.9000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+anchovy,5.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+sardine,1.9000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+shrimp,1.8000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+scallop,3.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+mussel,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+clam,1.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+crab,2.9000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+egg,0.1826,per_unit,"BLS Average Price series APU0000708111 (Eggs, grade A, large, per doz.), U.S. city average, 2026-05: $2.191/doz / 12",2026-05
+tofu,0.6300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+tempeh,1.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+edamame,0.7300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+black bean,0.3656,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Black beans' (Dried): $1.6585/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+kidney bean,0.4401,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Kidney beans' (Dried): $1.9963/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+pinto bean,0.3312,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Pinto beans' (Dried): $1.5024/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+cannellini bean,0.3680,per_100g,"BLS Average Price series APU0000714233 (Beans, dried, any type, all sizes, per lb.), U.S. city average, 2026-05: $1.669/lb",2026-05
+navy bean,0.3761,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Navy beans' (Dried): $1.7058/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+chickpea,0.4400,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+lentil,0.4316,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Lentils' (Dried): $1.9577/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+split pea,0.4000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+almond,1.8000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+walnut,2.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+pecan,2.6000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cashew,2.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+pistachio,2.9000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+hazelnut,2.6000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+peanut,0.6600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+pine nut,5.5000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+sunflower seed,0.7700,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+pumpkin seed,1.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+sesame seed,1.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+chia seed,1.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+flax seed,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+milk,0.1080,per_100g,"BLS Average Price series APU0000709112 (Milk, fresh, whole, fortified, per gal.), U.S. city average, 2026-05: $4.217/gal; grams via USDA portion row 1 cup = 244 g",2026-05
+buttermilk,0.2600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+heavy cream,0.9300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+sour cream,0.5500,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cream cheese,1.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+butter,0.8662,per_100g,"BLS Average Price series APU0000FS1101 (Butter, stick, per lb.), U.S. city average, 2026-05: $3.929/lb",2026-05
+yogurt,0.6777,per_100g,"BLS Average Price series APU0000FJ4101 (Yogurt, per 8 oz.), U.S. city average, 2026-05: $1.537 per 8 oz",2026-05
+greek yogurt,0.6100,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cheddar,1.2533,per_100g,"BLS Average Price series APU0000710212 (Cheddar cheese, natural, per lb.), U.S. city average, 2026-05: $5.685/lb",2026-05
+mozzarella,1.1000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+parmesan,2.9000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+feta,1.8000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+goat cheese,3.5000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+ricotta,0.8200,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cottage cheese,0.6600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+white rice,0.2361,per_100g,"BLS Average Price series APU0000701312 (Rice, white, long grain, uncooked, per lb.), U.S. city average, 2026-05: $1.071/lb",2026-05
+brown rice,0.3300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+arborio rice,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+pasta,0.3029,per_100g,"BLS Average Price series APU0000701322 (Spaghetti and macaroni, per lb.), U.S. city average, 2026-05: $1.374/lb",2026-05
+egg noodle,0.7300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+couscous,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+quinoa,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+oat,0.3800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+barley,0.4400,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+bulgur,0.5500,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+farro,0.8800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cornmeal,0.3300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+breadcrumb,0.4700,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+bread,0.4034,per_100g,"BLS Average Price series APU0000702111 (Bread, white, pan, per lb.), U.S. city average, 2026-05: $1.83/lb",2026-05
+flour tortilla,0.5500,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+corn tortilla,0.4700,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cracker,0.7700,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+popcorn,0.3800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+olive oil,1.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+vegetable oil,0.3300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+sesame oil,2.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+coconut oil,1.8000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+peanut oil,0.8100,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+salt,0.1300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+black pepper,7.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cayenne pepper,6.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+red pepper flake,5.9000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+paprika,5.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+smoked paprika,8.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+chili powder,4.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cumin,6.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+coriander,7.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+turmeric,5.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+curry powder,6.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+garlic powder,4.1000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+onion powder,3.5000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+oregano,11.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+bay leaf,70.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cinnamon,4.5000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+nutmeg,14.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+clove,18.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+allspice,15.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+ground ginger,10.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cardamom,16.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+fennel seed,7.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+mustard powder,8.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+italian seasoning,11.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cajun seasoning,3.5000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+dried thyme,11.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+dried basil,12.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+ketchup,0.3800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+mayonnaise,0.5900,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+dijon mustard,1.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+yellow mustard,0.5000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+soy sauce,0.6800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+fish sauce,0.5700,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+worcestershire sauce,1.1000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+hot sauce,1.4000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+oyster sauce,1.4000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+balsamic vinegar,0.9400,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+red wine vinegar,0.4700,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+white wine vinegar,0.5600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+apple cider vinegar,0.3700,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+rice vinegar,0.8400,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+white vinegar,0.1800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+honey,1.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+maple syrup,2.5000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+jam,0.7800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+peanut butter,0.6600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+almond butter,2.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+tahini,2.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+olive,1.3203,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Olives' (Canned): $5.9890/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+caper,3.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+pickle,0.5100,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+salsa,0.6600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+bbq sauce,0.4900,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+pesto,2.5000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+all-purpose flour,0.1199,per_100g,"BLS Average Price series APU0000701111 (Flour, white, all purpose, per lb.), U.S. city average, 2026-05: $0.544/lb",2026-05
+whole-wheat flour,0.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+granulated sugar,0.2280,per_100g,"BLS Average Price series APU0000715211 (Sugar, white, all sizes, per lb.), U.S. city average, 2026-05: $1.034/lb",2026-05
+brown sugar,0.3300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+powdered sugar,0.3300,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+baking soda,0.2800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+baking powder,1.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+yeast,8.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cornstarch,0.3900,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+vanilla extract,14.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cocoa powder,1.8000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+chocolate chip,1.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+dark chocolate,3.0000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+cream of tartar,8.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+molasses,1.2000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+chicken broth,0.2600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+beef broth,0.2600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+vegetable broth,0.2600,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+canned tomato,0.2664,per_100g,"USDA ERS Fruit and Vegetable Prices, item 'Tomatoes' (Canned): $1.2082/lb, 2023 Circana scanner data (ERS release updated 2025-12-09)",2023
+tomato paste,0.5800,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+tomato sauce,0.3000,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+coconut milk,0.6200,per_100g,"estimate: typical US conventional-supermarket shelf price, builder judgment (tier B; estimation basis in data/cost/PROVENANCE.md)",2026-07
+white wine,1.3923,per_100g,"BLS Average Price series APU0000720311 (Wine, red and white table, all sizes, any origin, per 1 liter), U.S. city average, 2026-05: $13.841/L; grams via USDA portion row 1 fl oz = 29.4 g",2026-05
+red wine,1.3923,per_100g,"BLS Average Price series APU0000720311 (Wine, red and white table, all sizes, any origin, per 1 liter), U.S. city average, 2026-05: $13.841/L; grams via USDA portion row 1 fl oz = 29.4 g",2026-05

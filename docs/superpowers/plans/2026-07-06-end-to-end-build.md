@@ -290,7 +290,7 @@ replayed token-cadence **after** the safety screen passes.
   **fail-closed** — unresolved ingredient + declared allergens → block reason
   "allergen status unknown for X". Tests: butter→milk closure; almond milk in nut-free
   → block; unresolved → block. Commit.
-- [ ] **2.5 cost** — Create `data/cost/prices.csv` (universe rows: usd_per_unit, unit
+- [x] **2.5 cost** — Create `data/cost/prices.csv` (universe rows: usd_per_unit, unit
   basis, source, as_of) drafted from named public sources; implement
   `internal/services/cost.go`: pro-rated by quantity at $/100g basis (shared mass
   machinery with nutrition); missing ingredient → "unknown", excluded from total +
