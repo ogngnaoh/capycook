@@ -1,0 +1,45 @@
+
+=====================================================
+== LOCAL MODE: built binary, DB_PATH in a temp dir
+=====================================================
+
+==> make build
+go build -o bin/capycook ./cmd/server
+
+==> start server (DB_PATH=/var/folders/m2/231mc3f95x33vkrglwb3sklr0000gn/T//capycook-e2e.3vk2vD/capycook.db, PORT=18080)
+
+==> create dish: seed + constraints (incl. peanuts allergen)
+    dish: dish_84fc0f240abec8ce
+
+==> open SSE stream (curl -N, captured in background)
+
+==> move 1: seed_expand with a normal steer -> 202
+    move: mv_e044b09c5f103cc6
+
+==> stream carries token events then proposal-ready for move 1
+    token events: 30, proposal-ready: yes
+
+==> gate accept the seed_expand proposal -> version 1 (seed version)
+    version: ver_b0167a42da894c9c
+
+==> move 2: steer contains 'garlic oil' -> proposal-blocked, NO tokens
+    move: mv_19310321720df1a8
+    proposal-blocked (anaerobic-garlic-oil), token events: 0
+
+==> gate redirect off the block with a safe steer -> new move
+    move: mv_c5a9e33487be4922
+
+==> gate accept the safe proposal -> version 2
+    version: ver_f14668cafa9f1292
+
+==> versions chain has length 2; dish shows the updated draft
+    versions: 2 (chain ver_b0167a42da894c9c -> ver_f14668cafa9f1292); draft: "Charred Carrot Salad with Herb Yogurt"
+
+==> restart server on the same DB_PATH
+
+==> dish + versions survive the restart
+    versions: 2 (chain ver_b0167a42da894c9c -> ver_f14668cafa9f1292); draft: "Charred Carrot Salad with Herb Yogurt"
+
+LOCAL MODE: PASS
+
+E2E CHECK: PASS (local)

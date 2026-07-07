@@ -258,7 +258,7 @@ replayed token-cadence **after** the safety screen passes.
   (vet+test, Go 1.26), web (npm ci+test+build, Node 22), docker build, and a guard
   step failing if `git diff origin/master...HEAD -- docs/PREREGISTRATION.md` is
   non-empty. Commit.
-- [ ] **1.11 Phase-1 oracle** — Create `scripts/e2e_check.sh`: drives skeleton-spec §6
+- [x] **1.11 Phase-1 oracle** — Create `scripts/e2e_check.sh`: drives skeleton-spec §6
   acceptance via curl against local binary AND `docker run -v capycook-data:/data`
   (create dish → move → SSE captures tokens+proposal-ready → seeded unsafe steer →
   proposal-blocked → accept safe → versions chain length 2 → restart container →

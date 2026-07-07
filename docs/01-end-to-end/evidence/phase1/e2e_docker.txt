@@ -1,0 +1,118 @@
+
+=====================================================
+== DOCKER MODE: container, named volume mounted at /data
+=====================================================
+
+==> docker build -t capycook:dev .
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  761.3kB
+Step 1/22 : FROM node:22-alpine AS web
+ ---> 16e22a550f38
+Step 2/22 : WORKDIR /web
+ ---> Using cache
+ ---> 2531ef9ca7c6
+Step 3/22 : COPY web/package.json web/package-lock.json* ./
+ ---> Using cache
+ ---> 6b4c1d5579f6
+Step 4/22 : RUN npm ci
+ ---> Using cache
+ ---> 9cfa2a67470e
+Step 5/22 : COPY web/ .
+ ---> Using cache
+ ---> 76ada6246ee6
+Step 6/22 : RUN npm run build
+ ---> Using cache
+ ---> b2cb190be432
+Step 7/22 : FROM golang:1.26-alpine AS build
+ ---> 3ad57304ad93
+Step 8/22 : WORKDIR /src
+ ---> Using cache
+ ---> 70f7915b34f2
+Step 9/22 : COPY go.mod go.sum ./
+ ---> Using cache
+ ---> c4ae920857e8
+Step 10/22 : RUN go mod download
+ ---> Using cache
+ ---> bf06150ee7a8
+Step 11/22 : COPY . .
+ ---> f28d1234d706
+Step 12/22 : COPY --from=web /web/dist ./web/dist
+ ---> 43109fcd1c44
+Step 13/22 : RUN CGO_ENABLED=0 go build -o /out/capycook ./cmd/server
+ ---> Running in 1d23cc54ea5f
+ ---> Removed intermediate container 1d23cc54ea5f
+ ---> 19557ea681a9
+Step 14/22 : RUN mkdir -p /out/data
+ ---> Running in 4e8cba07e136
+ ---> Removed intermediate container 4e8cba07e136
+ ---> 3e103512418a
+Step 15/22 : FROM gcr.io/distroless/static-debian12:nonroot
+ ---> d093aa3e30db
+Step 16/22 : COPY --from=build /out/capycook /capycook
+ ---> Using cache
+ ---> 948ef3e60fec
+Step 17/22 : COPY --from=build --chown=65532:65532 /out/data /data
+ ---> 2825aa257536
+Step 18/22 : ENV DB_PATH=/data/capycook.db
+ ---> Running in da7da49ba836
+ ---> Removed intermediate container da7da49ba836
+ ---> 7e9ad0dd03b4
+Step 19/22 : VOLUME /data
+ ---> Running in cdc0be0c8094
+ ---> Removed intermediate container cdc0be0c8094
+ ---> 96ece79bfb4d
+Step 20/22 : USER nonroot:nonroot
+ ---> Running in 4c3ca2bcda9f
+ ---> Removed intermediate container 4c3ca2bcda9f
+ ---> 1f1091de409e
+Step 21/22 : EXPOSE 8080
+ ---> Running in 1ea27e28affa
+ ---> Removed intermediate container 1ea27e28affa
+ ---> 978409292336
+Step 22/22 : ENTRYPOINT ["/capycook"]
+ ---> Running in e45afa42da5f
+ ---> Removed intermediate container e45afa42da5f
+ ---> ebc707530602
+Successfully built ebc707530602
+Successfully tagged capycook:dev
+
+==> start container (fresh volume capycook-e2e-data -> /data, port 18081)
+
+==> create dish: seed + constraints (incl. peanuts allergen)
+    dish: dish_097a52000686a19f
+
+==> open SSE stream (curl -N, captured in background)
+
+==> move 1: seed_expand with a normal steer -> 202
+    move: mv_dd4bc371bebfd6a4
+
+==> stream carries token events then proposal-ready for move 1
+    token events: 30, proposal-ready: yes
+
+==> gate accept the seed_expand proposal -> version 1 (seed version)
+    version: ver_f6924ffc098ab25d
+
+==> move 2: steer contains 'garlic oil' -> proposal-blocked, NO tokens
+    move: mv_0426c738febfe279
+    proposal-blocked (anaerobic-garlic-oil), token events: 0
+
+==> gate redirect off the block with a safe steer -> new move
+    move: mv_5cadde7cfc46bc82
+
+==> gate accept the safe proposal -> version 2
+    version: ver_69012a96e2547176
+
+==> versions chain has length 2; dish shows the updated draft
+    versions: 2 (chain ver_f6924ffc098ab25d -> ver_69012a96e2547176); draft: "Charred Carrot Salad with Herb Yogurt"
+
+==> restart: remove the container, start a fresh one on the same volume
+
+==> dish + versions survive the restart
+    versions: 2 (chain ver_f6924ffc098ab25d -> ver_69012a96e2547176); draft: "Charred Carrot Salad with Herb Yogurt"
+
+DOCKER MODE: PASS
+
+E2E CHECK: PASS (docker)

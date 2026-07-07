@@ -16,10 +16,17 @@ RUN go mod download
 COPY . .
 COPY --from=web /web/dist ./web/dist
 RUN CGO_ENABLED=0 go build -o /out/capycook ./cmd/server
+# Empty dir staged here because distroless has no shell to mkdir with.
+RUN mkdir -p /out/data
 
 # --- Stage 3: minimal runtime (nonroot: uid 65532, least privilege) ---
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/capycook /capycook
+# /data is the SQLite home: owned by the nonroot uid so the server can write
+# it, declared a volume so the database outlives any single container.
+COPY --from=build --chown=65532:65532 /out/data /data
+ENV DB_PATH=/data/capycook.db
+VOLUME /data
 USER nonroot:nonroot
 EXPOSE 8080
 ENTRYPOINT ["/capycook"]
