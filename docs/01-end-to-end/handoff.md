@@ -1,31 +1,31 @@
 # Handoff — Milestone 01 (end-to-end build)
 
 ## Next session start here
-Execute the **Gate C redirect**: read
-`agent_docs/2026-07-07-gate-c-redesign-brief.md` (locked constraints §0, then the
-15-item leverage-ordered task list §6) and rebuild the UI's accessibility + IA +
-voice to it — style tokens stay locked. If the user supplies their own design
-system first, it augments/overrides the brief. Then re-run the 5.4 convergence
-loop (screenshots both themes → evidence/phase5/) and re-present **Gate C**
-(visual judgment + benchmark-seed ratification — seeds are still UNRATIFIED in
-`docs/01-end-to-end/proposed-benchmark-seeds.json`; nothing in eval/fixtures).
-After Gate C converges: task 5.5 (demo GIFs + full README), tag `phase-5-ui`,
-Phase 6 (fork kit) → **Gate D** (present, never merge).
+Process the **Gate C verdict** (re-presented 2026-07-07 after the redirect
+converged; artifact gallery + full set in evidence/phase5/). If converged AND
+seeds ratified: copy `docs/01-end-to-end/proposed-benchmark-seeds.json` →
+`eval/fixtures/seeds.json` + dated CHANGELOG entry, refresh the T1-amendment
+SHA, then task **5.5** (demo GIFs via `web/tools/shots.mjs`-style automation +
+full README), `git tag phase-5-ui`, then Phase 6 (fork kit) → **Gate D**
+(present, never merge). On a redirect: loop via `web/tools/shots.mjs`
+(README in web/tools/; stub server on :8098, never :8099).
 
 ## Current state
-- Branch `e2e`; phases 1–4 tagged (`phase-1-skeleton` … `phase-4-eval`); Phase 5
-  built through 5.4 (styled UI, post-cook flow, 38-screenshot convergence set)
-  but Gate C returned a redirect: a11y + IA depth ("Michelin-star, agentic
-  computational gastronomy, for all levels"), style approved.
-- All suites green (16 Go pkgs, 63 vitests); e2e script green local+docker
-  (phase-2/3 evidence). Live DeepSeek verified at Gate B; spend ~$0.005 of the
-  $2 cap (user-tightened from spec's $10); Langfuse (US region) trace verified.
-- T1 amendment draft ready (docs/01-end-to-end/T1-amendment-draft.md) — the
-  USER logs it at milestone-02 start; SHA must be refreshed post-ratification.
+- Branch `e2e`, ~35 commits this session. ALL 15 Gate-C-redirect tasks landed
+  (working doc 5.4R checklist all ✓): proposal-as-recipe canvas, two-level
+  gate + APG toolbar + shortcuts, TrialStrip, safety hold w/ evidence
+  (additive `ops` on proposal.blocked — logged), vocab/glosses, fiche canvas,
+  uncertainty ledger, GOV.UK forms, structure pass, narrow-viewport tabs.
+- Suites: 194 web tests (24 files) + 16 Go packages green; prod build ok.
+- Convergence sweep fixed two found defects: SPA deep-link 301 loop
+  (web/serve.go) and narrow header overflow.
+- User checkpoint mid-wave approved the IA; user prototypes live on :8099
+  (scratchpad DB `checkpoint.db`, .env keys, $2 cap — restart cmd in log of
+  this handoff's session; kill evidence servers by PORT, never pkill).
 
 ## Active concerns
-- Gate C redirect is the only open build item before 5.5/Phase 6.
-- Brief's two sanctioned exceptions (focus-ring token repoint; additive blocked-ops
-  payload) are pre-approved scope — everything else in §0 is locked.
-- Seeds ratification outstanding; bench-12 (pesto + tree-nut allergen) is a
-  deliberate stress seed — confirm at re-presented Gate C.
+- Gate C verdict + seed ratification outstanding; **bench-12 (pesto +
+  tree-nut allergen) needs explicit user confirmation** — deliberate stress seed.
+- Deferred: duplicate `proposal-heading` id in alternatives view; stub emits
+  near-identical alternatives (pre-existing); streaming/failed/reconnect
+  states remain stub-uncapturable (test-covered).
