@@ -382,7 +382,7 @@ replayed token-cadence **after** the safety screen passes.
   Subcommands: `run --arm=all|<arm> --live`, `replay`, `rates`, `kappa`,
   `report` (JSON + paste-ready markdown table incl. explicit Ns and the frozen-five
   derivation note). httptest-free CLI tests via package funcs. Commit.
-- [ ] **4.5 benchmark seeds (DRAFT — not in eval/fixtures yet)** — Create
+- [x] **4.5 benchmark seeds (DRAFT — not in eval/fixtures yet)** — Create
   `docs/01-end-to-end/proposed-benchmark-seeds.json`: 12–15 Western dish seeds +
   constraints, drafted by stated procedure (documented inline); expected-claim
   arithmetic note (~200 total across arms). **Ratified at Gate C, only then copied to

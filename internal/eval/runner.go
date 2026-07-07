@@ -52,7 +52,15 @@ type Seed struct {
 	Constraints draft.Constraints `json:"constraints"`
 }
 
-// LoadSeeds reads a seed list, requiring non-empty unique ids and seed text.
+// seedsFile is the documented-draft file shape (inline comment/procedure
+// notes wrapping the list — the dev_seeds.json family); LoadSeeds accepts it
+// alongside a bare []Seed array.
+type seedsFile struct {
+	Seeds []Seed `json:"seeds"`
+}
+
+// LoadSeeds reads a seed list — a bare JSON array or the wrapped
+// documented-draft shape — requiring non-empty unique ids and seed text.
 func LoadSeeds(path string) ([]Seed, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -60,7 +68,11 @@ func LoadSeeds(path string) ([]Seed, error) {
 	}
 	var seeds []Seed
 	if err := json.Unmarshal(raw, &seeds); err != nil {
-		return nil, fmt.Errorf("eval: parse seeds %s: %w", path, err)
+		var wrapped seedsFile
+		if json.Unmarshal(raw, &wrapped) != nil || wrapped.Seeds == nil {
+			return nil, fmt.Errorf("eval: parse seeds %s: %w", path, err)
+		}
+		seeds = wrapped.Seeds
 	}
 	if len(seeds) == 0 {
 		return nil, fmt.Errorf("eval: seeds %s: empty list", path)

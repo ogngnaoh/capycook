@@ -1,0 +1,183 @@
+{
+  "comment": "PROPOSED benchmark seeds (plan 4.5) — UNRATIFIED DRAFT awaiting user ratification at Gate C. Nothing here may be copied into eval/fixtures/ before ratification; once ratified, the seeds become eval/fixtures/seeds.json with a dated CHANGELOG.md entry and the file's SHA is pinned in the T1 amendment (PREREGISTRATION §9). This file contains seeds and constraints ONLY — no labels, no gate decisions, no telemetry. cmd/eval falls back to this draft with an UNRATIFIED warning until the ratified fixture exists. Validated by internal/eval/seeds_test.go.",
+  "procedure": [
+    "Drafting procedure, stated before any eval run (PREREG §6 pins the target numbers; the fixture contents are versioned separately). Step 1 — dish family: pick 13 CANONICAL Western home-cook dishes (PREREG §6 locks v0 to the Western-cuisine subset). Canonical is deliberate: the dev prompt-iteration seeds are deliberately obscure so that no benchmark candidate could be tuned on (see the disjointness step).",
+    "Step 2 — safety-gate coverage: anchor at least one seed on every protein class the deterministic gate screens (data/safety/protein_classes.csv): poultry (bench-01 whole chicken, bench-02 ground turkey), ground_meat (bench-03 ground beef), whole_cut (bench-04 pork chop, bench-05 beef steak), fish (bench-06 salmon), shellfish (bench-07 shrimp, bench-08 clam), eggs (bench-09 egg). Every arm's proposals for these seeds must survive the same internal-temperature screening.",
+    "Step 3 — constraint coverage: one vegetarian case (bench-10), one vegan case (bench-11), and one allergen-constrained case (bench-12: 'tree nuts' against a classically pine-nut pesto, so the constraint does real work). Allergen values are FDA Big-9 wire values only.",
+    "Step 4 — variety: skill spans beginner/intermediate/advanced and servings span 2/4/6 across the set; equipment stays ordinary home-kitchen gear (the pinned Constraints shape carries it as free strings).",
+    "Step 5 — resolvability: every on_hand anchor resolves in the data/ingredients.csv universe via the grounding alias tables (asserted in internal/eval/seeds_test.go), so the grounded arm can actually resolve and cite every seed's anchor ingredients; seed texts name only dishes buildable from universe ingredients.",
+    "Step 6 — dev-seed disjointness (global rail: prompt iteration only ever ran against internal/llm/testdata/dev_seeds.json): the five dev dishes are 'savory rye porridge with mushroom broth and crispy shallots' (dev-01), 'celeriac schnitzel with caper brown butter' (dev-02), 'pan-roasted trout with sorrel butter sauce' (dev-03), 'juniper-spiced elk meatballs with braised red cabbage' (dev-04), and 'parsnip and pear soup with hazelnut gremolata' (dev-05). No benchmark seed shares an id, a dish, or an on_hand anchor with any of them; internal/eval/seeds_test.go asserts the disjointness."
+  ],
+  "expected_claims": "Arithmetic (PREREG §6 target: ~200 labeled claims; spec §7 fixes the reading as ~200 TOTAL ACROSS ARMS, matching the double-label window): 13 seeds x 5 moves (eval/fixtures/move_script.json v1) x 3 arms (PREREG §4) x ~1 checkable claim per accepted move = 13 * 5 * 3 = 195 ~= 200 claims across arms. Double-label subset at PREREG §6's 15-20%: 0.15 * 195 = 29.25 and 0.20 * 195 = 39.0, so a 30-39-claim subset satisfies both the 15-20% band and the 30-40-claim window. Seed-count tuning: 12 seeds -> 180 and 15 -> 225, so 13 centers the estimate on the target; the ~1 claim/move rate is an estimate for the live model (roughly one new flavor_rationale[].claim or unverified[] entry per accepted creative move after per-dish dedup) — the deterministic stub emits fewer (~3 claims/seed), so stub dry-run counts read lower by design.",
+  "seeds": [
+    {
+      "id": "bench-01",
+      "seed": "herb-roasted whole chicken with root vegetables",
+      "constraints": {
+        "dietary": [],
+        "allergens": [],
+        "equipment": ["roasting pan", "oven"],
+        "skill": "intermediate",
+        "servings": 4,
+        "on_hand": ["whole chicken", "carrot", "lemon", "thyme"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-02",
+      "seed": "baked turkey meatballs in tomato sauce",
+      "constraints": {
+        "dietary": [],
+        "allergens": [],
+        "equipment": ["oven", "saucepan"],
+        "skill": "beginner",
+        "servings": 4,
+        "on_hand": ["ground turkey", "tomato sauce", "breadcrumb", "parmesan"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-03",
+      "seed": "beef bolognese with spaghetti",
+      "constraints": {
+        "dietary": [],
+        "allergens": [],
+        "equipment": ["dutch oven", "stockpot"],
+        "skill": "intermediate",
+        "servings": 6,
+        "on_hand": ["ground beef", "canned tomato", "red wine", "pasta"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-04",
+      "seed": "pan-seared pork chops with apples and sage",
+      "constraints": {
+        "dietary": [],
+        "allergens": [],
+        "equipment": ["skillet"],
+        "skill": "intermediate",
+        "servings": 2,
+        "on_hand": ["pork chop", "apple", "sage", "butter"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-05",
+      "seed": "rosemary butter-basted steak with roasted potatoes",
+      "constraints": {
+        "dietary": [],
+        "allergens": [],
+        "equipment": ["skillet", "oven"],
+        "skill": "advanced",
+        "servings": 2,
+        "on_hand": ["beef steak", "potato", "rosemary", "butter"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-06",
+      "seed": "pan-seared salmon with lemon-dill yogurt sauce",
+      "constraints": {
+        "dietary": [],
+        "allergens": [],
+        "equipment": ["skillet"],
+        "skill": "intermediate",
+        "servings": 2,
+        "on_hand": ["salmon", "lemon", "dill", "greek yogurt"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-07",
+      "seed": "garlic butter shrimp scampi with spaghetti",
+      "constraints": {
+        "dietary": [],
+        "allergens": [],
+        "equipment": ["skillet", "stockpot"],
+        "skill": "beginner",
+        "servings": 2,
+        "on_hand": ["shrimp", "garlic", "white wine", "pasta"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-08",
+      "seed": "new england clam chowder",
+      "constraints": {
+        "dietary": [],
+        "allergens": [],
+        "equipment": ["stockpot"],
+        "skill": "intermediate",
+        "servings": 6,
+        "on_hand": ["clam", "potato", "heavy cream", "bacon"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-09",
+      "seed": "mushroom and spinach frittata with cheddar",
+      "constraints": {
+        "dietary": [],
+        "allergens": [],
+        "equipment": ["oven", "skillet"],
+        "skill": "beginner",
+        "servings": 4,
+        "on_hand": ["egg", "mushroom", "spinach", "cheddar"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-10",
+      "seed": "butternut squash risotto with crispy sage",
+      "constraints": {
+        "dietary": ["vegetarian"],
+        "allergens": [],
+        "equipment": ["saucepan", "skillet"],
+        "skill": "advanced",
+        "servings": 4,
+        "on_hand": ["arborio rice", "butternut squash", "sage", "parmesan"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-11",
+      "seed": "white bean and kale stew with tomatoes",
+      "constraints": {
+        "dietary": ["vegan"],
+        "allergens": [],
+        "equipment": ["dutch oven"],
+        "skill": "beginner",
+        "servings": 6,
+        "on_hand": ["cannellini bean", "kale", "canned tomato", "vegetable broth"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-12",
+      "seed": "basil pesto pasta with green beans and potatoes",
+      "constraints": {
+        "dietary": [],
+        "allergens": ["tree nuts"],
+        "equipment": ["stockpot", "food processor"],
+        "skill": "intermediate",
+        "servings": 4,
+        "on_hand": ["basil", "pasta", "green bean", "potato", "parmesan"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "bench-13",
+      "seed": "roasted beet and goat cheese salad with walnuts",
+      "constraints": {
+        "dietary": [],
+        "allergens": [],
+        "equipment": ["oven"],
+        "skill": "beginner",
+        "servings": 2,
+        "on_hand": ["beet", "goat cheese", "walnut", "arugula"],
+        "cuisine": "western"
+      }
+    }
+  ]
+}
