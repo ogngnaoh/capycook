@@ -188,6 +188,41 @@ test('an unsafe human write warns-and-confirms with the reason, not the wire pre
   expect(prompt).not.toHaveTextContent(/orchestrator:/)
 })
 
+test('the override prompt is a modal alert dialog: named, described, Back-focused, Escape returns to the gate', async () => {
+  detail = dishDetail({
+    state: 'awaiting_gate',
+    pendingProposal: sampleProposal(),
+    pendingProposals: [sampleProposal()],
+  })
+  const reason = 'Room-temperature garlic-in-oil supports Clostridium botulinum growth.'
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') {
+      return jsonResponse({ error: `orchestrator: safety warning requires confirm override: ${reason}` }, 409)
+    }
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: 'Take over' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+  const dialog = await screen.findByRole('alertdialog', { name: /safety warning/i })
+  // Native modal dialog, described by the safety message.
+  expect(dialog.tagName).toBe('DIALOG')
+  expect((dialog as HTMLDialogElement).open).toBe(true)
+  expect(dialog).toHaveAccessibleDescription(reason)
+  // Focus opens on the least destructive action.
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Back' })).toHaveFocus())
+  // Escape cancels; focus lands back in the gate bar, where the flow began.
+  fireEvent.keyDown(dialog, { key: 'Escape' })
+  expect(screen.queryByTestId('override-prompt')).not.toBeInTheDocument()
+  await waitFor(() => {
+    expect(screen.getByTestId('gate-bar').contains(document.activeElement)).toBe(true)
+  })
+})
+
 test('move-failed shows a failure banner distinct from the safety block', async () => {
   const es = await mount()
   act(() => es.emit('move-failed', { moveId: 'mv_9', reason: 'llm: parse error' }))

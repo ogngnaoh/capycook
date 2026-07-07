@@ -17,7 +17,7 @@ import DialToggle from './DialToggle'
 import ThemeToggle from './ThemeToggle'
 import VersionHistory from './VersionHistory'
 
-import { STATE_GLOSS, STATE_LABEL } from '../vocab'
+import { STATE_GLOSS, STATE_LABEL, VERB_LABEL } from '../vocab'
 
 // LastMove is the most recent move this view dispatched — the retry target
 // for the move-failed banner.
@@ -247,6 +247,20 @@ export default function Workbench({ dishId, onNavigate }: {
     }
   }
 
+  // Closing the override returns focus to the gate bar: the Save control
+  // that invoked it unmounted with its panel, so the nearest surviving
+  // origin of the flow is the verb that opened it.
+  function closeOverride(verb: GateVerb) {
+    setPanel(null)
+    setTimeout(() => {
+      const bar = document.querySelector('[data-testid="gate-bar"]')
+      if (!bar) return
+      const buttons = Array.from(bar.querySelectorAll('button'))
+      const target = buttons.find((b) => b.textContent === VERB_LABEL[verb]) ?? buttons[0]
+      target?.focus()
+    }, 0)
+  }
+
   async function toggleDial(next: boolean) {
     try {
       const res = await setAutonomyDial(dishId, next)
@@ -400,7 +414,8 @@ export default function Workbench({ dishId, onNavigate }: {
                     onSubmit={(steer) => void runGate({ proposalId: panel.target, verb: 'redirect', edit: { steer } })} />
                 )}
                 {panel?.kind === 'override' && (
-                  <OverridePrompt message={panel.message} onCancel={() => setPanel(null)}
+                  <OverridePrompt message={panel.message}
+                    onCancel={() => closeOverride(panel.resend.verb)}
                     onConfirm={() => void runGate(panel.resend)} />
                 )}
               </DraftPane>
@@ -610,20 +625,39 @@ function RedirectForm({ onSubmit, onCancel }: {
 // OverridePrompt is the warn-and-confirm step for human writes that hit
 // the safety gate: proceeding resends the same gate call with
 // confirmOverride, recorded server-side as safety_warning_overridden.
+// A native modal <dialog> (APG alert dialog): focus opens on Back — the
+// least destructive action — and Escape cancels.
 function OverridePrompt({ message, onConfirm, onCancel }: {
   message: string
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const backRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (dialog && !dialog.open) {
+      // jsdom implements <dialog> but not showModal(); the attribute
+      // fallback keeps tests honest while browsers get the real modal.
+      if (typeof dialog.showModal === 'function') dialog.showModal()
+      else dialog.setAttribute('open', '')
+    }
+    backRef.current?.focus()
+  }, [])
+
   return (
-    <div data-testid="override-prompt" role="alertdialog"
+    <dialog ref={dialogRef} data-testid="override-prompt" role="alertdialog"
+      aria-labelledby="override-heading" aria-describedby="override-message"
+      onKeyDown={(e) => { if (e.key === 'Escape') onCancel() }}
+      onCancel={onCancel} onClose={onCancel}
       className="border border-warning bg-warning-surface p-3 space-y-2">
-      <div className="uppercase font-medium text-warning">Safety warning</div>
-      <p className="text-ink">{message}</p>
+      <div id="override-heading" className="uppercase font-medium text-warning">Safety warning</div>
+      <p id="override-message" className="text-ink">{message}</p>
       <div className="flex gap-1">
+        <button ref={backRef} type="button" onClick={onCancel} className={panelGhost}>Back</button>
         <button type="button" onClick={onConfirm} className={panelGhost}>Proceed anyway</button>
-        <button type="button" onClick={onCancel} className={panelGhost}>Back</button>
       </div>
-    </div>
+    </dialog>
   )
 }
