@@ -1,37 +1,60 @@
 import type { Op, Proposal } from '../types'
 import { list } from '../types'
+import { Chip, CitationChip, ConfidenceChip, UnverifiedChip } from './Chips'
 
-// formatValue renders an op operand: strings verbatim, everything else as
-// compact JSON.
-function formatValue(v: unknown): string {
+// formatValue renders an op operand readably: strings verbatim, objects as
+// compact `key: value` pairs (· separated, null/absent fields skipped),
+// arrays as comma-separated items — never a raw JSON wall. Nested values
+// wrap in ()/[] so one line stays parseable by eye.
+function formatValue(v: unknown, nested = false): string {
+  if (v === undefined) return ''
   if (typeof v === 'string') return v
-  return v === undefined ? '' : JSON.stringify(v)
+  if (v === null) return 'null'
+  if (typeof v !== 'object') return String(v)
+  if (Array.isArray(v)) {
+    const items = v.map((x) => formatValue(x, true)).join(', ')
+    return nested ? `[${items}]` : items
+  }
+  const pairs = Object.entries(v as Record<string, unknown>)
+    .filter(([, x]) => x !== null && x !== undefined)
+    .map(([k, x]) => `${k}: ${formatValue(x, true)}`)
+    .join(' · ')
+  return nested ? `(${pairs})` : pairs
 }
 
-// DiffLine renders one RFC-6902 op as an inline per-field diff: the old
-// value struck-through, the new value highlighted. ComputeDiff fills `from`
-// only on replace; removes are path-only.
+const OP_VARIANT: Record<Op['op'], 'success' | 'critical' | 'info'> = {
+  add: 'success', remove: 'critical', replace: 'info',
+}
+
+// DiffLine renders one RFC-6902 op as a reviewed change: the field path as
+// an uppercase label with a tiny op badge, then old value struck-through in
+// warm muted → new value on the flat success tint, in 11px mono.
+// ComputeDiff fills `from` only on replace; removes are path-only.
 function DiffLine({ op }: { op: Op }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-2">
-      <span className="text-xs text-gray-500 font-mono">{op.path}</span>
-      <span className="text-xs uppercase text-gray-400">{op.op}</span>
-      {op.from !== undefined && (
-        <span className="line-through text-gray-500">{formatValue(op.from)}</span>
-      )}
-      {op.op !== 'remove' && (
-        <span className="bg-green-100 text-green-900 px-1 rounded">{formatValue(op.value)}</span>
-      )}
-      {op.op === 'remove' && op.from === undefined && (
-        <span className="line-through text-gray-500">(removed)</span>
+    <div className="py-1 space-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="uppercase text-muted">{op.path}</span>
+        <Chip variant={OP_VARIANT[op.op]}>{op.op.toUpperCase()}</Chip>
+      </div>
+      {(op.op !== 'remove' || op.from !== undefined) && (
+        <div className="flex flex-wrap items-baseline gap-2 font-mono text-2xs">
+          {op.from !== undefined && (
+            <span className="line-through text-muted">{formatValue(op.from)}</span>
+          )}
+          {op.op === 'replace' && <span aria-hidden="true" className="text-muted">→</span>}
+          {op.op !== 'remove' && (
+            <span className="px-1 bg-success-surface text-ink">{formatValue(op.value)}</span>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
 // ProposalCard renders one pending proposal: the per-field diff, rationale,
-// citations, confidence, and [unverified] flags. With onSelect it acts as
-// one card of the alternatives picker.
+// and the provenance chip row (citations, confidence, [unverified] flags).
+// With onSelect it acts as one card of the alternatives picker.
 export default function ProposalCard({ proposal, selected, onSelect }: {
   proposal: Proposal
   selected?: boolean
@@ -39,23 +62,23 @@ export default function ProposalCard({ proposal, selected, onSelect }: {
 }) {
   return (
     <div data-testid="proposal-card" onClick={onSelect}
-      className={`border rounded p-3 space-y-2 bg-white ${selected ? 'border-gray-800 ring-1 ring-gray-800' : 'border-gray-300'} ${onSelect ? 'cursor-pointer' : ''}`}>
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <span className="font-mono">{proposal.move_type}</span>
-        {onSelect && <span>{selected ? 'selected' : 'click to select'}</span>}
+      className={`border p-3 space-y-2 bg-page ${selected ? 'border-accent' : 'border-hairline'} ${onSelect ? 'cursor-pointer' : ''}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-2xs text-muted">{proposal.move_type}</span>
+        {onSelect && (
+          <span className={`uppercase text-2xs ${selected ? 'text-accent-text' : 'text-muted'}`}>
+            {selected ? 'Selected' : 'Click to select'}
+          </span>
+        )}
       </div>
-      <div className="font-mono text-sm space-y-1">
+      <div className="divide-y divide-hairline">
         {list(proposal.change).map((op, i) => <DiffLine key={i} op={op} />)}
       </div>
-      <p className="text-sm text-gray-700">{proposal.rationale}</p>
-      <div className="flex flex-wrap gap-2 text-xs">
-        {list(proposal.citations).map((c, i) => (
-          <span key={i} className="px-2 py-0.5 bg-gray-200 rounded">{c.source} #{c.ref}</span>
-        ))}
-        <span className="px-2 py-0.5 bg-gray-200 rounded">conf {Math.round(proposal.confidence * 100)}%</span>
-        {list(proposal.unverified).map((u, i) => (
-          <span key={i} className="px-2 py-0.5 bg-yellow-200 rounded">[unverified] {u}</span>
-        ))}
+      <p className="text-ink">{proposal.rationale}</p>
+      <div className="flex flex-wrap gap-1">
+        {list(proposal.citations).map((c, i) => <CitationChip key={i} citation={c} />)}
+        <ConfidenceChip confidence={proposal.confidence} />
+        {list(proposal.unverified).map((u, i) => <UnverifiedChip key={i} label={u} />)}
       </div>
     </div>
   )

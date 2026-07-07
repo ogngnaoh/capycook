@@ -91,7 +91,25 @@ test('proposal-blocked shows the safety block with only regenerate/redirect', as
   expect(block).toHaveTextContent('anaerobic garlic-in-oil')
   expect(block).toHaveTextContent('anaerobic-garlic-oil')
   expect(screen.getByRole('button', { name: 'Regenerate' })).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Redirect' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /accept|edit|alternatives|take over/i })).not.toBeInTheDocument()
+})
+
+test('redirect while blocked opens the steer form and targets the blocked move', async () => {
+  const es = await mount()
+  act(() => es.emit('proposal-blocked', {
+    moveId: 'mv_9', reason: 'anaerobic garlic-in-oil', ruleId: 'anaerobic-garlic-oil',
+  }))
+  fireEvent.click(screen.getByRole('button', { name: 'Redirect' }))
+  fireEvent.change(screen.getByLabelText(/redirect steer/i), { target: { value: 'use vinegar instead' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Send redirect' }))
+  await waitFor(() => {
+    const call = fetchMock.mock.calls.find(([u]) => String(u) === '/api/dishes/d1/gate')
+    expect(call).toBeTruthy()
+    expect(JSON.parse((call![1] as RequestInit).body as string)).toMatchObject({
+      proposalId: 'mv_9', verb: 'redirect', edit: { steer: 'use vinegar instead' },
+    })
+  })
 })
 
 test('move-failed shows a failure banner distinct from the safety block', async () => {

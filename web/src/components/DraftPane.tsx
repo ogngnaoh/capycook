@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { Constraints, Draft } from '../types'
 import { list } from '../types'
+import { ApproximateChip, UnverifiedChip } from './Chips'
 
 // DraftPane renders the versioned dish draft (internal/draft shape):
 // title/concept, ingredients, steps, flavor rationale, constraints, and the
@@ -69,9 +70,10 @@ export default function DraftPane({ draft, heading = 'Draft', children }: {
                 {claims.map((c, i) => (
                   <li key={i}>
                     {c.claim}
+                    {' '}
                     {c.provenance
                       ? <span className="ml-1 px-1 text-xs bg-gray-200 rounded">{c.provenance}</span>
-                      : <span className="ml-1 px-1 text-xs bg-yellow-200 rounded">[unverified]</span>}
+                      : <UnverifiedChip />}
                   </li>
                 ))}
               </ul>
@@ -108,7 +110,7 @@ function AnalysisPanel({ draft }: { draft: Draft }) {
     <div className="grid grid-cols-2 gap-3 text-xs">
       <div className="border border-gray-200 rounded p-2 space-y-1">
         <h3 className="uppercase tracking-wide text-gray-400">
-          Cost {cost.approximate && <span className="px-1 bg-gray-200 rounded normal-case">[approximate]</span>}
+          Cost {cost.approximate && <ApproximateChip />}
         </h3>
         <div>${cost.total_usd.toFixed(2)} total · ${cost.per_serving_usd.toFixed(2)} / serving</div>
         {list(cost.missing).length > 0 && (
@@ -125,9 +127,11 @@ function AnalysisPanel({ draft }: { draft: Draft }) {
             </div>
           ))}
         </dl>
-        {list(nutrition.unverified).map((u) => (
-          <span key={u} className="inline-block px-1 bg-yellow-200 rounded mr-1">[unverified] {u}</span>
-        ))}
+        {list(nutrition.unverified).length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {list(nutrition.unverified).map((u) => <UnverifiedChip key={u} label={u} />)}
+          </div>
+        )}
       </div>
     </div>
   )

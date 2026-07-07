@@ -180,28 +180,26 @@ export default function Workbench({ dishId, onNavigate }: {
     return selected?.id ?? null
   }
 
-  function onVerb(v: GateVerb) {
+  // Dispatching verbs return their promise so the gate bar can lock
+  // (disable + spinner) until the gate call settles; panel verbs open
+  // their form instantly and return void.
+  function onVerb(v: GateVerb): void | Promise<void> {
     const target = gateTarget()
     if (!target) return
     switch (v) {
       case 'accept':
-        void runGate({ proposalId: target, verb: 'accept' })
-        break
       case 'regenerate':
-        void runGate({ proposalId: target, verb: 'regenerate' })
-        break
       case 'alternatives':
-        void runGate({ proposalId: target, verb: 'alternatives' })
-        break
+        return runGate({ proposalId: target, verb: v })
       case 'edit':
         if (selected) setPanel({ kind: 'edit', proposal: selected })
-        break
+        return
       case 'redirect':
         setPanel({ kind: 'redirect', target })
-        break
+        return
       case 'take_over':
         setPanel({ kind: 'take_over', target })
-        break
+        return
     }
   }
 
@@ -336,19 +334,12 @@ export default function Workbench({ dishId, onNavigate }: {
 
           <div className="p-4 border-t border-gray-300 bg-gray-50">
             {detail.state === 'awaiting_gate' && <GateBar onVerb={onVerb} />}
-            {detail.state === 'proposing' && (
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-500">Proposing…</span>
-                <button onClick={() => void cancelMove()}
-                  className="px-3 py-1 text-sm rounded bg-gray-800 text-white">Cancel</button>
-              </div>
-            )}
+            {detail.state === 'proposing' && <GateBar state="proposing" onCancel={cancelMove} />}
             {detail.state === 'blocked' && detail.blocked && (
-              <SafetyBlock reason={detail.blocked.reason} ruleId={detail.blocked.ruleId}
-                onRegenerate={() => onVerb('regenerate')}
-                onRedirect={(steer) => void runGate({
-                  proposalId: detail.blocked!.moveId, verb: 'redirect', edit: { steer },
-                })} />
+              <div className="space-y-2">
+                <SafetyBlock reason={detail.blocked.reason} ruleId={detail.blocked.ruleId} />
+                <GateBar state="blocked" onVerb={onVerb} />
+              </div>
             )}
             {detail.state === 'idle' && (
               <p className="text-xs text-gray-400">Idle — propose a move from the steering pane.</p>

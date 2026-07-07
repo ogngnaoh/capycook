@@ -410,7 +410,7 @@ replayed token-cadence **after** the safety screen passes.
   from `/Users/hoangngo/Documents/personal-projects/acne-design-system/tokens.css`
   then re-tuned); Acne semantic status set kept; light + dark themes via CSS vars.
   Commit.
-- [ ] **5.2 signature components** — Restyle diff view (old struck/new highlighted,
+- [x] **5.2 signature components** — Restyle diff view (old struck/new highlighted,
   per-field inline), gate bar (ghost buttons, fill-on-hover, uppercase), citation/
   `[unverified]`/confidence chips (square, semantic tints). Vitest snapshots update.
   Commit.
