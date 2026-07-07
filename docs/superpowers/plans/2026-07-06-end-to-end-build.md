@@ -304,7 +304,7 @@ replayed token-cadence **after** the safety screen passes.
   post-apply draft delta for proposals AND human edits (caller decides block vs
   warn-and-confirm). Table-driven test per rule row + the three DESIGN textbook cases.
   Commit.
-- [ ] **2.7 FlavorGraph + grounding** — Create `scripts/convert_flavorgraph.py`
+- [x] **2.7 FlavorGraph + grounding** — Create `scripts/convert_flavorgraph.py`
   (pinned upstream commit SHA + SHA256 in `data/flavorgraph/PROVENANCE.md`; pickle →
   `data/flavorgraph/embeddings.csv`); implement `internal/grounding/{flavorgraph.go,resolve.go}`:
   pre-normalized dot-product top-k=10; Resolve = normalize (lowercase/singularize/

@@ -95,3 +95,18 @@ membership and alias/category assignments are editorial (steps 3–4 above), and
 per-row factual provenance lives with each downstream asset (nutrition →
 `usda/PROVENANCE.md`, allergens → `foodon/PROVENANCE.md`, prices →
 `cost/prices.csv` source column). User spot-review happens at Gate A.
+
+## aliases.csv — curated alias table for the grounding resolver
+
+Flat `alias,canonical` table read by `internal/grounding/resolve.go` (task
+2.7): the resolver normalizes an incoming ingredient name (lowercase,
+non-alphanumerics → space, naive-singularize, then qualifier-stripping as a
+second pass) and looks it up first among canonical universe names, then in
+this table. Seeded 2026-07-07 from the `aliases` column of `ingredients.csv`
+(one row per alias, same editorial provenance as above) plus four
+builder-curated common variants: `garbanzo` → chickpea, `whipping cream` →
+heavy cream, `table sugar` → granulated sugar, `coriander leaves` → cilantro.
+Rows whose normalized alias equals a canonical universe name are omitted
+(canonical lookup already wins), and every `canonical` value must be an
+`ingredients.csv` name. Plural forms are still NOT listed — normalization
+handles them. Sorted by alias; keep it that way when editing.
