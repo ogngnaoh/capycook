@@ -1,6 +1,10 @@
 /bin/
 .env
 
+# eval harness output (unlabeled claim exports; the versioned instruments
+# live in eval/fixtures/)
+eval/out/
+
 # frontend
 web/node_modules/
 web/dist/*

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "comment": "CapyCook harness move script — a versioned INSTRUMENT, not data (it contains no labels, no benchmark seeds, no telemetry). Pinned at T1: its SHA is recorded in the T1 amendment entry (PREREGISTRATION §9) and any change bumps `version` with a dated CHANGELOG.md entry. Every benchmark seed runs these N=5 moves identically per arm through the real orchestrator (spec §7 scripted arm runner) under the auto-accept policy: each proposal is gated with verb=accept (first card), deterministic moves may auto-advance under the dial, and a safety block or failed move aborts the seed's run.",
+  "policy": {
+    "verb": "accept",
+    "on_blocked": "abort"
+  },
+  "moves": [
+    {
+      "move_type": "seed_expand",
+      "steer": ""
+    },
+    {
+      "move_type": "flavor_direction",
+      "steer": "lean into warm smoky-sweet depth"
+    },
+    {
+      "move_type": "ingredient_change",
+      "steer": "swap the harshest allium for something milder"
+    },
+    {
+      "move_type": "technique_step",
+      "steer": "add a finishing texture step"
+    },
+    {
+      "move_type": "iterate_feedback",
+      "steer": "the last version needed more brightness at the finish"
+    }
+  ]
+}

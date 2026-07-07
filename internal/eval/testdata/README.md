@@ -17,3 +17,7 @@ label values are permitted here and ONLY here.
   subset is exactly 20 rows (plus 3 rows missing a label, which the κ subset
   must exclude). The full confusion matrix, marginals, and Cohen's κ are
   hand-computed in `kappa_test.go`.
+- `seeds_synthetic.json` — two synthetic dish seeds for the arm-runner tests
+  (`runner_test.go`). Not benchmark data: the proposed benchmark seeds are
+  drafted in `docs/01-end-to-end/proposed-benchmark-seeds.json` (plan 4.5)
+  and reach `eval/fixtures/` only after Gate C ratification.

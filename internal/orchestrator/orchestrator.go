@@ -89,6 +89,11 @@ type Deps struct {
 	// recorded on events (the toggle is an eval construct; the Phase-4
 	// harness sets the explicit eval arms).
 	Arm string
+	// RunKind stamps every appended event beside Arm (spec §4 enum:
+	// operator|harness). Empty defaults to "operator" — normal use; the
+	// Phase-4 harness runner sets "harness" so eval's H2 fold excludes its
+	// events from gate dynamics.
+	RunKind string
 	// CostCitation and NutritionCitation are the deterministic-citation
 	// provenance for cost/nutrition recompute proposals (task 2.8): wiring
 	// fills them from the committed data assets' PROVENANCE files. Zero
@@ -145,7 +150,7 @@ type Orchestrator struct {
 
 	// arm/runKind stamp every appended event (operator defaults per spec
 	// §4); arm also selects the per-move evidence assembly (spec §7 matrix).
-	// The phase-4 harness runner constructs its own values.
+	// The phase-4 harness runner overrides both via Deps.
 	arm     string
 	runKind string
 
@@ -197,6 +202,10 @@ func New(d Deps) *Orchestrator {
 	if arm == "" {
 		arm = llm.ArmNone
 	}
+	runKind := d.RunKind
+	if runKind == "" {
+		runKind = "operator"
+	}
 	tracer := d.Tracer
 	if tracer == nil {
 		tracer = telemetry.Noop{}
@@ -214,7 +223,7 @@ func New(d Deps) *Orchestrator {
 		tracer:        tracer,
 		notify:        d.Notify,
 		arm:           arm,
-		runKind:       "operator",
+		runKind:       runKind,
 		dishes:        make(map[string]*dishState),
 	}
 }

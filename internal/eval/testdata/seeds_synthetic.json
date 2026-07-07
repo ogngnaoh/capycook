@@ -1,0 +1,28 @@
+[
+  {
+    "id": "seed-synth-1",
+    "seed": "SYNTHETIC: charred carrot salad with herb yogurt",
+    "constraints": {
+      "dietary": [],
+      "allergens": [],
+      "equipment": ["oven"],
+      "skill": "beginner",
+      "servings": 2,
+      "on_hand": [],
+      "cuisine": "western"
+    }
+  },
+  {
+    "id": "seed-synth-2",
+    "seed": "SYNTHETIC: roasted mushroom and barley bowl",
+    "constraints": {
+      "dietary": ["vegetarian"],
+      "allergens": [],
+      "equipment": ["oven", "saucepan"],
+      "skill": "intermediate",
+      "servings": 4,
+      "on_hand": [],
+      "cuisine": "western"
+    }
+  }
+]

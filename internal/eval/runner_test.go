@@ -1,0 +1,479 @@
+package eval
+
+// Tests for the plan-4.3 scripted arm runner. The runner is exercised against
+// the REAL orchestrator wired over the real deterministic services and the
+// committed data/ assets, with the deterministic stub LLM (no live calls in
+// phase 4). Seeds come from internal/eval/testdata (synthetic instrument-test
+// data only — never eval/fixtures). The end-to-end test is the re-homed
+// "empty baseline" oracle: a 3-arm dry run must emit structurally-complete
+// UNLABELED claims files and a results table with all-zero rates and explicit
+// Ns, with zero human labels anywhere.
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/ogngnaoh/capycook/internal/draft"
+	"github.com/ogngnaoh/capycook/internal/eventlog"
+	"github.com/ogngnaoh/capycook/internal/grounding"
+	"github.com/ogngnaoh/capycook/internal/llm"
+	"github.com/ogngnaoh/capycook/internal/orchestrator"
+	"github.com/ogngnaoh/capycook/internal/services"
+	"github.com/ogngnaoh/capycook/internal/store"
+)
+
+const (
+	scriptPath = "../../eval/fixtures/move_script.json"
+	seedsPath  = "testdata/seeds_synthetic.json"
+)
+
+func dataPath(rel string) string { return filepath.Join("..", "..", "data", rel) }
+
+// realDeps wires the real deterministic services + grounding over the
+// committed data/ assets and the stub LLM onto a t.TempDir() SQLite store —
+// the same wiring cmd/server uses, minus the live-LLM branch.
+func realDeps(t *testing.T) orchestrator.Deps {
+	t.Helper()
+	st, err := store.Open(filepath.Join(t.TempDir(), "eval.db"))
+	if err != nil {
+		t.Fatalf("store.Open: %v", err)
+	}
+	t.Cleanup(func() { st.Close() })
+	nutrition, err := services.NewUSDANutrition(dataPath("usda/nutrients.csv"), dataPath("usda/portions.csv"))
+	if err != nil {
+		t.Fatalf("NewUSDANutrition: %v", err)
+	}
+	cost, err := services.NewTableCost(dataPath("cost/prices.csv"), dataPath("usda/portions.csv"))
+	if err != nil {
+		t.Fatalf("NewTableCost: %v", err)
+	}
+	allergen, err := services.NewAllergenChecker(dataPath("foodon/allergens.csv"))
+	if err != nil {
+		t.Fatalf("NewAllergenChecker: %v", err)
+	}
+	safety, err := services.NewSafetyGate(
+		dataPath("safety/min_temps.csv"),
+		dataPath("safety/anaerobic_lexicon.csv"),
+		dataPath("safety/protein_classes.csv"),
+		allergen,
+	)
+	if err != nil {
+		t.Fatalf("NewSafetyGate: %v", err)
+	}
+	ground, err := grounding.NewService(
+		dataPath("flavorgraph/embeddings.csv"),
+		dataPath("aliases.csv"),
+		dataPath("usda/nutrients.csv"),
+		dataPath("foodon/allergens.csv"),
+	)
+	if err != nil {
+		t.Fatalf("grounding.NewService: %v", err)
+	}
+	return orchestrator.Deps{
+		Store:     st,
+		Log:       eventlog.New(st),
+		LLM:       llm.Stub{},
+		Safety:    safety,
+		Nutrition: nutrition,
+		Cost:      cost,
+		Grounding: ground,
+	}
+}
+
+// --- instrument loading ---
+
+// TestMoveScriptFixture pins the committed instrument: version 1, N=5 moves,
+// auto-accept policy, and a comment stating it is pinned at T1.
+func TestMoveScriptFixture(t *testing.T) {
+	s, err := LoadScript(scriptPath)
+	if err != nil {
+		t.Fatalf("LoadScript: %v", err)
+	}
+	if s.Version != 1 {
+		t.Errorf("version = %d, want 1", s.Version)
+	}
+	if len(s.Moves) != 5 {
+		t.Errorf("len(moves) = %d, want the pinned N=5", len(s.Moves))
+	}
+	if !strings.Contains(s.Comment, "T1") {
+		t.Errorf("comment must state the script is pinned at T1, got %q", s.Comment)
+	}
+	if s.Policy.Verb != orchestrator.VerbAccept || s.Policy.OnBlocked != OnBlockedAbort {
+		t.Errorf("policy = %+v, want accept/abort", s.Policy)
+	}
+}
+
+func TestLoadScriptValidation(t *testing.T) {
+	valid := func() Script {
+		return Script{
+			Version: 1,
+			Comment: "test script",
+			Policy:  ScriptPolicy{Verb: orchestrator.VerbAccept, OnBlocked: OnBlockedAbort},
+			Moves:   []ScriptMove{{MoveType: llm.MoveTypeSeedExpand}},
+		}
+	}
+	if err := valid().Validate(); err != nil {
+		t.Fatalf("valid script rejected: %v", err)
+	}
+	cases := []struct {
+		name   string
+		mutate func(*Script)
+	}{
+		{"zero version", func(s *Script) { s.Version = 0 }},
+		{"no moves", func(s *Script) { s.Moves = nil }},
+		{"unknown move type", func(s *Script) { s.Moves[0].MoveType = "julienne_everything" }},
+		{"non-accept policy verb", func(s *Script) { s.Policy.Verb = "regenerate" }},
+		{"unsupported on_blocked", func(s *Script) { s.Policy.OnBlocked = "skip" }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := valid()
+			tc.mutate(&s)
+			if err := s.Validate(); err == nil {
+				t.Errorf("Validate() = nil, want error")
+			}
+		})
+	}
+	if _, err := LoadScript(filepath.Join(t.TempDir(), "missing.json")); err == nil {
+		t.Error("LoadScript(missing) = nil error, want error")
+	}
+	bad := filepath.Join(t.TempDir(), "bad.json")
+	if err := os.WriteFile(bad, []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadScript(bad); err == nil {
+		t.Error("LoadScript(malformed) = nil error, want error")
+	}
+}
+
+func TestLoadSeeds(t *testing.T) {
+	seeds, err := LoadSeeds(seedsPath)
+	if err != nil {
+		t.Fatalf("LoadSeeds: %v", err)
+	}
+	if len(seeds) != 2 {
+		t.Fatalf("len(seeds) = %d, want 2", len(seeds))
+	}
+	for _, s := range seeds {
+		if s.ID == "" || strings.TrimSpace(s.Seed) == "" {
+			t.Errorf("seed missing id or seed text: %+v", s)
+		}
+		if s.Constraints.Cuisine != "western" {
+			t.Errorf("seed %s cuisine = %q, want western (PREREG §6 scope)", s.ID, s.Constraints.Cuisine)
+		}
+	}
+	if _, err := LoadSeeds(filepath.Join(t.TempDir(), "missing.json")); err == nil {
+		t.Error("LoadSeeds(missing) = nil error, want error")
+	}
+	dup := filepath.Join(t.TempDir(), "dup.json")
+	if err := os.WriteFile(dup, []byte(`[{"id":"a","seed":"x"},{"id":"a","seed":"y"}]`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadSeeds(dup); err == nil {
+		t.Error("LoadSeeds(duplicate ids) = nil error, want error")
+	}
+}
+
+// --- the re-homed "empty baseline" oracle ---
+
+// TestRunnerThreeArmDryRun drives the full harness: 3 arms × 2 synthetic
+// seeds through the pinned move script on the stub LLM. It must emit
+// structurally-complete claims files whose every row is UNLABELED, and the
+// 4.1 rates over those files must render a results table with all-zero rates
+// and explicit Ns — the harness runs end-to-end with zero human labels.
+func TestRunnerThreeArmDryRun(t *testing.T) {
+	deps := realDeps(t)
+	seeds, err := LoadSeeds(seedsPath)
+	if err != nil {
+		t.Fatalf("LoadSeeds: %v", err)
+	}
+	script, err := LoadScript(scriptPath)
+	if err != nil {
+		t.Fatalf("LoadScript: %v", err)
+	}
+	outDir := filepath.Join(t.TempDir(), "out")
+	ctx := context.Background()
+
+	byArm, err := Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: outDir}.Run(ctx, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(byArm) != len(Arms) {
+		t.Fatalf("Run returned %d arms, want %d", len(byArm), len(Arms))
+	}
+
+	// Per-dish stub claim arithmetic (hand-computed from llm.Stub templates):
+	// seed_expand and flavor_direction each add one flavor_rationale claim;
+	// every proposal carries the same one-line unverified[] entry, deduplicated
+	// within the dish. 2 flavor claims + 1 unverified = 3 claims per seed,
+	// 2 seeds => 6 claims per arm.
+	const wantClaimsPerArm = 3 * 2
+
+	allRates := map[string]ArmRates{}
+	for _, arm := range Arms {
+		path := filepath.Join(outDir, "claims_"+arm+".jsonl")
+		f, err := os.Open(path)
+		if err != nil {
+			t.Fatalf("arm %s: claims file: %v", arm, err)
+		}
+		claims, err := ReadClaims(f)
+		f.Close()
+		if err != nil {
+			t.Fatalf("arm %s: ReadClaims: %v", arm, err)
+		}
+		if !reflect.DeepEqual(claims, byArm[arm]) {
+			t.Errorf("arm %s: returned claims differ from the written file", arm)
+		}
+		if len(claims) != wantClaimsPerArm {
+			t.Errorf("arm %s: %d claims, want %d", arm, len(claims), wantClaimsPerArm)
+		}
+		seedIDs := map[string]bool{}
+		for _, s := range seeds {
+			seedIDs[s.ID] = true
+		}
+		seenIDs := map[string]bool{}
+		for _, c := range claims {
+			if c.ClaimID == "" || c.Arm == "" || c.Dish == "" || c.Text == "" {
+				t.Errorf("arm %s: structurally incomplete claim %+v", arm, c)
+			}
+			if seenIDs[c.ClaimID] {
+				t.Errorf("arm %s: duplicate claim id %s", arm, c.ClaimID)
+			}
+			seenIDs[c.ClaimID] = true
+			if c.Arm != arm {
+				t.Errorf("claim %s arm = %q, want %q", c.ClaimID, c.Arm, arm)
+			}
+			if !seedIDs[c.Dish] {
+				t.Errorf("claim %s dish = %q, not a seed id", c.ClaimID, c.Dish)
+			}
+			// The phase-4 stop-line: exported claims are UNLABELED, always.
+			if c.LabelR1 != "" || c.LabelR2 != "" {
+				t.Errorf("claim %s carries pre-filled labels (%q/%q) — labels only ever come from human raters", c.ClaimID, c.LabelR1, c.LabelR2)
+			}
+		}
+		rates, err := ComputeRates(claims)
+		if err != nil {
+			t.Fatalf("arm %s: ComputeRates: %v", arm, err)
+		}
+		r := rates[arm]
+		if r.Total != wantClaimsPerArm || r.Unlabeled != wantClaimsPerArm || r.Checkable != 0 || r.Excluded != 0 {
+			t.Errorf("arm %s: N breakdown = total %d / unlabeled %d / checkable %d / excluded %d, want %d/%d/0/0",
+				arm, r.Total, r.Unlabeled, r.Checkable, r.Excluded, wantClaimsPerArm, wantClaimsPerArm)
+		}
+		if r.Provenance != 0 || r.Mischaracterization != 0 || r.Hallucination != 0 {
+			t.Errorf("arm %s: rates = %v/%v/%v, want all zero over the unlabeled files",
+				arm, r.Provenance, r.Mischaracterization, r.Hallucination)
+		}
+		allRates[arm] = r
+	}
+
+	// The results table renders with all-zero rates and the explicit Ns.
+	table := RatesTable(allRates)
+	for _, arm := range Arms {
+		wantRow := "| " + arm + " | 6 | 6 | 0 | 0 | 0.000 | 0.000 | 0.000 |"
+		if !strings.Contains(table, wantRow) {
+			t.Errorf("results table missing all-zero row %q:\n%s", wantRow, table)
+		}
+	}
+
+	// Every event is tagged run_kind=harness + its arm, and each dish replays
+	// the exact scripted sequence.
+	events, err := deps.Log.Replay(ctx, "")
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	// 3 arms × 2 seeds × (dish_created + 5×(move_requested, proposal_ready, gate_accept)).
+	if want := 3 * 2 * (1 + 5*3); len(events) != want {
+		t.Errorf("len(events) = %d, want %d", len(events), want)
+	}
+	armsSeen := map[string]bool{}
+	for _, ev := range events {
+		if ev.RunKind != RunKindHarness {
+			t.Errorf("event %s run_kind = %q, want %q", ev.Type, ev.RunKind, RunKindHarness)
+		}
+		armsSeen[ev.Arm] = true
+	}
+	if len(armsSeen) != 3 || !armsSeen[llm.ArmUngrounded] || !armsSeen[llm.ArmFlavorgraph] || !armsSeen[llm.ArmGrounded] {
+		t.Errorf("event arms seen = %v, want the three eval arms", armsSeen)
+	}
+
+	dishes, err := deps.Store.ListDishes(ctx)
+	if err != nil {
+		t.Fatalf("ListDishes: %v", err)
+	}
+	if len(dishes) != 6 {
+		t.Fatalf("len(dishes) = %d, want 6 (3 arms × 2 seeds)", len(dishes))
+	}
+	wantTypes := []string{eventlog.TypeDishCreated}
+	for i := 0; i < 5; i++ {
+		wantTypes = append(wantTypes, eventlog.TypeMoveRequested, eventlog.TypeProposalReady, eventlog.TypeGateAccept)
+	}
+	for _, d := range dishes {
+		evs, err := deps.Log.Replay(ctx, d.ID)
+		if err != nil {
+			t.Fatalf("Replay(%s): %v", d.ID, err)
+		}
+		types := make([]string, len(evs))
+		for i, ev := range evs {
+			types[i] = ev.Type
+			if ev.Arm != evs[0].Arm {
+				t.Errorf("dish %s: mixed arms %q/%q", d.ID, evs[0].Arm, ev.Arm)
+			}
+		}
+		if !reflect.DeepEqual(types, wantTypes) {
+			t.Errorf("dish %s event types = %v, want %v", d.ID, types, wantTypes)
+		}
+		vers, err := deps.Store.ListVersions(ctx, d.ID)
+		if err != nil {
+			t.Fatalf("ListVersions(%s): %v", d.ID, err)
+		}
+		if len(vers) != 5 {
+			t.Errorf("dish %s has %d versions, want 5 (one per accepted move)", d.ID, len(vers))
+		}
+	}
+
+	// H2 exclusion re-check (fully tested in replay_test.go): a log holding
+	// only harness events folds to zero gate-dynamics observations.
+	if g := FoldGateDynamics(events); g.Total.N != 0 || g.Sessions != 0 {
+		t.Errorf("harness events leaked into the H2 fold: N=%d sessions=%d", g.Total.N, g.Sessions)
+	}
+}
+
+// TestRunnerDeterministicAcrossRuns: the stub LLM is deterministic per move
+// type/steer, so two full runs produce identical claims files and identical
+// event streams modulo ids and timestamps.
+func TestRunnerDeterministicAcrossRuns(t *testing.T) {
+	seeds, err := LoadSeeds(seedsPath)
+	if err != nil {
+		t.Fatalf("LoadSeeds: %v", err)
+	}
+	script, err := LoadScript(scriptPath)
+	if err != nil {
+		t.Fatalf("LoadScript: %v", err)
+	}
+	runOnce := func() ([]eventlog.Event, string) {
+		deps := realDeps(t)
+		outDir := filepath.Join(t.TempDir(), "out")
+		if _, err := (Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: outDir}).Run(context.Background(), nil); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		events, err := deps.Log.Replay(context.Background(), "")
+		if err != nil {
+			t.Fatalf("Replay: %v", err)
+		}
+		return events, outDir
+	}
+	e1, d1 := runOnce()
+	e2, d2 := runOnce()
+
+	for _, arm := range Arms {
+		b1, err := os.ReadFile(filepath.Join(d1, "claims_"+arm+".jsonl"))
+		if err != nil {
+			t.Fatalf("read run-1 claims for %s: %v", arm, err)
+		}
+		b2, err := os.ReadFile(filepath.Join(d2, "claims_"+arm+".jsonl"))
+		if err != nil {
+			t.Fatalf("read run-2 claims for %s: %v", arm, err)
+		}
+		if !bytes.Equal(b1, b2) {
+			t.Errorf("arm %s: claims files differ across runs", arm)
+		}
+	}
+	p1, p2 := projectEvents(t, e1), projectEvents(t, e2)
+	if !reflect.DeepEqual(p1, p2) {
+		t.Errorf("event streams differ across runs (modulo ids/timestamps):\nrun1: %v\nrun2: %v", p1, p2)
+	}
+}
+
+// projectEvents strips the run-specific parts (ids, timestamps): what remains
+// is type/arm/run_kind plus the payload's move_type and steer.
+func projectEvents(t *testing.T, events []eventlog.Event) [][5]string {
+	t.Helper()
+	out := make([][5]string, 0, len(events))
+	for _, e := range events {
+		var p struct {
+			MoveType string `json:"move_type"`
+			Steer    string `json:"steer"`
+		}
+		if len(e.Payload) > 0 {
+			if err := json.Unmarshal(e.Payload, &p); err != nil {
+				t.Fatalf("unmarshal %s payload: %v", e.Type, err)
+			}
+		}
+		out = append(out, [5]string{e.Type, e.Arm, e.RunKind, p.MoveType, p.Steer})
+	}
+	return out
+}
+
+// TestRunnerBlockedAbortsPerPolicy: the script policy is on_blocked=abort — a
+// safety block ends the run with an error, no claims file is written, and the
+// blocked event still lands in the log as real harness telemetry.
+func TestRunnerBlockedAbortsPerPolicy(t *testing.T) {
+	deps := realDeps(t)
+	script := Script{
+		Version: 1,
+		Comment: "test-only script driving the seeded unsafe steer",
+		Policy:  ScriptPolicy{Verb: orchestrator.VerbAccept, OnBlocked: OnBlockedAbort},
+		Moves:   []ScriptMove{{MoveType: llm.MoveTypeIngredientChange, Steer: "infuse a garlic oil for drizzling"}},
+	}
+	seeds := []Seed{{
+		ID:   "seed-synth-block",
+		Seed: "SYNTHETIC: run that must block",
+		Constraints: draft.Constraints{
+			Dietary: []string{}, Allergens: []string{}, Equipment: []string{},
+			Skill: "beginner", Servings: 2, OnHand: []string{}, Cuisine: "western",
+		},
+	}}
+	outDir := filepath.Join(t.TempDir(), "out")
+
+	_, err := Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: outDir}.Run(context.Background(), []string{llm.ArmGrounded})
+	if err == nil {
+		t.Fatal("Run = nil error, want abort on the blocked move")
+	}
+	if !strings.Contains(err.Error(), "blocked") {
+		t.Errorf("error %q does not name the block", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(outDir, "claims_grounded.jsonl")); !os.IsNotExist(statErr) {
+		t.Errorf("partial claims file written despite abort (stat err = %v)", statErr)
+	}
+	events, err := deps.Log.Replay(context.Background(), "")
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	var blocked *eventlog.Event
+	for i := range events {
+		if events[i].Type == eventlog.TypeProposalBlocked {
+			blocked = &events[i]
+		}
+	}
+	if blocked == nil {
+		t.Fatal("no proposal_blocked event in the log")
+	}
+	if blocked.RunKind != RunKindHarness || blocked.Arm != llm.ArmGrounded {
+		t.Errorf("blocked event stamped %q/%q, want %s/%s", blocked.Arm, blocked.RunKind, llm.ArmGrounded, RunKindHarness)
+	}
+}
+
+// TestRunnerRejectsNonEvalArm: harness runs use the three PREREG §4 eval arms
+// only — "none" is the operator stamp, never a harness arm.
+func TestRunnerRejectsNonEvalArm(t *testing.T) {
+	deps := realDeps(t)
+	script, err := LoadScript(scriptPath)
+	if err != nil {
+		t.Fatalf("LoadScript: %v", err)
+	}
+	seeds, err := LoadSeeds(seedsPath)
+	if err != nil {
+		t.Fatalf("LoadSeeds: %v", err)
+	}
+	r := Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: filepath.Join(t.TempDir(), "out")}
+	if _, err := r.Run(context.Background(), []string{llm.ArmNone}); err == nil {
+		t.Error(`Run(arms=["none"]) = nil error, want rejection`)
+	}
+}

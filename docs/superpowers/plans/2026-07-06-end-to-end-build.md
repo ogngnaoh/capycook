@@ -370,7 +370,7 @@ replayed token-cadence **after** the safety screen passes.
 - [x] **4.2 kappa** — Create `internal/eval/kappa.go` + tests: Cohen's κ + confusion
   matrix over double-labeled subset; verify against a hand-computed 20-claim fixture.
   Commit.
-- [ ] **4.3 arm runner** — Create `internal/eval/runner.go` + tests (stub LLM): runs
+- [x] **4.3 arm runner** — Create `internal/eval/runner.go` + tests (stub LLM): runs
   each benchmark seed through a fixed, versioned move script
   (`eval/fixtures/move_script.json`: N=5 moves, auto-accept policy) identically per
   arm; events tagged `run_kind=harness` + arm; exports unlabeled claims
