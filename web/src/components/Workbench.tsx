@@ -456,12 +456,12 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         className="skip-link px-2 py-1 uppercase border border-hairline bg-page text-ink">
         Skip to steering
       </a>
-      <header className="h-header shrink-0 px-3 border-b border-hairline bg-page flex items-center gap-2">
+      <header className="h-header shrink-0 px-3 border-b border-hairline bg-page flex items-center gap-2 max-md:h-auto max-md:flex-wrap max-md:py-1">
         <button onClick={() => onNavigate('/')}
           className="shrink-0 px-2 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page">
           Dishes
         </button>
-        <h1 ref={headingRef} tabIndex={-1} className="font-medium text-sm truncate focus:outline-none">{detail.draft.title || detail.seed}</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="font-medium text-sm truncate focus:outline-none min-w-0">{detail.draft.title || detail.seed}</h1>
         {headerDatum && (
           <span className="shrink-0 font-mono text-2xs text-muted uppercase">{headerDatum}</span>
         )}

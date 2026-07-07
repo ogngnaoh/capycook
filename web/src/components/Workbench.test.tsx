@@ -429,6 +429,15 @@ test('move_auto_advanced collapses into an auto-applied thread entry', async () 
   expect(entry).toHaveTextContent(`auto-applied: ${MOVE_LABEL.scale_servings}`)
 })
 
+test('the header wraps below the breakpoint instead of overflowing the viewport', async () => {
+  await mount()
+  const header = screen.getByRole('banner')
+  // The fixed h-header height stays desktop-only; narrow lets rows wrap.
+  expect(header.className).toMatch(/max-md:flex-wrap/)
+  expect(header.className).toMatch(/max-md:h-auto/)
+  expect(screen.getByRole('heading', { level: 1 }).className).toMatch(/min-w-0/)
+})
+
 test('the idle footer speaks bench-ready voice, not protocol Idle', async () => {
   await mount()
   expect(screen.getByText(/bench is ready — propose a move from the steering rail/i)).toBeInTheDocument()
