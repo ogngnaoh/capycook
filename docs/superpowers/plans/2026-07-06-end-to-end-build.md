@@ -450,12 +450,15 @@ replayed token-cadence **after** the safety screen passes.
     2026-07-07: **IA direction approved**. Punch list fixed + committed (dish
     notation in hold evidence, hold atop canvas, bench voice, mono qty in marks).
     Note: user prototypes live at :8099 (scratchpad DB, own $2-cap ledger).
-  - [ ] **W3 a11y annotation** (settled tree): T2 ✓ (landed with W2) · T4 ✓ APG
-    toolbar + scoped remappable shortcuts (localStorage store, no remap UI) ·
-    T8 ✓ aural grammar incl. Technical-view DiffLine · T11 ✓ uncertainty ledger ·
-    T13 seed-form half ✓ (GOV.UK, field-scoped validateSeedForm); structure half
-    (h1/landmarks/title/route focus/skip links/take-over error) IN FLIGHT.
-  - [ ] **W4**: T14 narrow-viewport collapse (solo, last — needs the final tree).
+  - [x] **W3 a11y annotation**: T2 ✓ · T4 ✓ toolbar + shortcuts · T8 ✓ aural
+    grammar incl. Technical view · T11 ✓ uncertainty ledger · T13 ✓ both halves
+    (GOV.UK seed form; h1/landmarks/title/route focus/skip links/take-over
+    error). Deferral: duplicate proposal-heading id in alternatives view.
+  - [x] **W4**: T14 ✓ narrow-viewport collapse — Recipe|Develop|History APG tabs
+    below 1024px, gate+tabs pinned bottom, auto-switch to Recipe on proposal/
+    hold, 24px floor closed. Desktop pixel-identical (max-md additive only).
+    Convergence checks: pb-150px clearance; DraftPane step-chip wrap at ~360px.
+    ALL 15 BRIEF TASKS LANDED (193 tests, 24 files).
   - [ ] **Convergence rerun**: vendor shot script into `web/tools/` +
     `puppeteer-core` devDep (reverses logged scratchpad-only decision — log why;
     rescued copy in session scratchpad), adapt to renamed controls, extend for new
