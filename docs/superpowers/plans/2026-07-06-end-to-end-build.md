@@ -446,10 +446,10 @@ replayed token-cadence **after** the safety screen passes.
     (+ `applyOps.ts`, `DiffMark.tsx`; riskiest) → T3 gate-bar two-level ∥ T7
     TrialStrip → T5 alternatives radio group · T6-client safety hold w/ evidence.
     T2 (live region + focus protocol) pulled forward from W3 — visually inert.
-  - [ ] **→ USER CHECKPOINT** — 8 states × 2 themes captured + artifact gallery
-    presented 2026-07-07; punch list: safety-hold evidence in dish notation not
-    wire tuples · hold pinned to canvas top · idle footer voice · mono qty inside
-    change marks. AWAITING VERDICT before W3/W4.
+  - [x] **→ USER CHECKPOINT** — 8 states × 2 themes + artifact gallery; verdict
+    2026-07-07: **IA direction approved**. Punch list fixed + committed (dish
+    notation in hold evidence, hold atop canvas, bench voice, mono qty in marks).
+    Note: user prototypes live at :8099 (scratchpad DB, own $2-cap ledger).
   - [ ] **W3 a11y annotation** (settled tree): T2 lifecycle live region + 4-rule
     focus protocol · T4 APG toolbar + scoped remappable shortcuts · T8 aural diff
     grammar · T13 structure pass (h1/landmarks/title/skip links/GOV.UK errors) ·
