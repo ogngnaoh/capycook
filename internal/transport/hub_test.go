@@ -195,9 +195,10 @@ type readyData struct {
 	Proposal proposal.Proposal `json:"proposal"`
 }
 type blockedData struct {
-	MoveID string `json:"moveId"`
-	Reason string `json:"reason"`
-	RuleID string `json:"ruleId"`
+	MoveID string        `json:"moveId"`
+	Reason string        `json:"reason"`
+	RuleID string        `json:"ruleId"`
+	Ops    []proposal.Op `json:"ops"`
 }
 type cancelledData struct {
 	MoveID string `json:"moveId"`
@@ -321,6 +322,7 @@ func TestBlockedEmitsOnlyProposalBlocked(t *testing.T) {
 	h.Notify(orchestrator.Outcome{
 		DishID: "d1", MoveID: "mv_1", Kind: orchestrator.OutcomeBlocked,
 		Reason: "anaerobic garlic-in-oil risk", RuleID: "anaerobic-garlic-oil",
+		Ops: []proposal.Op{{Op: "add", Path: "/ingredients/-", Value: json.RawMessage(`{"name":"garlic"}`)}},
 	})
 	sentinel(h, "d1")
 
@@ -337,13 +339,21 @@ func TestBlockedEmitsOnlyProposalBlocked(t *testing.T) {
 	if bd.MoveID != "mv_1" || bd.Reason != "anaerobic garlic-in-oil risk" || bd.RuleID != "anaerobic-garlic-oil" {
 		t.Errorf("proposal-blocked payload = %+v", bd)
 	}
-	// No proposal payload rides on the blocked event.
+	// The blocked change rides as ops so the UI can gray the held move.
+	if len(bd.Ops) != 1 || bd.Ops[0].Path != "/ingredients/-" {
+		t.Errorf("proposal-blocked ops = %+v, want the blocked change ops", bd.Ops)
+	}
+	// The ops are all that rides: no full proposal (rationale/citations/
+	// confidence) on the blocked event.
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(evs[0].Data), &raw); err != nil {
 		t.Fatalf("decode blocked payload: %v", err)
 	}
 	if _, ok := raw["proposal"]; ok {
 		t.Error("proposal-blocked payload carries a proposal — it must not")
+	}
+	if _, ok := raw["ops"]; !ok {
+		t.Error("proposal-blocked payload omits ops — it must carry the blocked change")
 	}
 }
 

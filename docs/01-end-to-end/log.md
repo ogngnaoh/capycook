@@ -139,3 +139,14 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   restructure, brand-feel references) dispatched; synthesized brief lands at
   agent_docs/2026-07-07-gate-c-redesign-brief.md for the next session. User may
   alternatively supply a design system — that would augment/override the brief.
+- **2026-07-07 · Gate-C brief task 6, sanctioned additive API change (blocked ops).**
+  The `proposal.blocked` SSE event and the GET `blocked` payload now additionally
+  carry the held change's `ops` (`[]proposal.Op`) so the safety-hold pane can gray
+  the blocked move as evidence — same additive-only precedent as the baseVersion
+  entry above. Plumbed through `Outcome.Ops` / `Status.BlockedOps` / `blockedMove.ops`
+  and the `proposal_blocked` event-log payload; the orchestrator captures the ops
+  beside `firstBlock` (only-first-block preserved). Invariant kept per DESIGN §6.3:
+  ops only — the blocked payload still never contains a `proposal` key or the
+  proposal's rationale/citations/confidence (hub_test TestBlockedEmitsOnlyProposalBlocked
+  still asserts no `proposal` key and passes). eval/replay ignores the unknown key,
+  so events_gate_dynamics.json fixtures need no change and keep passing.

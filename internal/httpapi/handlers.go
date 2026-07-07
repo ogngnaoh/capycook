@@ -52,11 +52,13 @@ type dialResponse struct {
 }
 
 // blockedInfo mirrors the proposal-blocked SSE payload so a GET re-sync
-// reconstructs the blocked pane.
+// reconstructs the blocked pane, including the held change's ops (ops only,
+// never the discarded proposal) so the hold pane can gray the blocked move.
 type blockedInfo struct {
-	MoveID string `json:"moveId"`
-	Reason string `json:"reason"`
-	RuleID string `json:"ruleId"`
+	MoveID string        `json:"moveId"`
+	Reason string        `json:"reason"`
+	RuleID string        `json:"ruleId"`
+	Ops    []proposal.Op `json:"ops"`
 }
 
 // dishDetail is GET /api/dishes/{id}: the pinned {draft, state,
@@ -465,7 +467,7 @@ func (a *API) detail(ctx context.Context, dish store.Dish) (dishDetail, error) {
 		out.PendingProposals = st.Pending
 	}
 	if st.BlockedMoveID != "" {
-		out.Blocked = &blockedInfo{MoveID: st.BlockedMoveID, Reason: st.BlockedReason, RuleID: st.BlockedRuleID}
+		out.Blocked = &blockedInfo{MoveID: st.BlockedMoveID, Reason: st.BlockedReason, RuleID: st.BlockedRuleID, Ops: st.BlockedOps}
 	}
 	return out, nil
 }

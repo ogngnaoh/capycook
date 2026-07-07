@@ -69,10 +69,10 @@ var (
 	// ErrUnknownBaseVersion rejects a move whose baseVersion is not one of
 	// this dish's versions; httpapi maps it to 400.
 	ErrUnknownBaseVersion = errors.New("orchestrator: unknown base version for this dish")
-	ErrConfirmRequired = errors.New("orchestrator: safety warning requires confirm override")
-	ErrUnknownMoveType = errors.New("orchestrator: unknown move type")
-	ErrUnknownVerb     = errors.New("orchestrator: unknown gate verb")
-	ErrVerbNotAllowed  = errors.New("orchestrator: verb not allowed in this state")
+	ErrConfirmRequired    = errors.New("orchestrator: safety warning requires confirm override")
+	ErrUnknownMoveType    = errors.New("orchestrator: unknown move type")
+	ErrUnknownVerb        = errors.New("orchestrator: unknown gate verb")
+	ErrVerbNotAllowed     = errors.New("orchestrator: verb not allowed in this state")
 )
 
 // Deps are the edges the orchestrator drives. All are required except
@@ -115,7 +115,9 @@ type Deps struct {
 
 // Outcome is one resolved move, reported after the safety screen: the only
 // payloads that ever reach a client. Blocked outcomes carry reason/rule id
-// only — the blocked proposal itself is discarded before this point.
+// plus the held change's ops (the evidence the safety-hold pane grays) — the
+// blocked proposal itself, with its rationale/citations/confidence, is
+// discarded before this point.
 type Outcome struct {
 	DishID       string
 	MoveID       string
@@ -124,6 +126,7 @@ type Outcome struct {
 	NewVersionID string              // auto_advanced
 	Reason       string              // blocked|failed
 	RuleID       string              // blocked
+	Ops          []proposal.Op       // blocked: the held change's ops, ops only
 }
 
 // Status is the in-memory gate view GET /dishes/{id} needs alongside the
@@ -135,6 +138,7 @@ type Status struct {
 	BlockedMoveID  string // gate target for regenerate/redirect while blocked
 	BlockedReason  string
 	BlockedRuleID  string
+	BlockedOps     []proposal.Op // the held change's ops (ops only, no proposal)
 }
 
 // Orchestrator is the per-process state machine over every dish.
@@ -202,6 +206,7 @@ type blockedMove struct {
 	baseVersion string
 	reason      string
 	ruleID      string
+	ops         []proposal.Op // the held change, kept as the safety-hold evidence
 }
 
 // New wires an Orchestrator over its edges.
@@ -351,6 +356,7 @@ func (o *Orchestrator) Status(dishID string) Status {
 		st.BlockedMoveID = ds.blocked.moveID
 		st.BlockedReason = ds.blocked.reason
 		st.BlockedRuleID = ds.blocked.ruleID
+		st.BlockedOps = ds.blocked.ops
 	}
 	return st
 }
@@ -470,6 +476,7 @@ func (o *Orchestrator) commitGeneration(k moveKickoff, cur draft.Draft, props []
 	}
 	var passing []pendingProposal
 	var firstBlock *proposal.Safety
+	var firstBlockOps []proposal.Op
 	for _, p := range props {
 		// Grounding resolution rides the change set BEFORE the screen: the
 		// allergen check keys on FDC/FoodOn ids (aliases are the resolver's
@@ -480,6 +487,7 @@ func (o *Orchestrator) commitGeneration(k moveKickoff, cur draft.Draft, props []
 			if firstBlock == nil {
 				v := verdict
 				firstBlock = &v
+				firstBlockOps = p.Change
 			}
 			continue
 		}
@@ -500,11 +508,11 @@ func (o *Orchestrator) commitGeneration(k moveKickoff, cur draft.Draft, props []
 		ds.pending = nil
 		ds.blocked = &blockedMove{
 			moveID: k.moveID, moveType: k.moveType, steer: k.steer,
-			baseVersion: k.baseVersion, reason: reason, ruleID: ruleID,
+			baseVersion: k.baseVersion, reason: reason, ruleID: ruleID, ops: firstBlockOps,
 		}
 		o.appendOrLog(ctx, k.dishID, k.sessionID, eventlog.TypeProposalBlocked,
-			blockedPayload{MoveID: k.moveID, Reason: reason, RuleID: ruleID})
-		return &Outcome{DishID: k.dishID, MoveID: k.moveID, Kind: OutcomeBlocked, Reason: reason, RuleID: ruleID}
+			blockedPayload{MoveID: k.moveID, Reason: reason, RuleID: ruleID, Ops: firstBlockOps})
+		return &Outcome{DishID: k.dishID, MoveID: k.moveID, Kind: OutcomeBlocked, Reason: reason, RuleID: ruleID, Ops: firstBlockOps}
 	}
 	ds.state = StateAwaitingGate
 	ds.pending = passing
@@ -536,13 +544,13 @@ func (o *Orchestrator) runDeterministic(ctx context.Context, ds *dishState, k mo
 		ds.pending = nil
 		ds.blocked = &blockedMove{
 			moveID: k.moveID, moveType: k.moveType, steer: k.steer,
-			baseVersion: k.baseVersion, reason: reason, ruleID: ruleID,
+			baseVersion: k.baseVersion, reason: reason, ruleID: ruleID, ops: prop.Change,
 		}
 		if err := o.append(ctx, k.dishID, k.sessionID, eventlog.TypeProposalBlocked,
-			blockedPayload{MoveID: k.moveID, Reason: reason, RuleID: ruleID}); err != nil {
+			blockedPayload{MoveID: k.moveID, Reason: reason, RuleID: ruleID, Ops: prop.Change}); err != nil {
 			return nil, err
 		}
-		return &Outcome{DishID: k.dishID, MoveID: k.moveID, Kind: OutcomeBlocked, Reason: reason, RuleID: ruleID}, nil
+		return &Outcome{DishID: k.dishID, MoveID: k.moveID, Kind: OutcomeBlocked, Reason: reason, RuleID: ruleID, Ops: prop.Change}, nil
 	}
 	prop.Safety = verdict
 	if dish.AutonomyDial {
@@ -905,9 +913,10 @@ type readyPayload struct {
 }
 
 type blockedPayload struct {
-	MoveID string `json:"move_id"`
-	Reason string `json:"reason"`
-	RuleID string `json:"rule_id"`
+	MoveID string        `json:"move_id"`
+	Reason string        `json:"reason"`
+	RuleID string        `json:"rule_id"`
+	Ops    []proposal.Op `json:"ops"` // the held change; ops only, never the proposal
 }
 
 type cancelledPayload struct {

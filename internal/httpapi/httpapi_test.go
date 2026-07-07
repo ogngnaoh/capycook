@@ -649,6 +649,10 @@ func TestBlockedFlow(t *testing.T) {
 	if det.Blocked == nil || det.Blocked.RuleID != "anaerobic-garlic-oil" || det.Blocked.MoveID != mv.MoveID {
 		t.Fatalf("blocked info = %+v, want the seeded rule on move %s", det.Blocked, mv.MoveID)
 	}
+	// The blocked change's ops re-sync so the workbench can gray the held move.
+	if len(det.Blocked.Ops) == 0 {
+		t.Fatal("blocked info must carry the blocked change ops")
+	}
 
 	// Only regenerate/redirect are allowed while blocked.
 	rec = e.do("POST", "/api/dishes/"+id+"/gate", session, gateRequest{ProposalID: mv.MoveID, Verb: orchestrator.VerbAccept})

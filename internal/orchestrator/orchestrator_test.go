@@ -422,12 +422,19 @@ func TestBlockedFlow(t *testing.T) {
 	if out.MoveID != moveID || out.RuleID != "anaerobic-garlic-oil" || out.Reason == "" {
 		t.Errorf("blocked outcome = %+v, want move %q rule anaerobic-garlic-oil", out, moveID)
 	}
+	// The safety hold keeps the blocked change's ops as its evidence.
+	if len(out.Ops) == 0 {
+		t.Errorf("blocked outcome carries no ops, want the blocked change ops")
+	}
 	st := e.orch.Status("d1")
 	if st.State != StateBlocked {
 		t.Fatalf("state = %q, want %q", st.State, StateBlocked)
 	}
 	if st.BlockedMoveID != moveID || st.BlockedRuleID != "anaerobic-garlic-oil" {
 		t.Errorf("Status blocked info = %+v", st)
+	}
+	if len(st.BlockedOps) == 0 {
+		t.Errorf("Status.BlockedOps empty, want the blocked change ops")
 	}
 	if len(st.Pending) != 0 {
 		t.Errorf("blocked proposal must be discarded, got pending %+v", st.Pending)
@@ -439,6 +446,9 @@ func TestBlockedFlow(t *testing.T) {
 	p := payloadMap(t, lastOfType(t, e.events(t, "d1"), eventlog.TypeProposalBlocked))
 	if p["move_id"] != moveID || p["rule_id"] != "anaerobic-garlic-oil" || p["reason"] == "" {
 		t.Errorf("proposal_blocked payload = %v", p)
+	}
+	if ops, ok := p["ops"].([]any); !ok || len(ops) == 0 {
+		t.Errorf("proposal_blocked payload ops = %v, want the blocked change ops", p["ops"])
 	}
 
 	// Blocked state: only regenerate/redirect are allowed next.

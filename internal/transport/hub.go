@@ -7,8 +7,8 @@
 // so no write ever races another (the single-goroutine-select-loop pattern of
 // SPEC §4a). Outcomes arrive via Notify, which httpapi plugs into
 // orchestrator.Deps.Notify: they are post-safety-screen by construction, so a
-// blocked move reaches a client only as proposal-blocked{reason,ruleId} —
-// never a token, never a proposal payload.
+// blocked move reaches a client only as proposal-blocked{reason,ruleId,ops} —
+// the held change's ops only, never a token, never the full proposal payload.
 //
 // A ready outcome is not sent at once: the stored Proposal.Rationale is
 // replayed word-by-word as token events at TokenCadence (default ~30ms), then
@@ -313,7 +313,7 @@ func (d *dishHub) run() {
 				startReplay(out)
 			case orchestrator.OutcomeBlocked:
 				stopReplay()
-				broadcast(EventProposalBlocked, proposalBlockedEvent{MoveID: out.MoveID, Reason: out.Reason, RuleID: out.RuleID})
+				broadcast(EventProposalBlocked, proposalBlockedEvent{MoveID: out.MoveID, Reason: out.Reason, RuleID: out.RuleID, Ops: out.Ops})
 			case orchestrator.OutcomeCancelled:
 				stopReplay()
 				broadcast(EventMoveCancelled, moveCancelledEvent{MoveID: out.MoveID})

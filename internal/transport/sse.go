@@ -17,8 +17,9 @@ const (
 )
 
 // Wire payloads (pinned contract; camelCase keys matching the HTTP API).
-// The blocked payload never carries the proposal: it was discarded by the
-// safety screen before the outcome ever reached this package.
+// The blocked payload carries the held change's ops only, never the full
+// proposal: the proposal (rationale/citations/confidence) was discarded by
+// the safety screen before the outcome ever reached this package.
 type tokenEvent struct {
 	MoveID string `json:"moveId"`
 	Text   string `json:"text"`
@@ -30,9 +31,10 @@ type proposalReadyEvent struct {
 }
 
 type proposalBlockedEvent struct {
-	MoveID string `json:"moveId"`
-	Reason string `json:"reason"`
-	RuleID string `json:"ruleId"`
+	MoveID string        `json:"moveId"`
+	Reason string        `json:"reason"`
+	RuleID string        `json:"ruleId"`
+	Ops    []proposal.Op `json:"ops"`
 }
 
 type moveCancelledEvent struct {
