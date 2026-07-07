@@ -321,7 +321,7 @@ replayed token-cadence **after** the safety screen passes.
 
 ## Phase 3 — Real DeepSeek + telemetry (spec §7)
 
-- [ ] **3.1 live-docs check** — WebFetch `api-docs.deepseek.com`: model id, `/beta`
+- [x] **3.1 live-docs check** — WebFetch `api-docs.deepseek.com`: model id, `/beta`
   strict semantics, `json_object` caveat, pricing/context. Cosmetic drift → patch
   SPEC §2/§4c same commit + log.md line. **Structural drift → STOP (Gate B hand-back).**
   Record verified values in log.md. Commit.

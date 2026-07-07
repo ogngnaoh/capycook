@@ -1,24 +1,26 @@
 # Handoff — Milestone 01 (end-to-end build)
 
 ## Next session start here
-**Gate A review** (plan task 2.8 stop): present `data/safety/*`,
-`data/cost/prices.csv`, `data/ingredients.csv` + the per-asset PROVENANCE.md
-files to the user; apply redirects, then tag `phase-2-data-services` and
-continue at task 3.1 in `docs/superpowers/plans/2026-07-06-end-to-end-build.md`.
+**Gate B** (plan task 3.6 stop): user provides DEEPSEEK_API_KEY + LANGFUSE_{PUBLIC_KEY,
+SECRET_KEY,HOST} in `.env` and confirms the $10 cap. Then: run the live smoke
+(`CAPYCOOK_LIVE_TEST=1 go test ./internal/llm -run Live`), record real fixtures,
+verify one trace in Langfuse (screenshot → evidence/phase3/), tag `phase-3-model`,
+continue at Phase 4 task 4.1.
 
 ## Current state
-- Branch `e2e`; Phase 2 complete through 2.8 (untagged — orchestrator tags after
-  review). All suites green; e2e script passes local + docker
-  (evidence/phase2/e2e_{local,docker}.txt).
-- Real edges wired in cmd/server: USDA nutrition, cost table, FSIS/CDC safety gate
-  (allergen composed), FlavorGraph + Resolve grounding. Accept/take_over/edit
-  snapshots carry resolver-filled fdc/foodon ids + real analysis; deterministic
-  recomputes cite real provenance (fdc ids, cost-table as-of). LLM is still the
-  Phase-1 stub (no live calls before Gate B).
-- Container ships the data CSVs at /srv/data (`DATA_DIR`), outside the /data volume.
+- Branch `e2e`; Phases 1–2 tagged; Phase 3 built through 3.6 in stub mode (untagged —
+  live smoke pending keys). All suites green; e2e passes local + docker with the
+  stub-mode banner asserted via GET /api/status.
+- LLM edge: prompt pack (golden-tested, arm-parity-tested) + DeepSeek strict
+  tool-calling client w/ json_object fallback + persisted USD budget ledger
+  (<DB_PATH>.budget.json, pre-call hard-stop at LLM_BUDGET_USD=10) + per-arm evidence
+  assembly + OTel→Langfuse spans on GenerateMove only. Synthetic wire fixtures only —
+  zero live calls made.
 
 ## Active concerns
-- Gate A honesty: cost tier-B rows are builder estimates (tagged per row); FoodOn
-  closure + safety lexicon rows each carry citations — user spot-review pending.
-- Phase 3 verify-before-build: re-check DeepSeek docs (model id, /beta strict,
-  json_object, pricing) before any 3.x work; structural drift stops at Gate B.
+- Gate B pending: no live call until the user hands over keys + cap confirmation.
+- 3.3 caveat: synthetic fixtures assume go-openai's wire mapping of DeepSeek strict
+  tool-calls — the Gate-B live smoke records real fixtures to confirm.
+- 3.2 open question for Gate B: evidence block sits between constraints and thread
+  (better prompt-cache behavior) vs. the spec's assembly listing (evidence after
+  thread) — flag to user, reorder if desired.
