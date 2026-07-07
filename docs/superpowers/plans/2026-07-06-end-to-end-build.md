@@ -347,7 +347,7 @@ replayed token-cadence **after** the safety screen passes.
   Arm comes from dish/run config; `none` for normal use = grounded behavior?  **No:**
   normal operator use runs the grounded path with `arm="none"` recorded on events
   (spec §4). Test all four. Commit.
-- [ ] **3.5 telemetry** — Implement `internal/telemetry/otel.go`: OTel-Go → OTLP/HTTP
+- [x] **3.5 telemetry** — Implement `internal/telemetry/otel.go`: OTel-Go → OTLP/HTTP
   → `${LANGFUSE_HOST}/api/public/otel`, Basic auth base64(pk:sk),
   `x-langfuse-ingestion-version: 4`; spans wrap `llm` calls ONLY (domain events stay
   in eventlog — SPEC §5 no-double-tracing); `session_id`/`arm`/`move_type` attrs on

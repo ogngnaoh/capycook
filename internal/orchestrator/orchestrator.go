@@ -38,6 +38,7 @@ import (
 	"github.com/ogngnaoh/capycook/internal/proposal"
 	"github.com/ogngnaoh/capycook/internal/services"
 	"github.com/ogngnaoh/capycook/internal/store"
+	"github.com/ogngnaoh/capycook/internal/telemetry"
 )
 
 // Dish states. The transient accept/cancel/fail outcomes are not observable
@@ -94,6 +95,10 @@ type Deps struct {
 	// values fall back to generic capycook-services citations (stub mode).
 	CostCitation      proposal.Citation
 	NutritionCitation proposal.Citation
+	// Tracer wraps each llm.GenerateMove call in one span (task 3.5) —
+	// domain events stay eventlog-only, never traced (SPEC §5
+	// no-double-tracing). Nil defaults to the no-op.
+	Tracer telemetry.Tracer
 	// Notify is called (outside the orchestrator lock) with every move
 	// outcome after the safety screen has run — the transport layer turns
 	// these into SSE events.
@@ -135,6 +140,7 @@ type Orchestrator struct {
 	grounding     grounding.Grounding
 	costCite      proposal.Citation
 	nutritionCite proposal.Citation
+	tracer        telemetry.Tracer
 	notify        func(Outcome)
 
 	// arm/runKind stamp every appended event (operator defaults per spec
@@ -191,6 +197,10 @@ func New(d Deps) *Orchestrator {
 	if arm == "" {
 		arm = llm.ArmNone
 	}
+	tracer := d.Tracer
+	if tracer == nil {
+		tracer = telemetry.Noop{}
+	}
 	return &Orchestrator{
 		store:         d.Store,
 		log:           d.Log,
@@ -201,6 +211,7 @@ func New(d Deps) *Orchestrator {
 		grounding:     d.Grounding,
 		costCite:      d.CostCitation,
 		nutritionCite: d.NutritionCitation,
+		tracer:        tracer,
 		notify:        d.Notify,
 		arm:           arm,
 		runKind:       "operator",
@@ -378,7 +389,16 @@ func (o *Orchestrator) generate(genCtx context.Context, k moveKickoff, cur draft
 	var props []proposal.Proposal
 	var genErr error
 	for i := 0; i < k.n; i++ {
-		p, err := o.llm.GenerateMove(genCtx, req)
+		// One span per GenerateMove call, and ONLY here (SPEC §5
+		// no-double-tracing): session_id/arm/move_type ride every span
+		// because Langfuse reads trace-level fields per-span.
+		spanCtx, end := o.tracer.StartSpan(genCtx, "llm.generate_move",
+			telemetry.Attr{Key: "session_id", Value: k.sessionID},
+			telemetry.Attr{Key: "arm", Value: o.arm},
+			telemetry.Attr{Key: "move_type", Value: k.moveType},
+		)
+		p, err := o.llm.GenerateMove(spanCtx, req)
+		end()
 		if err != nil {
 			genErr = err
 			break

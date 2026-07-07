@@ -25,6 +25,7 @@ import (
 	"github.com/ogngnaoh/capycook/internal/proposal"
 	"github.com/ogngnaoh/capycook/internal/services"
 	"github.com/ogngnaoh/capycook/internal/store"
+	"github.com/ogngnaoh/capycook/internal/telemetry"
 	"github.com/ogngnaoh/capycook/internal/transport"
 	"github.com/ogngnaoh/capycook/web"
 )
@@ -136,6 +137,24 @@ func wire(cfg config.Config) (http.Handler, func(), error) {
 		slog.Warn("llm: stub mode — no model key (set DEEPSEEK_API_KEY to go live)")
 	}
 
+	// Telemetry (task 3.5): OTel → OTLP/HTTP → Langfuse when all three keys
+	// are set, else the no-op. Spans wrap llm.GenerateMove calls only —
+	// domain events stay eventlog-only (SPEC §5 no-double-tracing).
+	tracer, flushTraces, err := telemetry.Setup(telemetry.Config{
+		PublicKey: cfg.LangfusePublicKey,
+		SecretKey: cfg.LangfuseSecretKey,
+		Host:      cfg.LangfuseHost,
+	})
+	if err != nil {
+		closeStore()
+		return nil, nil, err
+	}
+	if _, isNoop := tracer.(telemetry.Noop); isNoop {
+		slog.Warn("telemetry: no-op — set LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY/LANGFUSE_HOST to export traces")
+	} else {
+		slog.Info("telemetry: OTel -> OTLP/HTTP -> Langfuse enabled", "host", cfg.LangfuseHost)
+	}
+
 	evlog := eventlog.New(st)
 	hub := transport.New(transport.Options{})
 	orch := orchestrator.New(orchestrator.Deps{
@@ -148,12 +167,20 @@ func wire(cfg config.Config) (http.Handler, func(), error) {
 		Grounding:         ground,
 		CostCitation:      costCitation,
 		NutritionCitation: nutritionCitation,
+		Tracer:            tracer,
 		Notify:            hub.Notify,
 	})
 	api := httpapi.New(st, evlog, orch, hub)
 	api.SetLLMStatus(llmStatus)
 	cleanup := func() {
 		hub.Close()
+		// Flush any batched spans before the process exits (graceful
+		// shutdown; main defers cleanup after srv.Shutdown returns).
+		flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := flushTraces(flushCtx); err != nil {
+			slog.Error("telemetry flush failed", "err", err)
+		}
 		closeStore()
 	}
 	return api.Handler(web.Handler()), cleanup, nil
