@@ -91,23 +91,23 @@ ham,deli ham;smoked ham,protein,
 bacon,,protein,
 italian sausage,pork sausage;sausage,protein,
 lamb,leg of lamb;lamb chop;ground lamb,protein,
-salmon,salmon fillet;atlantic salmon,protein,
-cod,cod fillet,protein,
-tilapia,,protein,
-trout,rainbow trout;freshwater trout,protein,
-halibut,,protein,
-canned tuna,tuna;light tuna;albacore tuna,protein,
-anchovy,anchovy fillet;anchovy paste,protein,
-sardine,canned sardine,protein,
-shrimp,prawn,protein,
+salmon,salmon fillet;atlantic salmon,protein,fish
+cod,cod fillet,protein,fish
+tilapia,,protein,fish
+trout,rainbow trout;freshwater trout,protein,fish
+halibut,,protein,fish
+canned tuna,tuna;light tuna;albacore tuna,protein,fish
+anchovy,anchovy fillet;anchovy paste,protein,fish
+sardine,canned sardine,protein,fish
+shrimp,prawn,protein,crustacean shellfish
 scallop,sea scallop;bay scallop,protein,
 mussel,,protein,
 clam,,protein,
-crab,crab meat;lump crab,protein,
-egg,chicken egg;large egg,protein,
-tofu,bean curd;firm tofu,protein,
-tempeh,,protein,
-edamame,young soybean;soybean,protein,
+crab,crab meat;lump crab,protein,crustacean shellfish
+egg,chicken egg;large egg,protein,eggs
+tofu,bean curd;firm tofu,protein,soybeans
+tempeh,,protein,soybeans
+edamame,young soybean;soybean,protein,soybeans
 black bean,canned black bean,protein,
 kidney bean,red kidney bean,protein,
 pinto bean,,protein,
@@ -116,57 +116,57 @@ navy bean,,protein,
 chickpea,garbanzo bean;canned chickpea,protein,
 lentil,red lentil;green lentil;brown lentil,protein,
 split pea,,protein,
-almond,raw almond;sliced almond;slivered almond,protein,
-walnut,walnut half,protein,
-pecan,,protein,
-cashew,,protein,
-pistachio,,protein,
-hazelnut,filbert,protein,
-peanut,roasted peanut,protein,
-pine nut,pignoli,protein,
+almond,raw almond;sliced almond;slivered almond,protein,tree nuts
+walnut,walnut half,protein,tree nuts
+pecan,,protein,tree nuts
+cashew,,protein,tree nuts
+pistachio,,protein,tree nuts
+hazelnut,filbert,protein,tree nuts
+peanut,roasted peanut,protein,peanuts
+pine nut,pignoli,protein,tree nuts
 sunflower seed,,protein,
 pumpkin seed,pepita,protein,
-sesame seed,toasted sesame seed,protein,
+sesame seed,toasted sesame seed,protein,sesame
 chia seed,,protein,
 flax seed,flaxseed;linseed;ground flaxseed,protein,
-milk,whole milk;2% milk;skim milk,dairy,
-buttermilk,,dairy,
-heavy cream,heavy whipping cream;double cream,dairy,
-sour cream,,dairy,
-cream cheese,,dairy,
-butter,unsalted butter;salted butter,dairy,
-yogurt,plain yogurt,dairy,
-greek yogurt,plain greek yogurt,dairy,
-cheddar,cheddar cheese;sharp cheddar,dairy,
-mozzarella,mozzarella cheese;fresh mozzarella,dairy,
-parmesan,parmesan cheese;parmigiano-reggiano;grated parmesan,dairy,
-feta,feta cheese,dairy,
-goat cheese,chevre,dairy,
-ricotta,ricotta cheese,dairy,
-cottage cheese,,dairy,
+milk,whole milk;2% milk;skim milk,dairy,milk
+buttermilk,,dairy,milk
+heavy cream,heavy whipping cream;double cream,dairy,milk
+sour cream,,dairy,milk
+cream cheese,,dairy,milk
+butter,unsalted butter;salted butter,dairy,milk
+yogurt,plain yogurt,dairy,milk
+greek yogurt,plain greek yogurt,dairy,milk
+cheddar,cheddar cheese;sharp cheddar,dairy,milk
+mozzarella,mozzarella cheese;fresh mozzarella,dairy,milk
+parmesan,parmesan cheese;parmigiano-reggiano;grated parmesan,dairy,milk
+feta,feta cheese,dairy,milk
+goat cheese,chevre,dairy,milk
+ricotta,ricotta cheese,dairy,milk
+cottage cheese,,dairy,milk
 white rice,long-grain white rice;jasmine rice;basmati rice,grain,
 brown rice,,grain,
 arborio rice,risotto rice,grain,
-pasta,spaghetti;penne;macaroni;fusilli;rotini;lasagna noodle,grain,
-egg noodle,,grain,
-couscous,,grain,
+pasta,spaghetti;penne;macaroni;fusilli;rotini;lasagna noodle,grain,wheat
+egg noodle,,grain,eggs;wheat
+couscous,,grain,wheat
 quinoa,,grain,
 oat,rolled oats;old-fashioned oats;oatmeal;quick oats,grain,
 barley,pearl barley,grain,
-bulgur,bulgur wheat,grain,
-farro,,grain,
+bulgur,bulgur wheat,grain,wheat
+farro,,grain,wheat
 cornmeal,polenta;corn grits;grits,grain,
-breadcrumb,breadcrumbs;panko;panko breadcrumbs,grain,
-bread,sandwich bread;baguette;crusty bread,grain,
-flour tortilla,tortilla,grain,
+breadcrumb,breadcrumbs;panko;panko breadcrumbs,grain,wheat
+bread,sandwich bread;baguette;crusty bread,grain,wheat
+flour tortilla,tortilla,grain,wheat
 corn tortilla,,grain,
-cracker,saltine;saltine cracker,grain,
+cracker,saltine;saltine cracker,grain,wheat
 popcorn,popcorn kernel,grain,
 olive oil,extra-virgin olive oil;evoo;light olive oil,fat,
 vegetable oil,canola oil;neutral oil;soybean oil,fat,
-sesame oil,toasted sesame oil,fat,
-coconut oil,virgin coconut oil,fat,
-peanut oil,,fat,
+sesame oil,toasted sesame oil,fat,sesame
+coconut oil,virgin coconut oil,fat,tree nuts
+peanut oil,,fat,peanuts
 salt,kosher salt;table salt;sea salt;fine salt,spice,
 black pepper,black peppercorn;ground black pepper,spice,
 cayenne pepper,ground cayenne;cayenne,spice,
@@ -195,12 +195,12 @@ cajun seasoning,creole seasoning,spice,
 dried thyme,,spice,
 dried basil,,spice,
 ketchup,tomato ketchup;catsup,condiment,
-mayonnaise,mayo,condiment,
+mayonnaise,mayo,condiment,eggs
 dijon mustard,french mustard,condiment,
 yellow mustard,american mustard;prepared mustard,condiment,
-soy sauce,tamari;shoyu;light soy sauce,condiment,
-fish sauce,,condiment,
-worcestershire sauce,,condiment,
+soy sauce,tamari;shoyu;light soy sauce,condiment,wheat;soybeans
+fish sauce,,condiment,fish
+worcestershire sauce,,condiment,fish
 hot sauce,tabasco;sriracha;louisiana hot sauce,condiment,
 oyster sauce,,condiment,
 balsamic vinegar,,condiment,
@@ -212,17 +212,17 @@ white vinegar,distilled white vinegar;distilled vinegar,condiment,
 honey,,condiment,
 maple syrup,pure maple syrup,condiment,
 jam,jelly;fruit preserves;strawberry jam,condiment,
-peanut butter,creamy peanut butter;crunchy peanut butter,condiment,
-almond butter,,condiment,
-tahini,sesame paste;sesame butter,condiment,
+peanut butter,creamy peanut butter;crunchy peanut butter,condiment,peanuts
+almond butter,,condiment,tree nuts
+tahini,sesame paste;sesame butter,condiment,sesame
 olive,kalamata olive;green olive;black olive,condiment,
 caper,,condiment,
 pickle,dill pickle;pickled cucumber,condiment,
 salsa,jarred salsa,condiment,
 bbq sauce,barbecue sauce,condiment,
-pesto,basil pesto,condiment,
-all-purpose flour,plain flour;white flour;ap flour,baking,
-whole-wheat flour,wholemeal flour,baking,
+pesto,basil pesto,condiment,milk;tree nuts
+all-purpose flour,plain flour;white flour;ap flour,baking,wheat
+whole-wheat flour,wholemeal flour,baking,wheat
 granulated sugar,white sugar;sugar;caster sugar,baking,
 brown sugar,light brown sugar;dark brown sugar,baking,
 powdered sugar,confectioners sugar;icing sugar,baking,
@@ -242,6 +242,6 @@ vegetable broth,vegetable stock,other,
 canned tomato,canned diced tomato;canned whole tomato;crushed tomato,other,
 tomato paste,,other,
 tomato sauce,passata;tomato puree,other,
-coconut milk,canned coconut milk,other,
+coconut milk,canned coconut milk,other,tree nuts
 white wine,dry white wine,other,
 red wine,dry red wine,other,

@@ -1,0 +1,247 @@
+name,foodon_id,big9,mapping_method
+onion,FOODON_03316347,,label_match
+red onion,FOODON_00003516,,label_match
+garlic,FOODON_00003582,,label_match
+shallot,FOODON_00003748,,label_match
+scallion,FOODON_00003697,,label_match
+leek,FOODON_00003670,,label_match
+ginger,FOODON_00001901,,label_match
+carrot,FOODON_00003408,,label_match
+celery,FOODON_03301727,,label_match
+bell pepper,FOODON_00003546,,label_match
+jalapeno,FOODON_00003494,,curated_class
+tomato,FOODON_03301453,,label_match
+cherry tomato,FOODON_00003773,,label_match
+potato,FOODON_03315354,,label_match
+sweet potato,FOODON_00003445,,label_match
+broccoli,FOODON_00003405,,label_match
+cauliflower,FOODON_00003410,,label_match
+cabbage,FOODON_00003406,,label_match
+brussels sprout,FOODON_03311885,,label_match
+kale,FOODON_03304859,,label_match
+spinach,FOODON_00003496,,label_match
+arugula,NCBITaxon_29727,,label_match
+romaine lettuce,NCBITaxon_1759395,,label_match
+lettuce,FOODON_00001998,,label_match
+swiss chard,FOODON_03306698,,label_match
+collard greens,FOODON_00003503,,label_match
+zucchini,FOODON_00002448,,curated_class
+yellow squash,FOODON_00003709,,label_match
+butternut squash,FOODON_00005354,,label_match
+cucumber,FOODON_00003415,,label_match
+mushroom,FOODON_00003528,,label_match
+eggplant,FOODON_00003618,,label_match
+green bean,FOODON_03305806,,label_match
+asparagus,NCBITaxon_4685,,label_match
+corn,NCBITaxon_381124,,label_match
+green pea,FOODON_03317199,,label_match
+beet,FOODON_03317254,,label_match
+radish,FOODON_00003431,,label_match
+turnip,FOODON_00003447,,label_match
+parsnip,FOODON_00003693,,label_match
+pumpkin,FOODON_00003486,,label_match
+avocado,FOODON_00003600,,label_match
+fennel,FOODON_03000244,,label_match
+parsley,FOODON_03000230,,label_match
+cilantro,NCBITaxon_4047,,label_match
+basil,FOODON_00003044,,label_match
+mint,FOODON_00002432,,label_match
+dill,FOODON_00001811,,label_match
+chive,FOODON_03311167,,label_match
+thyme,FOODON_00002312,,label_match
+rosemary,NCBITaxon_39367,,label_match
+sage,FOODON_00002217,,label_match
+lemon,FOODON_03315104,,label_match
+lime,FOODON_00003661,,label_match
+orange,FOODON_03315106,,label_match
+apple,FOODON_00002473,,label_match
+banana,FOODON_00004183,,label_match
+strawberry,FOODON_00003443,,label_match
+blueberry,FOODON_00003541,,label_match
+raspberry,FOODON_00003433,,label_match
+blackberry,FOODON_00003487,,label_match
+grape,FOODON_00003417,,label_match
+peach,FOODON_03315502,,label_match
+pear,FOODON_00003041,,label_match
+plum,FOODON_00003483,,label_match
+cherry,FOODON_00003478,,label_match
+pineapple,FOODON_00003459,,label_match
+mango,FOODON_00003538,,label_match
+watermelon,FOODON_00003673,,label_match
+cantaloupe,FOODON_00003577,,label_match
+kiwi,FOODON_03414363,,label_match
+grapefruit,FOODON_00003554,,label_match
+raisin,FOODON_03301283,,label_match
+dried cranberry,,,unmapped
+date,FOODON_03304506,,label_match
+dried apricot,,,unmapped
+chicken breast,FOODON_00002703,,label_match
+chicken thigh,FOODON_02020219,,label_match
+whole chicken,FOODON_03411457,,alias_match
+ground turkey,FOODON_00002714,,label_match
+turkey breast,FOODON_00002690,,label_match
+ground beef,FOODON_00001282,,label_match
+beef steak,FOODON_00003029,,label_match
+beef chuck roast,FOODON_02000103,,label_match
+ground pork,,,unmapped
+pork chop,FOODON_00004490,,label_match
+pork tenderloin,FOODON_02000306,,label_match
+pork shoulder,FOODON_02000322,,label_match
+ham,FOODON_00002502,,label_match
+bacon,,,unmapped
+italian sausage,FOODON_03317294,,label_match
+lamb,FOODON_03411669,,label_match
+salmon,FOODON_00003473,fish,label_match
+cod,FOODON_03411423,fish,label_match
+tilapia,FOODON_03412434,fish,label_match
+trout,FOODON_03411258,fish,label_match
+halibut,FOODON_03411532,fish,label_match
+canned tuna,FOODON_03411269,fish,curated_class
+anchovy,FOODON_03316282,fish,label_match
+sardine,FOODON_03411558,fish,label_match
+shrimp,FOODON_03411237,crustacean shellfish,label_match
+scallop,FOODON_02020805,,label_match
+mussel,FOODON_03411223,,label_match
+clam,FOODON_03411331,,label_match
+crab,FOODON_02021446,crustacean shellfish,label_match
+egg,FOODON_03316061,eggs,curated_class
+tofu,FOODON_00004697,soybeans,label_match
+tempeh,FOODON_03304999,soybeans,label_match
+edamame,FOODON_00002809,soybeans,label_match
+black bean,FOODON_00002889,,label_match
+kidney bean,FOODON_00002761,,label_match
+pinto bean,FOODON_03309759,,label_match
+cannellini bean,FOODON_03301232,,alias_match
+navy bean,FOODON_00002685,,label_match
+chickpea,FOODON_03306811,,label_match
+lentil,FOODON_03310641,,label_match
+split pea,FOODON_00005271,,label_match
+almond,FOODON_00003523,tree nuts,label_match
+walnut,FOODON_03301364,tree nuts,label_match
+pecan,FOODON_00003699,tree nuts,label_match
+cashew,FOODON_03301357,tree nuts,label_match
+pistachio,FOODON_00003691,tree nuts,label_match
+hazelnut,FOODON_00002933,tree nuts,label_match
+peanut,FOODON_00003206,peanuts,label_match
+pine nut,FOODON_03306517,tree nuts,label_match
+sunflower seed,FOODON_00003581,,label_match
+pumpkin seed,FOODON_00004886,,label_match
+sesame seed,FOODON_03310306,sesame,label_match
+chia seed,FOODON_00002961,,label_match
+flax seed,FOODON_00003683,,alias_match
+milk,UBERON_0001913,milk,label_match
+buttermilk,FOODON_00002398,milk,curated_class
+heavy cream,FOODON_03310795,milk,label_match
+sour cream,FOODON_03302515,milk,label_match
+cream cheese,FOODON_03301889,milk,label_match
+butter,FOODON_03310351,milk,label_match
+yogurt,FOODON_00001014,milk,curated_class
+greek yogurt,FOODON_00004409,milk,label_match
+cheddar,FOODON_03302458,milk,curated_class
+mozzarella,FOODON_03303578,milk,curated_class
+parmesan,FOODON_00003247,milk,curated_class
+feta,FOODON_03307280,milk,curated_class
+goat cheese,FOODON_03303655,milk,curated_class
+ricotta,FOODON_03302908,milk,curated_class
+cottage cheese,FOODON_03301605,milk,label_match
+white rice,FOODON_00003787,,label_match
+brown rice,,,unmapped
+arborio rice,FOODON_00002575,,label_match
+pasta,FOODON_03306347,wheat,label_match
+egg noodle,FOODON_03301006,eggs;wheat,label_match
+couscous,FOODON_03303207,wheat,curated_class
+quinoa,FOODON_03310193,,label_match
+oat,FOODON_00003429,,label_match
+barley,FOODON_00003108,,label_match
+bulgur,FOODON_00003143,wheat,label_match
+farro,,wheat,unmapped+curated_allergen
+cornmeal,FOODON_03310257,,label_match
+breadcrumb,,wheat,unmapped+curated_allergen
+bread,FOODON_03000288,wheat,label_match+curated_allergen
+flour tortilla,FOODON_03307668,wheat,curated_class+curated_allergen
+corn tortilla,,,unmapped
+cracker,FOODON_00002711,wheat,label_match+curated_allergen
+popcorn,,,unmapped
+olive oil,FOODON_03301826,,label_match
+vegetable oil,FOODON_03305263,,label_match
+sesame oil,FOODON_03304152,sesame,label_match+curated_allergen
+coconut oil,FOODON_03310046,tree nuts,label_match
+peanut oil,FOODON_03309857,peanuts,label_match
+salt,CHEBI_24866,,label_match
+black pepper,FOODON_03000242,,label_match
+cayenne pepper,FOODON_00003798,,label_match
+red pepper flake,,,unmapped
+paprika,,,unmapped
+smoked paprika,,,unmapped
+chili powder,FOODON_03302030,,label_match
+cumin,FOODON_03311872,,label_match
+coriander,FOODON_03310370,,label_match
+turmeric,FOODON_00003753,,label_match
+curry powder,FOODON_03301842,,label_match
+garlic powder,FOODON_03301844,,label_match
+onion powder,FOODON_03301845,,label_match
+oregano,FOODON_03301482,,label_match
+bay leaf,FOODON_00003802,,label_match
+cinnamon,FOODON_03301175,,label_match
+nutmeg,FOODON_03301528,,label_match
+clove,BTO_0000262,,label_match
+allspice,FOODON_00002667,,label_match
+ground ginger,FOODON_03310490,,label_match
+cardamom,FOODON_00003792,,label_match
+fennel seed,FOODON_00004266,,label_match
+mustard powder,FOODON_03306359,,label_match
+italian seasoning,,,unmapped
+cajun seasoning,,,unmapped
+dried thyme,,,unmapped
+dried basil,,,unmapped
+ketchup,FOODON_03301460,,alias_match
+mayonnaise,FOODON_03301440,eggs,label_match+curated_allergen
+dijon mustard,,,unmapped
+yellow mustard,NCBITaxon_3728,,label_match
+soy sauce,FOODON_03301115,wheat;soybeans,label_match+curated_allergen
+fish sauce,FOODON_03317197,fish,label_match+curated_allergen
+worcestershire sauce,FOODON_03305003,fish,label_match+curated_allergen
+hot sauce,FOODON_03304006,,label_match
+oyster sauce,FOODON_03317654,,label_match
+balsamic vinegar,,,unmapped
+red wine vinegar,,,unmapped
+white wine vinegar,,,unmapped
+apple cider vinegar,FOODON_03307916,,alias_match
+rice vinegar,FOODON_03307370,,alias_match
+white vinegar,FOODON_03301854,,alias_match
+honey,UBERON_0036016,,label_match
+maple syrup,FOODON_03301848,,label_match
+jam,FOODON_03309973,,label_match
+peanut butter,FOODON_03306867,peanuts,label_match
+almond butter,FOODON_03310875,tree nuts,label_match
+tahini,FOODON_00003855,sesame,label_match+curated_allergen
+olive,FOODON_03317509,,label_match
+caper,FOODON_00003493,,label_match
+pickle,FOODON_00003005,,label_match
+salsa,FOODON_03310086,,label_match
+bbq sauce,,,unmapped
+pesto,,milk;tree nuts,unmapped+curated_allergen
+all-purpose flour,FOODON_03302339,wheat,curated_class
+whole-wheat flour,FOODON_03302340,wheat,label_match
+granulated sugar,FOODON_03420157,,alias_match
+brown sugar,FOODON_03420156,,label_match
+powdered sugar,,,unmapped
+baking soda,CHEBI_32139,,alias_match
+baking powder,FOODON_03301940,,label_match
+yeast,FOODON_03411345,,label_match
+cornstarch,,,unmapped
+vanilla extract,NCBITaxon_51238,,alias_match
+cocoa powder,FOODON_03301072,,label_match
+chocolate chip,FOODON_03304096,,label_match
+dark chocolate,FOODON_03303588,,label_match
+cream of tartar,,,unmapped
+molasses,CHEBI_83163,,label_match
+chicken broth,FOODON_03303004,,label_match
+beef broth,FOODON_03302091,,label_match
+vegetable broth,FOODON_03315835,,alias_match
+canned tomato,,,unmapped
+tomato paste,FOODON_03301455,,label_match
+tomato sauce,FOODON_03301217,,label_match
+coconut milk,FOODON_03303084,tree nuts,label_match
+white wine,FOODON_03310273,,label_match
+red wine,FOODON_03310272,,label_match

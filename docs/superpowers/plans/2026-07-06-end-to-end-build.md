@@ -284,7 +284,7 @@ replayed token-cadence **after** the safety screen passes.
 - [x] **2.3 units** — Create `internal/services/units.go` + tests: metric↔US mass/
   volume; volume→mass ONLY via portions table; unknown unit → error surfaced as
   unverified. Commit.
-- [ ] **2.4 FoodOn + allergens** — Create `scripts/vendor_foodon.py` (foodon-base →
+- [x] **2.4 FoodOn + allergens** — Create `scripts/vendor_foodon.py` (foodon-base →
   ingredient→Big-9 transitive-closure CSV → `data/foodon/{allergens.csv,PROVENANCE.md}`);
   implement `internal/services/allergen.go`: declared allergens × resolved ingredients;
   **fail-closed** — unresolved ingredient + declared allergens → block reason
