@@ -65,3 +65,16 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   now fails at startup when the CSVs are absent (tested) — an image without data
   cannot silently run. (d) Cost keeps its no-alias name lookup: "flat-leaf parsley"
   stays an unpriced footnote (never $0) — honest, and visible in the UI.
+
+## 2026-07-07
+- **Gate A cleared:** user reviewed safety rules, cost table, ingredient universe +
+  provenance and approved as-is ("looks good"), no redirects. Phase 3 begins.
+- **3.1 live-docs verification (api-docs.deepseek.com, fetched 2026-07-07):**
+  `deepseek-v4-pro` confirmed live (1M context; legacy `deepseek-chat`/`deepseek-reasoner`
+  deprecate 2026-07-24; a cheaper `deepseek-v4-flash` also exists). `/beta` strict
+  tool-calling confirmed: strict:true, all properties required, additionalProperties:false
+  — matches SPEC §4c exactly. `json_object` mode remains schema-unvalidated with the
+  documented occasional-empty-content caveat (+ include-"json"-in-prompt, max_tokens).
+  **No structural drift — Phase 3 proceeds.** Cosmetic drift: pricing now
+  $0.435/M in ($0.003625/M cache-hit) / $0.87/M out (~4x cheaper than SPEC's stale
+  $1.74/$3.48); "5M free tokens" no longer documented. SPEC §2/§4c patched this commit.
