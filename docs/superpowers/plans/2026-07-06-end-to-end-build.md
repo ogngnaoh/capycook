@@ -361,7 +361,7 @@ replayed token-cadence **after** the safety screen passes.
 
 ## Phase 4 — Eval harness (spec §7)
 
-- [ ] **4.1 replay metrics** — Create `internal/eval/{replay.go,rates.go}` + tests
+- [x] **4.1 replay metrics** — Create `internal/eval/{replay.go,rates.go}` + tests
   against synthetic fixtures in `internal/eval/testdata/`. Gate-dynamics fold: native
   verb/event distribution per move-category, `run_kind=operator` only, explicit N +
   session count (session_id boundaries); frozen-five roll-up via the spec §4 mapping

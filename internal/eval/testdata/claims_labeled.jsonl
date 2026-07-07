@@ -1,0 +1,13 @@
+{"claim_id": "clm-synth-g1", "arm": "grounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim g1", "source": "synthetic://usda/000001", "label_r1": "grounded-correct", "label_r2": "grounded-correct"}
+{"claim_id": "clm-synth-g2", "arm": "grounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim g2", "source": "synthetic://usda/000002", "label_r1": "grounded-correct", "label_r2": ""}
+{"claim_id": "clm-synth-g3", "arm": "grounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim g3 [unverified]", "source": "", "label_r1": "correctly-unverified", "label_r2": ""}
+{"claim_id": "clm-synth-g4", "arm": "grounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim g4", "source": "synthetic://usda/000004", "label_r1": "grounded-mischaracterized", "label_r2": "hallucinated"}
+{"claim_id": "clm-synth-g5", "arm": "grounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim g5", "source": "", "label_r1": "hallucinated", "label_r2": ""}
+{"claim_id": "clm-synth-g6", "arm": "grounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim g6 (a matter of taste)", "source": "", "label_r1": "opinion-non-checkable", "label_r2": ""}
+{"claim_id": "clm-synth-g7", "arm": "grounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim g7 (not yet labeled)", "source": "synthetic://usda/000007", "label_r1": "", "label_r2": ""}
+{"claim_id": "clm-synth-g8", "arm": "grounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim g8", "source": "synthetic://usda/000008", "label_r1": "grounded-correct", "label_r2": ""}
+{"claim_id": "clm-synth-u1", "arm": "ungrounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim u1", "source": "", "label_r1": "hallucinated", "label_r2": "hallucinated"}
+{"claim_id": "clm-synth-u2", "arm": "ungrounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim u2", "source": "", "label_r1": "hallucinated", "label_r2": ""}
+{"claim_id": "clm-synth-u3", "arm": "ungrounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim u3 [unverified]", "source": "", "label_r1": "correctly-unverified", "label_r2": ""}
+{"claim_id": "clm-synth-u4", "arm": "ungrounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim u4 (a matter of taste)", "source": "", "label_r1": "opinion-non-checkable", "label_r2": ""}
+{"claim_id": "clm-synth-u5", "arm": "ungrounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim u5", "source": "", "label_r1": "hallucinated", "label_r2": ""}

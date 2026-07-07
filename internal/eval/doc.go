@@ -1,5 +1,7 @@
-// Package eval is the harness (hero artifact): replays eventlog into gate
-// dynamics, computes the three provenance rates + Cohen's kappa, and runs
-// the fixed 3-arm ablation (P0-B; SPEC §3, PREREGISTRATION §6/§7).
-// Stub — no logic yet (lands in milestone 00, slice S0.2).
+// Package eval is the hand-rolled eval harness (hero artifact; SPEC §3/§5,
+// PREREGISTRATION §5–§8): it replays the append-only event log into the H2
+// gate-dynamics fold (native distribution per move category + the stated
+// frozen-five derivation) and computes the three frozen §7a provenance rates
+// over labeled-claim files. Cohen's κ, the 3-arm runner, and the CLI land in
+// later phase-4 tasks.
 package eval
