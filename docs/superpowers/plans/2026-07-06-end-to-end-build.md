@@ -270,7 +270,7 @@ replayed token-cadence **after** the safety screen passes.
 
 ## Phase 2 — Data + deterministic services + safety gate (spec §5–§6)
 
-- [ ] **2.1 ingredient universe** — Create `data/ingredients.csv` (~150–250 Western
+- [x] **2.1 ingredient universe** — Create `data/ingredients.csv` (~150–250 Western
   staples: name, aliases, category, big9_flags placeholder) + `data/README.md`
   provenance section. Draft via stated procedure (staple lists from named public
   sources), logged in log.md. Commit.

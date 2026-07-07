@@ -33,3 +33,4 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   (seed → stream → proposal → accept → garlic-oil block → redirect recovery →
   versions panel) — interactive via Chrome + committed PNGs captured headless with
   puppeteer-core (scratchpad-only tooling, not a repo dependency).
+- **2.1 ingredient-universe procedure:** union of the five USDA MyPlate food-group example lists + the Food Network Kitchen pantry/fridge/freezer essentials checklist (both verified via dated Wayback snapshots — live MyPlate deep links now redirect to the homepage and foodnetwork.com/fsis.usda.gov 403 automated clients), normalized to lowercase-singular canonicals with alias/category rules, plus builder-curated additions covering the plan's mandated high-risk-protein/Big-9-carrier/demo set → 246 rows, `big9_flags` left empty for the 2.4 FoodOn closure; snapshot URLs in `data/README.md`.
