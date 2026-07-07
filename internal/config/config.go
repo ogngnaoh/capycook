@@ -12,6 +12,7 @@ import (
 type Config struct {
 	Port              string
 	DBPath            string
+	DataDir           string // committed data/ assets (CSV tables), not the SQLite home
 	DeepSeekAPIKey    string
 	LangfusePublicKey string
 	LangfuseSecretKey string
@@ -24,6 +25,7 @@ func Load() Config {
 	c := Config{
 		Port:              getenvDefault("PORT", "8080"),
 		DBPath:            getenvDefault("DB_PATH", "./data/capycook.db"),
+		DataDir:           getenvDefault("DATA_DIR", "./data"),
 		DeepSeekAPIKey:    os.Getenv("DEEPSEEK_API_KEY"),
 		LangfusePublicKey: os.Getenv("LANGFUSE_PUBLIC_KEY"),
 		LangfuseSecretKey: os.Getenv("LANGFUSE_SECRET_KEY"),

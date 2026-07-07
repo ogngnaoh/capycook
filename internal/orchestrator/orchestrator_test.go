@@ -80,17 +80,26 @@ func newEnv(t *testing.T) *env {
 	t.Cleanup(func() { st.Close() })
 	e := &env{st: st, log: eventlog.New(st), llm: &fakeLLM{}, outcomes: make(chan Outcome, 32)}
 	e.orch = New(Deps{
-		Store:     st,
-		Log:       e.log,
-		LLM:       e.llm,
-		Safety:    services.StubSafetyGate{},
-		Nutrition: services.StubNutrition{},
-		Cost:      services.StubCost{},
-		Grounding: grounding.Stub{},
-		Notify:    func(o Outcome) { e.outcomes <- o },
+		Store:             st,
+		Log:               e.log,
+		LLM:               e.llm,
+		Safety:            services.StubSafetyGate{},
+		Nutrition:         services.StubNutrition{},
+		Cost:              services.StubCost{},
+		Grounding:         grounding.Stub{},
+		CostCitation:      testCostCitation,
+		NutritionCitation: testNutritionCitation,
+		Notify:            func(o Outcome) { e.outcomes <- o },
 	})
 	return e
 }
+
+// Wiring-supplied deterministic-citation metadata (task 2.8): cmd/server
+// fills these from the data assets' provenance; tests use marker values.
+var (
+	testCostCitation      = proposal.Citation{Source: "test-cost-table", Ref: "prices.csv@test", Date: "2026-07-01"}
+	testNutritionCitation = proposal.Citation{Source: "test-usda", Ref: "nutrients.csv@test", Date: "2026-07-02"}
+)
 
 func testConstraints() draft.Constraints {
 	return draft.Constraints{
@@ -723,6 +732,108 @@ func TestDeterministicDialOff(t *testing.T) {
 	}
 	if got := e.versionDraft(t, res.NewVersionID).Analysis.Nutrition.Calories; got != 420 {
 		t.Errorf("accepted nutrition calories = %v, want 420", got)
+	}
+}
+
+// --- grounding resolution + deterministic citations (task 2.8) ---
+
+func ingredientByName(t *testing.T, d draft.Draft, name string) draft.Ingredient {
+	t.Helper()
+	for _, ing := range d.Ingredients {
+		if ing.Name == name {
+			return ing
+		}
+	}
+	t.Fatalf("ingredient %q not in draft: %+v", name, d.Ingredients)
+	return draft.Ingredient{}
+}
+
+// TestProposalChangeCarriesResolvedIDs: proposal ops are re-diffed after
+// grounding resolution BEFORE the safety screen runs, so the allergen check
+// keys on FDC/FoodOn ids (aliases resolve via grounding, not the gate).
+// Unresolvable names keep nil ids — the gate stays fail-closed on them.
+func TestProposalChangeCarriesResolvedIDs(t *testing.T) {
+	e := newEnv(t)
+	e.createDish(t, "d1", true)
+	p := readyProposal(t, e, "d1", llm.MoveTypeSeedExpand, "")
+	proposed, err := emptyDraft().Apply(p.Change)
+	if err != nil {
+		t.Fatalf("apply proposal change: %v", err)
+	}
+	oil := ingredientByName(t, proposed, "olive oil")
+	if oil.FDCID == nil || *oil.FDCID != "fdc-1750351" {
+		t.Errorf("olive oil FDCID = %v, want the grounding stub's fdc-1750351", oil.FDCID)
+	}
+	if oil.FoodOnID == nil || *oil.FoodOnID != "FOODON_03305263" {
+		t.Errorf("olive oil FoodOnID = %v, want FOODON_03305263", oil.FoodOnID)
+	}
+	parsley := ingredientByName(t, proposed, "flat-leaf parsley")
+	if parsley.FDCID != nil || parsley.FoodOnID != nil {
+		t.Errorf("unresolvable ingredient ids = %v/%v, want nil/nil", parsley.FDCID, parsley.FoodOnID)
+	}
+}
+
+// TestAcceptSnapshotCarriesResolvedIDs: the accepted version's snapshot
+// keeps the resolved ids, so later nutrition/allergen lookups key on them.
+func TestAcceptSnapshotCarriesResolvedIDs(t *testing.T) {
+	e := newEnv(t)
+	e.createDish(t, "d1", true)
+	p := readyProposal(t, e, "d1", llm.MoveTypeSeedExpand, "")
+	res, err := e.orch.Gate(context.Background(), GateRequest{
+		DishID: "d1", SessionID: session, ProposalID: p.ID, Verb: VerbAccept,
+	})
+	if err != nil {
+		t.Fatalf("accept: %v", err)
+	}
+	d := e.versionDraft(t, res.NewVersionID)
+	oil := ingredientByName(t, d, "olive oil")
+	if oil.FDCID == nil || *oil.FDCID != "fdc-1750351" {
+		t.Errorf("snapshot olive oil FDCID = %v, want fdc-1750351", oil.FDCID)
+	}
+	parsley := ingredientByName(t, d, "flat-leaf parsley")
+	if parsley.FDCID != nil || parsley.FoodOnID != nil {
+		t.Errorf("snapshot unresolvable ids = %v/%v, want nil/nil", parsley.FDCID, parsley.FoodOnID)
+	}
+}
+
+// TestDeterministicCitationsFromWiring: deterministic recomputes cite the
+// wiring-supplied provenance — the cost-table citation verbatim; nutrition's
+// base citation plus one deterministic fdc citation per resolvable
+// ingredient (never a fabricated id).
+func TestDeterministicCitationsFromWiring(t *testing.T) {
+	e := newEnv(t)
+	e.createDish(t, "d1", true)
+	e.seedVersion(t, "d1", safeDraft())
+
+	if _, err := e.orch.Move(context.Background(), "d1", session, llm.MoveTypeNutritionRecompute, ""); err != nil {
+		t.Fatalf("Move(nutrition_recompute): %v", err)
+	}
+	out := e.waitOutcome(t, OutcomeAutoAdvanced)
+	cites := out.Proposals[0].Citations
+	if len(cites) == 0 || cites[0] != testNutritionCitation {
+		t.Fatalf("nutrition citations = %+v, want the wired base citation first", cites)
+	}
+	wantRefs := map[string]bool{ // safeDraft: carrot + olive oil, both stub-resolvable
+		"fdc:fdc-2258586 (carrot)":    false,
+		"fdc:fdc-1750351 (olive oil)": false,
+	}
+	for _, c := range cites[1:] {
+		if _, ok := wantRefs[c.Ref]; ok {
+			wantRefs[c.Ref] = true
+		}
+	}
+	for ref, seen := range wantRefs {
+		if !seen {
+			t.Errorf("nutrition citations missing %q: %+v", ref, cites)
+		}
+	}
+
+	if _, err := e.orch.Move(context.Background(), "d1", session, llm.MoveTypeCostRecompute, ""); err != nil {
+		t.Fatalf("Move(cost_recompute): %v", err)
+	}
+	out = e.waitOutcome(t, OutcomeAutoAdvanced)
+	if cites := out.Proposals[0].Citations; len(cites) != 1 || cites[0] != testCostCitation {
+		t.Errorf("cost citations = %+v, want exactly the wired cost-table citation", cites)
 	}
 }
 

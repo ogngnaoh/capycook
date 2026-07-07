@@ -517,6 +517,27 @@ func TestTakeOverAppliesUserDraft(t *testing.T) {
 	}
 }
 
+// TestTakeOverResolvesIngredientIDs: commitVersion resolves ids on
+// human-authored drafts too, so every snapshot keys nutrition/allergen
+// lookups on ids regardless of how it was produced.
+func TestTakeOverResolvesIngredientIDs(t *testing.T) {
+	e := newEnv(t)
+	e.createDish(t, "d1", true)
+	p := readyProposal(t, e, "d1", llm.MoveTypeSeedExpand, "")
+	user := safeDraft() // carrot + olive oil, no ids
+	res, err := e.orch.Gate(context.Background(), GateRequest{
+		DishID: "d1", SessionID: session, ProposalID: p.ID, Verb: VerbTakeOver, Draft: &user,
+	})
+	if err != nil {
+		t.Fatalf("take_over: %v", err)
+	}
+	d := e.versionDraft(t, res.NewVersionID)
+	carrot := ingredientByName(t, d, "carrot")
+	if carrot.FDCID == nil || *carrot.FDCID != "fdc-2258586" {
+		t.Errorf("carrot FDCID = %v, want the grounding stub's fdc-2258586", carrot.FDCID)
+	}
+}
+
 func TestTakeOverWarnRequiresConfirmOverride(t *testing.T) {
 	e := newEnv(t)
 	e.createDish(t, "d1", true)

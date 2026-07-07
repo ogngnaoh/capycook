@@ -39,6 +39,18 @@ func TestLoadDBPath(t *testing.T) {
 	}
 }
 
+func TestLoadDataDir(t *testing.T) {
+	t.Setenv("DATA_DIR", "")
+	if got := Load().DataDir; got != "./data" {
+		t.Fatalf("default DataDir = %q, want ./data", got)
+	}
+
+	t.Setenv("DATA_DIR", "/srv/data")
+	if got := Load().DataDir; got != "/srv/data" {
+		t.Fatalf("DataDir = %q, want /srv/data", got)
+	}
+}
+
 func TestLoadMissingSecretsNonFatal(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "")
 	c := Load() // must not panic / must not exit

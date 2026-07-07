@@ -1,19 +1,24 @@
 # Handoff — Milestone 01 (end-to-end build)
 
 ## Next session start here
-Continue at Phase 2 task 2.1 (first unchecked box) in
-`docs/superpowers/plans/2026-07-06-end-to-end-build.md`.
+**Gate A review** (plan task 2.8 stop): present `data/safety/*`,
+`data/cost/prices.csv`, `data/ingredients.csv` + the per-asset PROVENANCE.md
+files to the user; apply redirects, then tag `phase-2-data-services` and
+continue at task 3.1 in `docs/superpowers/plans/2026-07-06-end-to-end-build.md`.
 
 ## Current state
-- Branch `e2e`, tagged `phase-1-skeleton` @ the evidence commit. All suites green;
-  e2e script passes local + docker; UI evidence in docs/01-end-to-end/evidence/phase1/.
-- Full skeleton live: store/draft/proposal/eventlog/stub-edges/orchestrator/transport/
-  httpapi/graybox workbench/CI. Stub LLM + stub services (placeholder numbers,
-  seeded garlic-oil block only).
-- Phase 2 (data + real deterministic services + safety gate) is next; it ends at
-  **Gate A** — user reviews data/safety/*, data/cost/prices.csv, data/ingredients.csv.
+- Branch `e2e`; Phase 2 complete through 2.8 (untagged — orchestrator tags after
+  review). All suites green; e2e script passes local + docker
+  (evidence/phase2/e2e_{local,docker}.txt).
+- Real edges wired in cmd/server: USDA nutrition, cost table, FSIS/CDC safety gate
+  (allergen composed), FlavorGraph + Resolve grounding. Accept/take_over/edit
+  snapshots carry resolver-filled fdc/foodon ids + real analysis; deterministic
+  recomputes cite real provenance (fdc ids, cost-table as-of). LLM is still the
+  Phase-1 stub (no live calls before Gate B).
+- Container ships the data CSVs at /srv/data (`DATA_DIR`), outside the /data volume.
 
 ## Active concerns
-- Real-data vendoring (USDA/FoodOn/FlavorGraph) is network-dependent; scripts must
-  pin releases/SHAs per spec §5.
-- No live LLM calls anywhere until Gate B (Phase 3).
+- Gate A honesty: cost tier-B rows are builder estimates (tagged per row); FoodOn
+  closure + safety lexicon rows each carry citations — user spot-review pending.
+- Phase 3 verify-before-build: re-check DeepSeek docs (model id, /beta strict,
+  json_object, pricing) before any 3.x work; structural drift stops at Gate B.

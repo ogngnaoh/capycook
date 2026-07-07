@@ -310,7 +310,7 @@ replayed token-cadence **after** the safety screen passes.
   pre-normalized dot-product top-k=10; Resolve = normalize (lowercase/singularize/
   strip qualifiers) + `data/aliases.csv`. Tests: known pairing fixture; resolution
   hits/misses; determinism. Commit.
-- [ ] **2.8 wire real services** — Modify orchestrator wiring: accept recomputes real
+- [x] **2.8 wire real services** — Modify orchestrator wiring: accept recomputes real
   analysis into snapshots; deterministic moves (cost/nutrition recompute, scale)
   compute via services with confidence=1.0 + deterministic citations; UI draft pane
   renders analysis + `[approximate]`/`[unverified]` chips (graybox). Re-run

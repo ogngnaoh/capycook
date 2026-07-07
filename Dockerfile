@@ -25,7 +25,12 @@ COPY --from=build /out/capycook /capycook
 # /data is the SQLite home: owned by the nonroot uid so the server can write
 # it, declared a volume so the database outlives any single container.
 COPY --from=build --chown=65532:65532 /out/data /data
+# The committed data/ assets (USDA/FoodOn/cost/safety/FlavorGraph CSVs) ship
+# read-only inside the image, OUTSIDE the /data volume so a mount never
+# shadows them; the real services load them at startup via DATA_DIR.
+COPY --from=build /src/data /srv/data
 ENV DB_PATH=/data/capycook.db
+ENV DATA_DIR=/srv/data
 VOLUME /data
 USER nonroot:nonroot
 EXPOSE 8080

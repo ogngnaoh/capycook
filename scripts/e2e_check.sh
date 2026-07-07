@@ -254,8 +254,8 @@ run_local() {
     step "make build"
     make -C "$ROOT" build
 
-    step "start server (DB_PATH=$db, PORT=$LOCAL_PORT)"
-    DB_PATH="$db" PORT="$LOCAL_PORT" "$ROOT/bin/capycook" >"$WORK/server-1.log" 2>&1 &
+    step "start server (DB_PATH=$db, PORT=$LOCAL_PORT, DATA_DIR=$ROOT/data)"
+    DB_PATH="$db" PORT="$LOCAL_PORT" DATA_DIR="$ROOT/data" "$ROOT/bin/capycook" >"$WORK/server-1.log" 2>&1 &
     SERVER_PID=$!
     wait_healthz "$base" "local server"
 
@@ -264,7 +264,7 @@ run_local() {
     step "restart server on the same DB_PATH"
     kill "$SERVER_PID"
     wait "$SERVER_PID" 2>/dev/null || true
-    DB_PATH="$db" PORT="$LOCAL_PORT" "$ROOT/bin/capycook" >"$WORK/server-2.log" 2>&1 &
+    DB_PATH="$db" PORT="$LOCAL_PORT" DATA_DIR="$ROOT/data" "$ROOT/bin/capycook" >"$WORK/server-2.log" 2>&1 &
     SERVER_PID=$!
     wait_healthz "$base" "restarted local server"
 

@@ -48,3 +48,20 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   the one per_unit row ($/doz ÷ 12, unit count recovered via the 50.3 g whole-egg
   portion). Artifact pins + substitution list in `data/cost/PROVENANCE.md`;
   `scripts/vendor_cost.py` re-runs the extraction and preserves tier-B rows.
+- **2.8 wiring decisions:** (a) grounding resolution is applied to every change set
+  BEFORE the safety screen (proposal ops, edit ops, and take_over drafts are
+  re-diffed with resolver-filled fdc/foodon ids) — required, not cosmetic: the
+  fail-closed allergen check deliberately does no alias resolution, so the stub's
+  "flat-leaf parsley" would false-block any dish with a declared allergen without it
+  (spec §5 pins resolution as the step feeding the allergen rule). commitVersion also
+  re-resolves, so every snapshot keys nutrition/allergen on ids regardless of path.
+  (b) Deterministic recomputes compute over the resolved draft and cite exactly what
+  they used: nutrition = wiring-supplied USDA provenance (Foundation 2026-04-30 +
+  SR Legacy 2018-04) plus one `fdc:<id>` citation per resolved ingredient; cost = the
+  cost-table provenance (assembled 2026-07-07, per-row as_of). Citation metadata rides
+  orchestrator Deps so stub-mode/tests fall back to generic refs — never a fabricated
+  provenance. (c) Data assets reach the container OUTSIDE the /data volume
+  (`/srv/data` + `DATA_DIR` env; volume mounts would shadow baked files), and wire()
+  now fails at startup when the CSVs are absent (tested) — an image without data
+  cannot silently run. (d) Cost keeps its no-alias name lookup: "flat-leaf parsley"
+  stays an unpriced footnote (never $0) — honest, and visible in the UI.

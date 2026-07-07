@@ -87,17 +87,22 @@ export default function DraftPane({ draft, heading = 'Draft', children }: {
   )
 }
 
+// fmt rounds analysis values for display: the real services hand back
+// unrounded floats (per-100g arithmetic), which the graybox panel shows to
+// at most one decimal.
+const fmt = (v: number) => String(Math.round(v * 10) / 10)
+
 function AnalysisPanel({ draft }: { draft: Draft }) {
   const { cost, nutrition } = draft.analysis
   const nutritionRows: [string, string][] = [
-    ['calories', `${nutrition.calories}`],
-    ['protein', `${nutrition.protein_g} g`],
-    ['fat', `${nutrition.fat_g} g`],
-    ['sat fat', `${nutrition.sat_fat_g} g`],
-    ['carbs', `${nutrition.carbs_g} g`],
-    ['fiber', `${nutrition.fiber_g} g`],
-    ['sugar', `${nutrition.sugar_g} g`],
-    ['sodium', `${nutrition.sodium_mg} mg`],
+    ['calories', fmt(nutrition.calories)],
+    ['protein', `${fmt(nutrition.protein_g)} g`],
+    ['fat', `${fmt(nutrition.fat_g)} g`],
+    ['sat fat', `${fmt(nutrition.sat_fat_g)} g`],
+    ['carbs', `${fmt(nutrition.carbs_g)} g`],
+    ['fiber', `${fmt(nutrition.fiber_g)} g`],
+    ['sugar', `${fmt(nutrition.sugar_g)} g`],
+    ['sodium', `${fmt(nutrition.sodium_mg)} mg`],
   ]
   return (
     <div className="grid grid-cols-2 gap-3 text-xs">

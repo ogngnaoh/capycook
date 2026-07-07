@@ -191,11 +191,14 @@ func (o *Orchestrator) gateEdit(ctx context.Context, ds *dishState, req GateRequ
 	if err != nil {
 		return GateResult{}, nil, err
 	}
-	overridden, err := o.screenHumanWrite(ctx, cur, req.EditOps, req)
+	// Same enrichment as generated proposals: resolved ids ride the ops so
+	// the warn-and-confirm screen keys allergens on them.
+	ops := o.enrichOps(cur, req.EditOps)
+	overridden, err := o.screenHumanWrite(ctx, cur, ops, req)
 	if err != nil {
 		return GateResult{}, nil, err
 	}
-	applied, err := cur.Apply(req.EditOps)
+	applied, err := cur.Apply(ops)
 	if err != nil {
 		return GateResult{}, nil, fmt.Errorf("orchestrator: apply edited ops: %w", err)
 	}
@@ -229,12 +232,15 @@ func (o *Orchestrator) gateTakeOver(ctx context.Context, ds *dishState, req Gate
 	if err != nil {
 		return GateResult{}, nil, err
 	}
-	ops := proposal.ComputeDiff(cur, *req.Draft)
+	// Resolve ids onto the user's draft before diffing/screening, mirroring
+	// the enrichment every generated change set gets.
+	userDraft := o.resolveDraft(*req.Draft)
+	ops := proposal.ComputeDiff(cur, userDraft)
 	overridden, err := o.screenHumanWrite(ctx, cur, ops, req)
 	if err != nil {
 		return GateResult{}, nil, err
 	}
-	verID, err := o.commitVersion(ctx, dish, *req.Draft)
+	verID, err := o.commitVersion(ctx, dish, userDraft)
 	if err != nil {
 		return GateResult{}, nil, err
 	}

@@ -81,6 +81,12 @@ type Deps struct {
 	Nutrition services.Nutrition
 	Cost      services.Cost
 	Grounding grounding.Grounding
+	// CostCitation and NutritionCitation are the deterministic-citation
+	// provenance for cost/nutrition recompute proposals (task 2.8): wiring
+	// fills them from the committed data assets' PROVENANCE files. Zero
+	// values fall back to generic capycook-services citations (stub mode).
+	CostCitation      proposal.Citation
+	NutritionCitation proposal.Citation
 	// Notify is called (outside the orchestrator lock) with every move
 	// outcome after the safety screen has run — the transport layer turns
 	// these into SSE events.
@@ -113,14 +119,16 @@ type Status struct {
 
 // Orchestrator is the per-process state machine over every dish.
 type Orchestrator struct {
-	store     store.Store
-	log       eventlog.EventLog
-	llm       llm.LLM
-	safety    services.SafetyGate
-	nutrition services.Nutrition
-	cost      services.Cost
-	grounding grounding.Grounding
-	notify    func(Outcome)
+	store         store.Store
+	log           eventlog.EventLog
+	llm           llm.LLM
+	safety        services.SafetyGate
+	nutrition     services.Nutrition
+	cost          services.Cost
+	grounding     grounding.Grounding
+	costCite      proposal.Citation
+	nutritionCite proposal.Citation
+	notify        func(Outcome)
 
 	// arm/runKind stamp every appended event: operator defaults per spec §4.
 	// The phase-4 harness runner constructs its own values.
@@ -172,17 +180,19 @@ type blockedMove struct {
 // New wires an Orchestrator over its edges.
 func New(d Deps) *Orchestrator {
 	return &Orchestrator{
-		store:     d.Store,
-		log:       d.Log,
-		llm:       d.LLM,
-		safety:    d.Safety,
-		nutrition: d.Nutrition,
-		cost:      d.Cost,
-		grounding: d.Grounding,
-		notify:    d.Notify,
-		arm:       "none",
-		runKind:   "operator",
-		dishes:    make(map[string]*dishState),
+		store:         d.Store,
+		log:           d.Log,
+		llm:           d.LLM,
+		safety:        d.Safety,
+		nutrition:     d.Nutrition,
+		cost:          d.Cost,
+		grounding:     d.Grounding,
+		costCite:      d.CostCitation,
+		nutritionCite: d.NutritionCitation,
+		notify:        d.Notify,
+		arm:           "none",
+		runKind:       "operator",
+		dishes:        make(map[string]*dishState),
 	}
 }
 
@@ -397,6 +407,10 @@ func (o *Orchestrator) commitGeneration(k moveKickoff, cur draft.Draft, props []
 	var passing []pendingProposal
 	var firstBlock *proposal.Safety
 	for _, p := range props {
+		// Grounding resolution rides the change set BEFORE the screen: the
+		// allergen check keys on FDC/FoodOn ids (aliases are the resolver's
+		// job, spec §5), and accept then stores the ids with the draft.
+		p.Change = o.enrichOps(cur, p.Change)
 		verdict := o.safety.Screen(cur, p.Change)
 		if verdict.Status == "blocked" {
 			if firstBlock == nil {
@@ -498,10 +512,14 @@ func (o *Orchestrator) runDeterministic(ctx context.Context, ds *dishState, k mo
 
 // deterministicProposal builds the full proposal for a deterministic move
 // type from the current draft (spec §4: services-computed, confidence 1.0,
-// deterministic citations).
+// deterministic citations). The draft is grounding-resolved first, so the
+// services key nutrition/allergen lookups on ids and the citations name the
+// exact ids the computation used.
 func (o *Orchestrator) deterministicProposal(moveType string, cur draft.Draft, steer string) (proposal.Proposal, error) {
-	proposed := clone(cur)
-	var rationale, ref string
+	proposed := o.resolveDraft(cur)
+	today := time.Now().Format("2006-01-02")
+	var rationale string
+	var cites []proposal.Citation
 	var next []string
 	switch moveType {
 	case llm.MoveTypeScaleServings:
@@ -521,7 +539,7 @@ func (o *Orchestrator) deterministicProposal(moveType string, cur draft.Draft, s
 			proposed.Ingredients[i].Qty *= factor
 		}
 		rationale = fmt.Sprintf("Scaled the dish from %d to %d servings: every ingredient quantity multiplied by %.4g.", oldServings, target, factor)
-		ref = "deterministic:scale_servings"
+		cites = []proposal.Citation{{Source: "capycook-services", Ref: "deterministic:scale_servings", Date: today}}
 		next = []string{llm.MoveTypeCostRecompute, llm.MoveTypeNutritionRecompute}
 	case llm.MoveTypeUnitConvert:
 		for i := range proposed.Ingredients {
@@ -536,25 +554,25 @@ func (o *Orchestrator) deterministicProposal(moveType string, cur draft.Draft, s
 			}
 		}
 		rationale = "Normalized bulk metric units: 1000 g or more becomes kilograms, 1000 ml or more becomes litres."
-		ref = "deterministic:unit_convert"
+		cites = []proposal.Citation{{Source: "capycook-services", Ref: "deterministic:unit_convert", Date: today}}
 		next = []string{llm.MoveTypeScaleServings, llm.MoveTypeCostRecompute}
 	case llm.MoveTypeCostRecompute:
-		c, err := o.cost.Compute(cur)
+		c, err := o.cost.Compute(proposed)
 		if err != nil {
 			return proposal.Proposal{}, fmt.Errorf("orchestrator: cost recompute: %w", err)
 		}
 		proposed.Analysis.Cost = c
 		rationale = "Recomputed the cost panel from the current ingredient list."
-		ref = "cost-table:stub-v0"
+		cites = []proposal.Citation{o.costCitation(today)}
 		next = []string{llm.MoveTypeNutritionRecompute}
 	case llm.MoveTypeNutritionRecompute:
-		n, err := o.nutrition.Compute(cur)
+		n, err := o.nutrition.Compute(proposed)
 		if err != nil {
 			return proposal.Proposal{}, fmt.Errorf("orchestrator: nutrition recompute: %w", err)
 		}
 		proposed.Analysis.Nutrition = n
 		rationale = "Recomputed the per-serving nutrition panel from the current ingredient list."
-		ref = "nutrition-table:stub-v0"
+		cites = o.nutritionCitations(proposed, today)
 		next = []string{llm.MoveTypeCostRecompute}
 	default:
 		return proposal.Proposal{}, fmt.Errorf("%w: %q is not deterministic", ErrUnknownMoveType, moveType)
@@ -565,11 +583,44 @@ func (o *Orchestrator) deterministicProposal(moveType string, cur draft.Draft, s
 		TargetFields:  proposal.TargetFields(change),
 		Change:        change,
 		Rationale:     rationale,
-		Citations:     []proposal.Citation{{Source: "capycook-services", Ref: ref, Date: time.Now().Format("2006-01-02")}},
+		Citations:     cites,
 		Confidence:    1.0,
 		Unverified:    []string{},
 		SuggestedNext: next,
 	}, nil
+}
+
+// costCitation is the wiring-supplied cost-table provenance, or the generic
+// fallback when none was configured (tests, stub mode).
+func (o *Orchestrator) costCitation(today string) proposal.Citation {
+	if o.costCite != (proposal.Citation{}) {
+		return o.costCite
+	}
+	return proposal.Citation{Source: "capycook-services", Ref: "deterministic:cost_recompute", Date: today}
+}
+
+// nutritionCitations is the wiring-supplied nutrition-source provenance plus
+// one deterministic citation per resolved FDC id in d — exactly the ids the
+// nutrition service keyed on. Ids come from the resolver, never invented.
+func (o *Orchestrator) nutritionCitations(d draft.Draft, today string) []proposal.Citation {
+	base := o.nutritionCite
+	if base == (proposal.Citation{}) {
+		base = proposal.Citation{Source: "capycook-services", Ref: "deterministic:nutrition_recompute", Date: today}
+	}
+	cites := []proposal.Citation{base}
+	seen := make(map[string]bool)
+	for _, ing := range d.Ingredients {
+		if ing.FDCID == nil || *ing.FDCID == "" || seen[*ing.FDCID] {
+			continue
+		}
+		seen[*ing.FDCID] = true
+		cites = append(cites, proposal.Citation{
+			Source: "usda-fdc",
+			Ref:    fmt.Sprintf("fdc:%s (%s)", *ing.FDCID, ing.Name),
+			Date:   base.Date,
+		})
+	}
+	return cites
 }
 
 // --- shared plumbing ---
@@ -657,14 +708,49 @@ func (o *Orchestrator) evidence(cur draft.Draft) llm.Evidence {
 	return llm.Evidence{Pairings: o.grounding.Suggest(names)}
 }
 
-// commitVersion recomputes analysis into applied (self-contained snapshots:
-// every accept refreshes cost + nutrition), stores it as a new version
-// whose parent is the dish's current version, and advances the dish
-// pointer. This in-accept recompute is also what satisfies the "auto-enqueue
-// deterministic recomputes after ingredient-touching accepts" rule in v0:
-// the analysis is already fresh in the snapshot, so no separate
-// move_auto_advanced fires (no double events). Caller holds mu.
+// resolveDraft returns d with the grounding resolver's ids filled onto
+// every ingredient whose name resolves (spec §5 entity resolution), so
+// nutrition/allergen lookups key on FDC/FoodOn ids. No-match means no id:
+// unresolved ingredients keep whatever they carried (usually nil) and stay
+// [unverified]/fail-closed downstream.
+func (o *Orchestrator) resolveDraft(d draft.Draft) draft.Draft {
+	out := clone(d)
+	for i := range out.Ingredients {
+		r, ok := o.grounding.Resolve(out.Ingredients[i].Name)
+		if !ok {
+			continue
+		}
+		if r.FDCID != nil {
+			out.Ingredients[i].FDCID = r.FDCID
+		}
+		if r.FoodOnID != nil {
+			out.Ingredients[i].FoodOnID = r.FoodOnID
+		}
+	}
+	return out
+}
+
+// enrichOps re-diffs a change set so grounding-resolved ingredient ids ride
+// the ops before the safety screen judges them. A change set that does not
+// apply is returned unchanged — the screen fails closed on it.
+func (o *Orchestrator) enrichOps(cur draft.Draft, ops []proposal.Op) []proposal.Op {
+	proposed, err := cur.Apply(ops)
+	if err != nil {
+		return ops
+	}
+	return proposal.ComputeDiff(cur, o.resolveDraft(proposed))
+}
+
+// commitVersion grounding-resolves applied and recomputes analysis into it
+// (self-contained snapshots: every accept refreshes ids, cost + nutrition),
+// stores it as a new version whose parent is the dish's current version,
+// and advances the dish pointer. This in-accept recompute is also what
+// satisfies the "auto-enqueue deterministic recomputes after
+// ingredient-touching accepts" rule in v0: the analysis is already fresh in
+// the snapshot, so no separate move_auto_advanced fires (no double events).
+// Caller holds mu.
 func (o *Orchestrator) commitVersion(ctx context.Context, dish store.Dish, applied draft.Draft) (string, error) {
+	applied = o.resolveDraft(applied)
 	n, err := o.nutrition.Compute(applied)
 	if err != nil {
 		return "", fmt.Errorf("orchestrator: recompute nutrition: %w", err)
