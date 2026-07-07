@@ -66,6 +66,9 @@ var (
 	ErrAwaitingGate    = errors.New("orchestrator: a proposal is awaiting the gate")
 	ErrBlocked         = errors.New("orchestrator: dish is blocked; only regenerate or redirect allowed")
 	ErrUnknownProposal = errors.New("orchestrator: unknown or stale proposal id")
+	// ErrUnknownBaseVersion rejects a move whose baseVersion is not one of
+	// this dish's versions; httpapi maps it to 400.
+	ErrUnknownBaseVersion = errors.New("orchestrator: unknown base version for this dish")
 	ErrConfirmRequired = errors.New("orchestrator: safety warning requires confirm override")
 	ErrUnknownMoveType = errors.New("orchestrator: unknown move type")
 	ErrUnknownVerb     = errors.New("orchestrator: unknown gate verb")
@@ -174,26 +177,31 @@ type dishState struct {
 // inflightMove keeps the original move parameters beside the cancel func so
 // a redirect during proposing can re-run the same move type.
 type inflightMove struct {
-	moveID   string
-	moveType string
-	steer    string
-	cancel   context.CancelFunc
+	moveID      string
+	moveType    string
+	steer       string
+	baseVersion string
+	cancel      context.CancelFunc
 }
 
 // pendingProposal keeps the original move parameters beside the proposal so
-// regenerate can re-sample the exact same request.
+// regenerate can re-sample the exact same request; baseVersion also tells
+// accept/edit which draft the ops are relative to and who the new version's
+// parent is.
 type pendingProposal struct {
-	prop     proposal.Proposal
-	moveType string
-	steer    string
+	prop        proposal.Proposal
+	moveType    string
+	steer       string
+	baseVersion string
 }
 
 type blockedMove struct {
-	moveID   string
-	moveType string
-	steer    string
-	reason   string
-	ruleID   string
+	moveID      string
+	moveType    string
+	steer       string
+	baseVersion string
+	reason      string
+	ruleID      string
 }
 
 // New wires an Orchestrator over its edges.
@@ -245,6 +253,16 @@ func (o *Orchestrator) ds(dishID string) *dishState {
 // a new version when the dish's autonomy dial is on, pending at the gate
 // when it is off. A second move while one is in flight returns ErrInFlight.
 func (o *Orchestrator) Move(ctx context.Context, dishID, sessionID, moveType, steer string) (string, error) {
+	return o.MoveFrom(ctx, dishID, sessionID, moveType, steer, "")
+}
+
+// MoveFrom is Move against an explicit base version (the post-cook iterate
+// flow, spec §8 / P0-8): generation uses that version's draft as its input,
+// and accepting the proposal parents the new version to it — a sibling
+// branch when the base is not the trunk head, consistent with the existing
+// sibling/promote model. An empty baseVersion is a plain Move against the
+// current version.
+func (o *Orchestrator) MoveFrom(ctx context.Context, dishID, sessionID, moveType, steer, baseVersion string) (string, error) {
 	if !validMoveType(moveType) {
 		return "", fmt.Errorf("%w: %q", ErrUnknownMoveType, moveType)
 	}
@@ -261,22 +279,23 @@ func (o *Orchestrator) Move(ctx context.Context, dishID, sessionID, moveType, st
 		o.mu.Unlock()
 		return "", ErrBlocked
 	}
-	dish, cur, thread, err := o.moveInputs(ctx, dishID)
+	dish, cur, thread, err := o.moveInputs(ctx, dishID, baseVersion)
 	if err != nil {
 		o.mu.Unlock()
 		return "", err
 	}
 	moveID := newID("mv")
-	// move_requested carries moveType + steer verbatim: the steering thread
-	// is reconstructed by replaying these payloads.
+	// move_requested carries moveType + steer verbatim (plus base_version
+	// for post-cook moves): the steering thread is reconstructed by
+	// replaying these payloads.
 	if err := o.append(ctx, dishID, sessionID, eventlog.TypeMoveRequested,
-		movePayload{MoveID: moveID, MoveType: moveType, Steer: steer}); err != nil {
+		movePayload{MoveID: moveID, MoveType: moveType, Steer: steer, BaseVersion: baseVersion}); err != nil {
 		o.mu.Unlock()
 		return "", err
 	}
 	out, err := o.launch(ctx, ds, moveKickoff{
 		dishID: dishID, sessionID: sessionID, moveID: moveID,
-		moveType: moveType, steer: steer, n: 1,
+		moveType: moveType, steer: steer, baseVersion: baseVersion, n: 1,
 	}, dish, cur, thread)
 	o.mu.Unlock()
 	if err != nil {
@@ -361,12 +380,13 @@ func validMoveType(moveType string) bool {
 // moveKickoff is one move about to run: ids, parameters, and how many
 // parallel generations (alternatives asks for 2).
 type moveKickoff struct {
-	dishID    string
-	sessionID string
-	moveID    string
-	moveType  string
-	steer     string
-	n         int
+	dishID      string
+	sessionID   string
+	moveID      string
+	moveType    string
+	steer       string
+	baseVersion string // post-cook flow: the version the move runs against
+	n           int
 }
 
 // launch dispatches a validated kickoff. Deterministic moves resolve
@@ -379,7 +399,10 @@ func (o *Orchestrator) launch(ctx context.Context, ds *dishState, k moveKickoff,
 		return o.runDeterministic(ctx, ds, k, dish, cur)
 	}
 	genCtx, cancel := context.WithCancel(context.Background()) // outlives the HTTP request
-	ds.inflight = &inflightMove{moveID: k.moveID, moveType: k.moveType, steer: k.steer, cancel: cancel}
+	ds.inflight = &inflightMove{
+		moveID: k.moveID, moveType: k.moveType, steer: k.steer,
+		baseVersion: k.baseVersion, cancel: cancel,
+	}
 	ds.state = StateProposing
 	ds.blocked = nil
 	go o.generate(genCtx, k, cur, thread)
@@ -463,7 +486,9 @@ func (o *Orchestrator) commitGeneration(k moveKickoff, cur draft.Draft, props []
 		p.ID = newID("pr")
 		p.MoveID = k.moveID
 		p.Safety = verdict
-		passing = append(passing, pendingProposal{prop: p, moveType: k.moveType, steer: k.steer})
+		passing = append(passing, pendingProposal{
+			prop: p, moveType: k.moveType, steer: k.steer, baseVersion: k.baseVersion,
+		})
 	}
 	// Mixed alternatives (one blocked, one passing) surface the passing
 	// card(s) and drop the blocked one silently — the dish cannot be both
@@ -475,7 +500,7 @@ func (o *Orchestrator) commitGeneration(k moveKickoff, cur draft.Draft, props []
 		ds.pending = nil
 		ds.blocked = &blockedMove{
 			moveID: k.moveID, moveType: k.moveType, steer: k.steer,
-			reason: reason, ruleID: ruleID,
+			baseVersion: k.baseVersion, reason: reason, ruleID: ruleID,
 		}
 		o.appendOrLog(ctx, k.dishID, k.sessionID, eventlog.TypeProposalBlocked,
 			blockedPayload{MoveID: k.moveID, Reason: reason, RuleID: ruleID})
@@ -511,7 +536,7 @@ func (o *Orchestrator) runDeterministic(ctx context.Context, ds *dishState, k mo
 		ds.pending = nil
 		ds.blocked = &blockedMove{
 			moveID: k.moveID, moveType: k.moveType, steer: k.steer,
-			reason: reason, ruleID: ruleID,
+			baseVersion: k.baseVersion, reason: reason, ruleID: ruleID,
 		}
 		if err := o.append(ctx, k.dishID, k.sessionID, eventlog.TypeProposalBlocked,
 			blockedPayload{MoveID: k.moveID, Reason: reason, RuleID: ruleID}); err != nil {
@@ -525,7 +550,7 @@ func (o *Orchestrator) runDeterministic(ctx context.Context, ds *dishState, k mo
 		if err != nil {
 			return nil, fmt.Errorf("orchestrator: apply deterministic move: %w", err)
 		}
-		verID, err := o.commitVersion(ctx, dish, applied)
+		verID, err := o.commitVersion(ctx, dish, applied, k.baseVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -542,7 +567,7 @@ func (o *Orchestrator) runDeterministic(ctx context.Context, ds *dishState, k mo
 		}, nil
 	}
 	ds.state = StateAwaitingGate
-	ds.pending = []pendingProposal{{prop: prop, moveType: k.moveType, steer: k.steer}}
+	ds.pending = []pendingProposal{{prop: prop, moveType: k.moveType, steer: k.steer, baseVersion: k.baseVersion}}
 	ds.blocked = nil
 	if err := o.append(ctx, k.dishID, k.sessionID, eventlog.TypeProposalReady,
 		readyPayload{MoveID: k.moveID, ProposalID: prop.ID, MoveType: k.moveType}); err != nil {
@@ -666,15 +691,16 @@ func (o *Orchestrator) nutritionCitations(d draft.Draft, today string) []proposa
 
 // --- shared plumbing ---
 
-// moveInputs loads everything a move needs, with the thread rebuilt from
-// the events appended so far — i.e. the history BEFORE the move being
-// launched. Caller holds mu.
-func (o *Orchestrator) moveInputs(ctx context.Context, dishID string) (store.Dish, draft.Draft, []llm.ThreadTurn, error) {
+// moveInputs loads everything a move needs — the draft is the explicit base
+// version's snapshot when the move targets one (post-cook flow), else the
+// current version's — with the thread rebuilt from the events appended so
+// far, i.e. the history BEFORE the move being launched. Caller holds mu.
+func (o *Orchestrator) moveInputs(ctx context.Context, dishID, baseVersion string) (store.Dish, draft.Draft, []llm.ThreadTurn, error) {
 	dish, err := o.store.GetDish(ctx, dishID)
 	if err != nil {
 		return store.Dish{}, draft.Draft{}, nil, fmt.Errorf("orchestrator: load dish %s: %w", dishID, err)
 	}
-	cur, err := o.currentDraft(ctx, dish)
+	cur, err := o.moveBaseDraft(ctx, dish, baseVersion)
 	if err != nil {
 		return store.Dish{}, draft.Draft{}, nil, err
 	}
@@ -683,6 +709,27 @@ func (o *Orchestrator) moveInputs(ctx context.Context, dishID string) (store.Dis
 		return store.Dish{}, draft.Draft{}, nil, err
 	}
 	return dish, cur, thread, nil
+}
+
+// moveBaseDraft resolves the draft a move (and its proposal's ops) is
+// relative to: the explicit base version's snapshot when the move was
+// launched with one, else the current draft.
+func (o *Orchestrator) moveBaseDraft(ctx context.Context, dish store.Dish, baseVersion string) (draft.Draft, error) {
+	if baseVersion == "" {
+		return o.currentDraft(ctx, dish)
+	}
+	v, err := o.store.GetVersion(ctx, baseVersion)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && v.DishID != dish.ID) {
+		return draft.Draft{}, fmt.Errorf("%w: %q", ErrUnknownBaseVersion, baseVersion)
+	}
+	if err != nil {
+		return draft.Draft{}, fmt.Errorf("orchestrator: load base version: %w", err)
+	}
+	var d draft.Draft
+	if err := json.Unmarshal([]byte(v.DraftJSON), &d); err != nil {
+		return draft.Draft{}, fmt.Errorf("orchestrator: parse base version draft: %w", err)
+	}
+	return d, nil
 }
 
 // currentDraft resolves the dish's current draft: the current version's
@@ -773,13 +820,18 @@ func (o *Orchestrator) enrichOps(cur draft.Draft, ops []proposal.Op) []proposal.
 
 // commitVersion grounding-resolves applied and recomputes analysis into it
 // (self-contained snapshots: every accept refreshes ids, cost + nutrition),
-// stores it as a new version whose parent is the dish's current version,
-// and advances the dish pointer. This in-accept recompute is also what
-// satisfies the "auto-enqueue deterministic recomputes after
-// ingredient-touching accepts" rule in v0: the analysis is already fresh in
-// the snapshot, so no separate move_auto_advanced fires (no double events).
-// Caller holds mu.
-func (o *Orchestrator) commitVersion(ctx context.Context, dish store.Dish, applied draft.Draft) (string, error) {
+// stores it as a new version whose parent is the dish's current version —
+// or the explicit baseVersion for a post-cook move, a sibling branch when
+// the base is not the trunk head — and advances the dish pointer. This
+// in-accept recompute is also what satisfies the "auto-enqueue
+// deterministic recomputes after ingredient-touching accepts" rule in v0:
+// the analysis is already fresh in the snapshot, so no separate
+// move_auto_advanced fires (no double events). Caller holds mu.
+func (o *Orchestrator) commitVersion(ctx context.Context, dish store.Dish, applied draft.Draft, baseVersion string) (string, error) {
+	parent := dish.CurrentVersionID
+	if baseVersion != "" {
+		parent = &baseVersion
+	}
 	applied = o.resolveDraft(applied)
 	n, err := o.nutrition.Compute(applied)
 	if err != nil {
@@ -796,7 +848,7 @@ func (o *Orchestrator) commitVersion(ctx context.Context, dish store.Dish, appli
 	}
 	verID := newID("ver")
 	if err := o.store.CreateVersion(ctx, store.Version{
-		ID: verID, DishID: dish.ID, ParentVersionID: dish.CurrentVersionID, DraftJSON: string(raw),
+		ID: verID, DishID: dish.ID, ParentVersionID: parent, DraftJSON: string(raw),
 	}); err != nil {
 		return "", fmt.Errorf("orchestrator: store version: %w", err)
 	}
@@ -840,9 +892,10 @@ func (o *Orchestrator) emit(out Outcome) {
 // --- event payloads (spec §4 wire shapes, snake_case) ---
 
 type movePayload struct {
-	MoveID   string `json:"move_id"`
-	MoveType string `json:"move_type"`
-	Steer    string `json:"steer"`
+	MoveID      string `json:"move_id"`
+	MoveType    string `json:"move_type"`
+	Steer       string `json:"steer"`
+	BaseVersion string `json:"base_version,omitempty"` // post-cook flow
 }
 
 type readyPayload struct {
@@ -873,7 +926,8 @@ type gatePayload struct {
 	ProposalID   string `json:"proposal_id"`
 	MoveID       string `json:"move_id,omitempty"`
 	MoveType     string `json:"move_type,omitempty"`
-	Steer        string `json:"steer,omitempty"` // redirect: joins the thread on replay
+	Steer        string `json:"steer,omitempty"`        // redirect: joins the thread on replay
+	BaseVersion  string `json:"base_version,omitempty"` // post-cook moves keep their base across respawns
 	NewMoveID    string `json:"new_move_id,omitempty"`
 	NewVersionID string `json:"new_version_id,omitempty"`
 	AutonomyDial bool   `json:"autonomy_dial"`

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import type {
   DishDetail, Draft, GateRequestBody, GateVerb, Op, Proposal,
   VersionItem, VersionsResponse,
@@ -14,6 +14,7 @@ import GateBar from './GateBar'
 import ProposalCard from './ProposalCard'
 import SafetyBlock from './SafetyBlock'
 import DialToggle from './DialToggle'
+import ThemeToggle from './ThemeToggle'
 import VersionHistory from './VersionHistory'
 
 const STATE_LABEL: Record<string, string> = {
@@ -21,6 +22,14 @@ const STATE_LABEL: Record<string, string> = {
   proposing: 'Proposing…',
   awaiting_gate: 'Awaiting gate',
   blocked: 'Blocked by safety gate',
+}
+
+// LastMove is the most recent move this view dispatched — the retry target
+// for the move-failed banner.
+interface LastMove {
+  moveType: string
+  steer: string
+  baseVersion?: string
 }
 
 // VerbPanel is the verb-specific UI opened over the draft: the edit form,
@@ -46,6 +55,7 @@ export default function Workbench({ dishId, onNavigate }: {
   const [thread, setThread] = useState<ThreadEntry[]>([])
   const [moveFailed, setMoveFailed] = useState<{ moveId: string; reason: string } | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [reconnecting, setReconnecting] = useState(false)
   const [panel, setPanel] = useState<VerbPanel>(null)
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null)
   const [suggestedNext, setSuggestedNext] = useState<string[]>([])
@@ -53,6 +63,7 @@ export default function Workbench({ dishId, onNavigate }: {
   const [showVersions, setShowVersions] = useState(false)
   const [snapshot, setSnapshot] = useState<VersionItem | null>(null)
   const [stubMode, setStubMode] = useState(false)
+  const lastMove = useRef<LastMove | null>(null)
 
   // The stub-mode banner (task 3.3): GET /api/status reports which model
   // edge is wired. Advisory only — a failed fetch leaves the banner off.
@@ -105,7 +116,11 @@ export default function Workbench({ dishId, onNavigate }: {
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
           : d))
       },
-      onReconnect: () => { void resync() },
+      onDrop: () => setReconnecting(true),
+      onReconnect: () => {
+        setReconnecting(false)
+        void resync()
+      },
     })
     return () => stream.close()
   }, [dishId, resync])
@@ -123,13 +138,20 @@ export default function Workbench({ dishId, onNavigate }: {
     }
   }
 
-  async function propose(moveType: string, steer: string) {
+  // propose starts a move; with baseVersion it is the post-cook flow — the
+  // feedback rides as steer and the move runs against the cooked version.
+  async function propose(moveType: string, steer: string, baseVersion?: string) {
     setMoveFailed(null)
     setActionError(null)
+    lastMove.current = { moveType, steer, baseVersion }
     const beforeVersion = detail?.currentVersionId ?? null
     try {
-      await postMove(dishId, moveType, steer)
-      if (steer) setThread((t) => [...t, { kind: 'steer', text: steer }])
+      await postMove(dishId, moveType, steer, baseVersion)
+      if (baseVersion) {
+        setThread((t) => [...t, { kind: 'cooked', versionId: baseVersion, feedback: steer }])
+      } else if (steer) {
+        setThread((t) => [...t, { kind: 'steer', text: steer }])
+      }
       const d = await getDish(dishId)
       setDetail(d)
       // A deterministic move with the dial ON resolved before the 202
@@ -243,47 +265,80 @@ export default function Workbench({ dishId, onNavigate }: {
 
   if (loadError && !detail) {
     return (
-      <div className="p-6 space-y-2">
-        <p className="text-sm text-gray-700">Could not load this dish: {loadError}</p>
-        <button onClick={() => onNavigate('/')} className="text-sm underline">Back to dishes</button>
+      <div className="p-4 space-y-2">
+        <p className="text-ink">Could not load this dish: {loadError}. Check the address or pick a dish from the list.</p>
+        <button onClick={() => onNavigate('/')}
+          className="px-2 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page">
+          Back to dishes
+        </button>
       </div>
     )
   }
-  if (!detail) return <div className="p-6 text-sm text-gray-500">Loading…</div>
+  if (!detail) return <div className="p-4 text-muted">Loading the dish…</div>
 
   return (
-    <div className="flex flex-col h-screen">
-      <header className="px-4 py-2 bg-gray-800 text-white text-sm flex items-center gap-3">
-        <button onClick={() => onNavigate('/')} className="underline shrink-0">Dishes</button>
-        <span className="font-semibold truncate">{detail.draft.title || detail.seed}</span>
-        <span className="text-gray-300 shrink-0">— {STATE_LABEL[detail.state] ?? detail.state}</span>
+    <div className="flex flex-col h-screen bg-page text-ink">
+      <header className="h-header shrink-0 px-3 border-b border-hairline bg-page flex items-center gap-2">
+        <button onClick={() => onNavigate('/')}
+          className="shrink-0 px-2 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page">
+          Dishes
+        </button>
+        <span className="font-medium text-sm truncate">{detail.draft.title || detail.seed}</span>
+        <span className="uppercase text-muted shrink-0">{STATE_LABEL[detail.state] ?? detail.state}</span>
         {stubMode && (
           <span data-testid="stub-banner"
-            className="px-2 py-0.5 text-xs bg-gray-200 text-gray-800 border border-gray-400 rounded shrink-0">
+            className="shrink-0 px-1 font-mono text-2xs bg-info-surface text-info">
             stub mode — no model key
           </span>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1">
           <DialToggle on={detail.autonomyDial} onToggle={(n) => void toggleDial(n)} />
+          <ThemeToggle />
           <button onClick={toggleVersionsPanel}
-            className="px-2 py-1 text-xs border border-gray-400 rounded bg-white text-gray-900">
+            className={`px-2 py-1 uppercase border transition ${showVersions
+              ? 'border-hairline-strong bg-surface text-ink'
+              : 'border-hairline bg-transparent text-ink hover:bg-ink hover:text-page'}`}>
             {showVersions ? 'Hide versions' : 'Versions'}
           </button>
         </div>
       </header>
 
+      {reconnecting && (
+        <div data-testid="reconnect-banner" role="status"
+          className="px-3 py-1 bg-surface text-muted border-b border-hairline">
+          Reconnecting — your draft is safe.
+        </div>
+      )}
       {moveFailed && (
         <div data-testid="move-failed-banner" role="alert"
-          className="px-4 py-2 bg-gray-900 text-white text-sm border-b-4 border-dashed border-gray-500 flex items-center gap-2">
-          <span className="font-semibold shrink-0">Move failed (system error)</span>
-          <span className="truncate">{moveFailed.reason}</span>
-          <button onClick={() => setMoveFailed(null)} className="ml-auto underline text-xs shrink-0">dismiss</button>
+          className="px-3 py-2 bg-warning-surface text-ink border-b border-hairline flex items-center gap-2">
+          <span className="uppercase font-medium text-warning shrink-0">Move failed</span>
+          <span className="truncate">{moveFailed.reason} — try again.</span>
+          <span className="ml-auto shrink-0 flex gap-1">
+            {lastMove.current && (
+              <button onClick={() => {
+                const m = lastMove.current!
+                void propose(m.moveType, m.steer, m.baseVersion)
+              }}
+                className="px-2 py-1 uppercase border border-hairline-strong bg-transparent text-ink transition hover:bg-ink hover:text-page">
+                Try again
+              </button>
+            )}
+            <button onClick={() => setMoveFailed(null)}
+              className="px-2 py-1 uppercase border border-hairline-strong bg-transparent text-ink transition hover:bg-ink hover:text-page">
+              Dismiss
+            </button>
+          </span>
         </div>
       )}
       {actionError && (
-        <div role="alert" className="px-4 py-1.5 bg-gray-200 text-gray-800 text-xs flex items-center gap-2">
+        <div role="alert"
+          className="px-3 py-1 bg-critical-surface text-critical border-b border-hairline flex items-center gap-2">
           <span className="truncate">{actionError}</span>
-          <button onClick={() => setActionError(null)} className="ml-auto underline shrink-0">dismiss</button>
+          <button onClick={() => setActionError(null)}
+            className="ml-auto shrink-0 uppercase text-2xs underline">
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -291,10 +346,15 @@ export default function Workbench({ dishId, onNavigate }: {
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">
             {snapshot ? (
-              <div className="p-4 space-y-2">
-                <div className="flex items-center gap-2 text-xs text-gray-600">
-                  <span className="px-2 py-0.5 bg-gray-300 rounded">read-only snapshot <span className="font-mono">{snapshot.id}</span></span>
-                  <button onClick={() => setSnapshot(null)} className="underline">back to current</button>
+              <div className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-1 font-mono text-2xs bg-info-surface text-info">
+                    read-only snapshot {snapshot.id}
+                  </span>
+                  <button onClick={() => setSnapshot(null)}
+                    className="px-2 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page">
+                    Back to current draft
+                  </button>
                 </div>
                 <DraftPane draft={snapshot.draft} heading="Snapshot" />
               </div>
@@ -302,7 +362,7 @@ export default function Workbench({ dishId, onNavigate }: {
               <DraftPane draft={detail.draft}>
                 {pending.length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-xs uppercase tracking-wide text-gray-500">
+                    <h3 className="uppercase text-muted">
                       {pending.length > 1 ? 'Proposals — pick a card' : 'Proposal'}
                     </h3>
                     {pending.map((p) => (
@@ -332,7 +392,7 @@ export default function Workbench({ dishId, onNavigate }: {
             )}
           </div>
 
-          <div className="p-4 border-t border-gray-300 bg-gray-50">
+          <div className="p-3 border-t border-hairline bg-page">
             {detail.state === 'awaiting_gate' && <GateBar onVerb={onVerb} />}
             {detail.state === 'proposing' && <GateBar state="proposing" onCancel={cancelMove} />}
             {detail.state === 'blocked' && detail.blocked && (
@@ -342,7 +402,7 @@ export default function Workbench({ dishId, onNavigate }: {
               </div>
             )}
             {detail.state === 'idle' && (
-              <p className="text-xs text-gray-400">Idle — propose a move from the steering pane.</p>
+              <p className="text-muted">Idle — propose a move from the steering pane.</p>
             )}
           </div>
         </div>
@@ -353,7 +413,9 @@ export default function Workbench({ dishId, onNavigate }: {
 
         {showVersions && versions && (
           <VersionHistory data={versions} selectedId={snapshot?.id ?? null}
-            onSelect={setSnapshot} onPromote={(id) => void promote(id)} />
+            onSelect={setSnapshot} onPromote={(id) => void promote(id)}
+            onCook={(versionId, feedback) => void propose('iterate_feedback', feedback, versionId)}
+            canCook={detail.state === 'idle'} />
         )}
       </div>
     </div>
@@ -393,6 +455,11 @@ function errMessage(err: unknown): string {
 
 // --- verb panels ---
 
+// Shared panel control styles: ghost is the default voice; the panel's one
+// primary action fills terracotta.
+const panelPrimary = 'px-3 py-1 uppercase bg-accent text-on-accent font-medium disabled:opacity-40'
+const panelGhost = 'px-3 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page'
+
 function editableValue(v: unknown): string {
   if (typeof v === 'string') return v
   return v === undefined ? '' : JSON.stringify(v)
@@ -427,23 +494,23 @@ function EditForm({ proposal, onSubmit, onCancel }: {
   }
   return (
     <form onSubmit={submit} data-testid="edit-form"
-      className="border border-gray-400 rounded p-3 space-y-2 bg-white">
-      <h3 className="text-xs uppercase tracking-wide text-gray-500">Edit proposed values</h3>
+      className="border border-hairline bg-page p-3 space-y-2">
+      <h3 className="uppercase text-muted">Edit proposed values</h3>
       {ops.map((op, i) => (
-        <label key={i} className="block text-xs text-gray-600">
-          <span className="font-mono">{op.op} {op.path}</span>
+        <label key={i} className="block text-muted">
+          <span className="font-mono text-2xs">{op.op} {op.path}</span>
           {op.op === 'remove' ? (
-            <span className="block text-gray-400">(removal — nothing to edit)</span>
+            <span className="block text-muted">(removal — nothing to edit)</span>
           ) : (
             <input value={values[i]}
               onChange={(e) => setValues((v) => v.map((x, j) => (j === i ? e.target.value : x)))}
-              className="mt-1 w-full border border-gray-300 rounded p-1 text-sm font-mono text-gray-900" />
+              className="mt-1 w-full border border-hairline-strong bg-page p-1 font-mono text-ink" />
           )}
         </label>
       ))}
-      <div className="flex gap-2">
-        <button type="submit" className="px-3 py-1 text-sm rounded bg-gray-800 text-white">Apply edit</button>
-        <button type="button" onClick={onCancel} className="px-3 py-1 text-sm rounded border border-gray-400">Cancel</button>
+      <div className="flex gap-1">
+        <button type="submit" className={panelPrimary}>Apply edit</button>
+        <button type="button" onClick={onCancel} className={panelGhost}>Cancel</button>
       </div>
     </form>
   )
@@ -464,20 +531,20 @@ function TakeOverForm({ draft, onSubmit, onCancel }: {
     try {
       onSubmit(JSON.parse(text) as Draft)
     } catch {
-      setParseError('Draft must be valid JSON.')
+      setParseError('The draft is not valid JSON — fix the highlighted text and save again.')
     }
   }
   return (
     <form onSubmit={submit} data-testid="take-over-form"
-      className="border border-gray-400 rounded p-3 space-y-2 bg-white">
-      <h3 className="text-xs uppercase tracking-wide text-gray-500">Take over — edit the draft directly</h3>
+      className="border border-hairline bg-page p-3 space-y-2">
+      <h3 className="uppercase text-muted">Take over — edit the draft directly</h3>
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={16}
         aria-label="Draft JSON"
-        className="w-full border border-gray-300 rounded p-2 text-xs font-mono text-gray-900" />
-      {parseError && <p role="alert" className="text-xs text-gray-700">{parseError}</p>}
-      <div className="flex gap-2">
-        <button type="submit" className="px-3 py-1 text-sm rounded bg-gray-800 text-white">Save draft</button>
-        <button type="button" onClick={onCancel} className="px-3 py-1 text-sm rounded border border-gray-400">Cancel</button>
+        className="w-full border border-hairline-strong bg-page p-2 font-mono text-2xs text-ink" />
+      {parseError && <p role="alert" className="text-critical">{parseError}</p>}
+      <div className="flex gap-1">
+        <button type="submit" className={panelPrimary}>Save draft</button>
+        <button type="button" onClick={onCancel} className={panelGhost}>Cancel</button>
       </div>
     </form>
   )
@@ -497,15 +564,16 @@ function RedirectForm({ onSubmit, onCancel }: {
   }
   return (
     <form onSubmit={submit} data-testid="redirect-form"
-      className="border border-gray-400 rounded p-3 space-y-2 bg-white">
-      <h3 className="text-xs uppercase tracking-wide text-gray-500">Redirect — steer the next attempt</h3>
+      className="border border-hairline bg-page p-3 space-y-2">
+      <h3 className="uppercase text-muted">Redirect — steer the next attempt</h3>
       <textarea value={steer} onChange={(e) => setSteer(e.target.value)} rows={2}
         aria-label="Redirect steer"
-        className="w-full border border-gray-300 rounded p-1 text-sm text-gray-900" />
-      <div className="flex gap-2">
-        <button type="submit" disabled={steer.trim() === ''}
-          className="px-3 py-1 text-sm rounded bg-gray-800 text-white disabled:opacity-40">Send redirect</button>
-        <button type="button" onClick={onCancel} className="px-3 py-1 text-sm rounded border border-gray-400">Cancel</button>
+        className="w-full border border-hairline-strong bg-page p-1 text-ink" />
+      <div className="flex gap-1">
+        <button type="submit" disabled={steer.trim() === ''} className={panelPrimary}>
+          Send redirect
+        </button>
+        <button type="button" onClick={onCancel} className={panelGhost}>Cancel</button>
       </div>
     </form>
   )
@@ -521,13 +589,12 @@ function OverridePrompt({ message, onConfirm, onCancel }: {
 }) {
   return (
     <div data-testid="override-prompt" role="alertdialog"
-      className="border-2 border-gray-600 bg-gray-100 rounded p-3 space-y-2">
-      <p className="text-sm text-gray-900">Safety warning: {message}</p>
-      <div className="flex gap-2">
-        <button type="button" onClick={onConfirm}
-          className="px-3 py-1 text-sm rounded bg-gray-800 text-white">Proceed anyway</button>
-        <button type="button" onClick={onCancel}
-          className="px-3 py-1 text-sm rounded border border-gray-400">Back</button>
+      className="border border-warning bg-warning-surface p-3 space-y-2">
+      <div className="uppercase font-medium text-warning">Safety warning</div>
+      <p className="text-ink">{message}</p>
+      <div className="flex gap-1">
+        <button type="button" onClick={onConfirm} className={panelGhost}>Proceed anyway</button>
+        <button type="button" onClick={onCancel} className={panelGhost}>Back</button>
       </div>
     </div>
   )

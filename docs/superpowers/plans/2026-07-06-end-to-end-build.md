@@ -158,7 +158,10 @@ type EventLog interface {
 `GET /healthz` · `GET /api/dishes` (index: id, title, updated_at) ·
 `POST /api/dishes {seed, constraints}` → dish + empty draft ·
 `GET /api/dishes/{id}` → `{draft, state, pendingProposal?}` ·
-`POST /api/dishes/{id}/move {moveType?, steer?}` → `202 {moveId}` | `409` in-flight ·
+`POST /api/dishes/{id}/move {moveType?, steer?, baseVersion?}` → `202 {moveId}` | `409` in-flight
+(`baseVersion` is the spec §8 post-cook extension, additive, task 5.3: the move
+runs against that version's draft; accept parents the new version to it;
+invalid ids → `400`) ·
 `POST /api/dishes/{id}/cancel` · `POST /api/dishes/{id}/gate {proposalId, verb, edit?, confirmOverride?}` ·
 `GET /api/dishes/{id}/versions` · `POST /api/dishes/{id}/promote {versionId}`
 (reassigns `current_version_id` + `branch_promoted` event) ·
@@ -414,7 +417,7 @@ replayed token-cadence **after** the safety screen passes.
   per-field inline), gate bar (ghost buttons, fill-on-hover, uppercase), citation/
   `[unverified]`/confidence chips (square, semantic tints). Vitest snapshots update.
   Commit.
-- [ ] **5.3 screens + flows** — Restyle seed intake, workbench, version history,
+- [x] **5.3 screens + flows** — Restyle seed intake, workbench, version history,
   blocked state, dial toggle, error/empty/reconnect states; **add post-cook flow**
   ("I cooked this" on a version → feedback textarea → POST move
   `{moveType:"iterate_feedback", steer:feedback, baseVersion:cookedId}` → one

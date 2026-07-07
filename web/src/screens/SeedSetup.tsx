@@ -18,7 +18,7 @@ export interface SeedFormValues {
 // empty means submittable.
 export function validateSeedForm(v: SeedFormValues): string[] {
   const errs: string[] = []
-  if (v.seed.trim() === '') errs.push('Seed is required.')
+  if (v.seed.trim() === '') errs.push('Seed is required — say what you want to cook.')
   const n = Number(v.servings)
   if (!Number.isInteger(n) || n < 1) errs.push('Servings must be a whole number of at least 1.')
   return errs
@@ -33,9 +33,14 @@ const INITIAL: SeedFormValues = {
   dietary: '', equipment: '', onHand: '',
 }
 
+// Shared field styles: uppercase 12px labels over hairline controls.
+const labelCls = 'block uppercase text-muted'
+const inputCls = 'mt-1 w-full border border-hairline-strong bg-page p-1 text-ink normal-case placeholder:text-muted'
+
 // SeedSetup is the dish-creation screen: a free-text seed plus the typed
-// constraint set (FDA Big-9 allergen multiselect, cuisine fixed to western,
-// skill, servings, free lists).
+// constraint set (FDA Big-9 allergen multiselect as square checkbox chips,
+// cuisine fixed to western, skill, servings, free lists) on a quiet
+// hairline card.
 export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) => void }) {
   const [values, setValues] = useState<SeedFormValues>(INITIAL)
   const [errors, setErrors] = useState<string[]>([])
@@ -73,7 +78,7 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
       })
       onCreated(detail)
     } catch (err) {
-      setErrors([err instanceof Error ? err.message : 'Could not create the dish.'])
+      setErrors([err instanceof Error ? err.message : 'The dish could not be created — try again.'])
     } finally {
       setSubmitting(false)
     }
@@ -81,80 +86,86 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
 
   return (
     <form onSubmit={onSubmit} data-testid="seed-setup"
-      className="bg-white border border-gray-300 rounded p-4 space-y-4">
-      <h2 className="text-xs uppercase tracking-wide text-gray-500">Start a dish</h2>
+      className="border border-hairline bg-page p-4 space-y-4">
+      <h2 className="uppercase text-muted">Start a dish</h2>
 
       {errors.length > 0 && (
-        <ul role="alert" className="border border-gray-400 bg-gray-100 rounded p-2 text-sm text-gray-800 list-disc list-inside">
+        <ul role="alert" className="border border-critical bg-critical-surface p-2 text-critical list-disc list-inside">
           {errors.map((e) => <li key={e}>{e}</li>)}
         </ul>
       )}
 
-      <label className="block text-xs text-gray-600">
+      <label className={labelCls}>
         Seed — what do you want to cook?
         <textarea value={values.seed} onChange={(e) => set('seed', e.target.value)} rows={2}
-          className="mt-1 w-full border border-gray-300 rounded p-2 text-sm text-gray-900"
+          className={inputCls}
           placeholder="e.g. a cozy one-pan chicken dinner" />
       </label>
 
       <fieldset className="space-y-1">
-        <legend className="text-xs text-gray-600">Allergens to avoid (FDA Big-9)</legend>
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {BIG9_ALLERGENS.map((a) => (
-            <label key={a} className="flex items-center gap-1 text-sm text-gray-800">
-              <input type="checkbox" checked={values.allergens.includes(a)} onChange={() => toggleAllergen(a)} />
-              {a}
-            </label>
-          ))}
+        <legend className={labelCls}>Allergens to avoid (FDA Big-9)</legend>
+        <div className="flex flex-wrap gap-1">
+          {BIG9_ALLERGENS.map((a) => {
+            const on = values.allergens.includes(a)
+            return (
+              <label key={a}
+                className={`flex items-center gap-1 px-2 py-1 border cursor-pointer uppercase transition ${
+                  on ? 'border-hairline-strong bg-surface text-ink' : 'border-hairline text-muted hover:border-hairline-strong'}`}>
+                <input type="checkbox" checked={on} onChange={() => toggleAllergen(a)}
+                  className="appearance-none w-2 h-2 border border-hairline-strong bg-page checked:bg-accent checked:border-accent" />
+                {a}
+              </label>
+            )
+          })}
         </div>
       </fieldset>
 
       <div className="grid grid-cols-3 gap-3">
-        <label className="block text-xs text-gray-600">
+        <label className={labelCls}>
           Cuisine
           <select value="western" disabled
-            className="mt-1 w-full border border-gray-300 rounded p-1 text-sm bg-gray-100 text-gray-700">
+            className="mt-1 w-full border border-hairline-strong bg-surface p-1 text-muted normal-case">
             {CUISINES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </label>
-        <label className="block text-xs text-gray-600">
+        <label className={labelCls}>
           Skill
           <select value={values.skill} onChange={(e) => set('skill', e.target.value)}
-            className="mt-1 w-full border border-gray-300 rounded p-1 text-sm bg-white text-gray-900">
+            className={inputCls}>
             {SKILLS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
-        <label className="block text-xs text-gray-600">
+        <label className={labelCls}>
           Servings
           <input type="number" min={1} step={1} value={values.servings}
             onChange={(e) => set('servings', e.target.value)}
-            className="mt-1 w-full border border-gray-300 rounded p-1 text-sm text-gray-900" />
+            className={inputCls} />
         </label>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <label className="block text-xs text-gray-600">
+        <label className={labelCls}>
           Dietary (comma-separated)
           <input value={values.dietary} onChange={(e) => set('dietary', e.target.value)}
             placeholder="vegetarian, low sodium"
-            className="mt-1 w-full border border-gray-300 rounded p-1 text-sm text-gray-900" />
+            className={inputCls} />
         </label>
-        <label className="block text-xs text-gray-600">
+        <label className={labelCls}>
           Equipment (comma-separated)
           <input value={values.equipment} onChange={(e) => set('equipment', e.target.value)}
             placeholder="cast iron, oven"
-            className="mt-1 w-full border border-gray-300 rounded p-1 text-sm text-gray-900" />
+            className={inputCls} />
         </label>
-        <label className="block text-xs text-gray-600">
+        <label className={labelCls}>
           On hand (comma-separated)
           <input value={values.onHand} onChange={(e) => set('onHand', e.target.value)}
             placeholder="thyme, lemons"
-            className="mt-1 w-full border border-gray-300 rounded p-1 text-sm text-gray-900" />
+            className={inputCls} />
         </label>
       </div>
 
       <button type="submit" disabled={submitting}
-        className="px-4 py-1.5 text-sm rounded bg-gray-800 text-white disabled:opacity-40">
+        className="px-4 py-2 uppercase bg-accent text-on-accent font-medium disabled:opacity-40">
         {submitting ? 'Starting…' : 'Start dish'}
       </button>
     </form>

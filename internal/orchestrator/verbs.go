@@ -96,18 +96,18 @@ func (o *Orchestrator) gateLocked(ctx context.Context, ds *dishState, req GateRe
 		case VerbRegenerate:
 			// Pure re-sample: original move type and steer, no rejection
 			// memory (R2 deferral).
-			return o.respawn(ctx, ds, req, eventlog.TypeGateRegenerate, pp.moveType, pp.steer, 1)
+			return o.respawn(ctx, ds, req, eventlog.TypeGateRegenerate, pp.moveType, pp.steer, pp.baseVersion, 1)
 		case VerbRedirect:
 			if strings.TrimSpace(req.Steer) == "" {
 				return GateResult{}, nil, fmt.Errorf("orchestrator: redirect requires steer text")
 			}
-			return o.respawn(ctx, ds, req, eventlog.TypeGateRedirect, pp.moveType, req.Steer, 1)
+			return o.respawn(ctx, ds, req, eventlog.TypeGateRedirect, pp.moveType, req.Steer, pp.baseVersion, 1)
 		case VerbAlternatives:
 			if IsDeterministic(pp.moveType) {
 				// Two samples of a deterministic computation are one card.
 				return GateResult{}, nil, fmt.Errorf("%w: alternatives needs a creative move", ErrVerbNotAllowed)
 			}
-			return o.respawn(ctx, ds, req, eventlog.TypeGateAlternatives, pp.moveType, pp.steer, 2)
+			return o.respawn(ctx, ds, req, eventlog.TypeGateAlternatives, pp.moveType, pp.steer, pp.baseVersion, 2)
 		}
 
 	case StateProposing:
@@ -124,7 +124,7 @@ func (o *Orchestrator) gateLocked(ctx context.Context, ds *dishState, req GateRe
 		// steer; gate_redirect records the whole thing — no separate
 		// move_cancelled event. Capture the move type before respawn detaches
 		// the in-flight record.
-		return o.respawn(ctx, ds, req, eventlog.TypeGateRedirect, ds.inflight.moveType, req.Steer, 1)
+		return o.respawn(ctx, ds, req, eventlog.TypeGateRedirect, ds.inflight.moveType, req.Steer, ds.inflight.baseVersion, 1)
 
 	case StateBlocked:
 		if ds.blocked == nil || ds.blocked.moveID != req.ProposalID {
@@ -132,12 +132,12 @@ func (o *Orchestrator) gateLocked(ctx context.Context, ds *dishState, req GateRe
 		}
 		switch req.Verb {
 		case VerbRegenerate:
-			return o.respawn(ctx, ds, req, eventlog.TypeGateRegenerate, ds.blocked.moveType, ds.blocked.steer, 1)
+			return o.respawn(ctx, ds, req, eventlog.TypeGateRegenerate, ds.blocked.moveType, ds.blocked.steer, ds.blocked.baseVersion, 1)
 		case VerbRedirect:
 			if strings.TrimSpace(req.Steer) == "" {
 				return GateResult{}, nil, fmt.Errorf("orchestrator: redirect requires steer text")
 			}
-			return o.respawn(ctx, ds, req, eventlog.TypeGateRedirect, ds.blocked.moveType, req.Steer, 1)
+			return o.respawn(ctx, ds, req, eventlog.TypeGateRedirect, ds.blocked.moveType, req.Steer, ds.blocked.baseVersion, 1)
 		default:
 			return GateResult{}, nil, fmt.Errorf("%w: %s while blocked (regenerate or redirect only)", ErrVerbNotAllowed, req.Verb)
 		}
@@ -147,14 +147,15 @@ func (o *Orchestrator) gateLocked(ctx context.Context, ds *dishState, req GateRe
 }
 
 // gateAccept applies the pending proposal's diff, recomputes analysis into
-// the snapshot, appends the new version (parent = current), advances the
-// dish pointer, and records gate_accept.
+// the snapshot, appends the new version (parent = current, or the cooked
+// base version for a post-cook move), advances the dish pointer, and
+// records gate_accept.
 func (o *Orchestrator) gateAccept(ctx context.Context, ds *dishState, req GateRequest, pp pendingProposal) (GateResult, *Outcome, error) {
 	dish, err := o.store.GetDish(ctx, req.DishID)
 	if err != nil {
 		return GateResult{}, nil, fmt.Errorf("orchestrator: load dish %s: %w", req.DishID, err)
 	}
-	cur, err := o.currentDraft(ctx, dish)
+	cur, err := o.moveBaseDraft(ctx, dish, pp.baseVersion)
 	if err != nil {
 		return GateResult{}, nil, err
 	}
@@ -162,7 +163,7 @@ func (o *Orchestrator) gateAccept(ctx context.Context, ds *dishState, req GateRe
 	if err != nil {
 		return GateResult{}, nil, fmt.Errorf("orchestrator: apply proposal: %w", err)
 	}
-	verID, err := o.commitVersion(ctx, dish, applied)
+	verID, err := o.commitVersion(ctx, dish, applied, pp.baseVersion)
 	if err != nil {
 		return GateResult{}, nil, err
 	}
@@ -187,7 +188,7 @@ func (o *Orchestrator) gateEdit(ctx context.Context, ds *dishState, req GateRequ
 	if err != nil {
 		return GateResult{}, nil, fmt.Errorf("orchestrator: load dish %s: %w", req.DishID, err)
 	}
-	cur, err := o.currentDraft(ctx, dish)
+	cur, err := o.moveBaseDraft(ctx, dish, pp.baseVersion)
 	if err != nil {
 		return GateResult{}, nil, err
 	}
@@ -202,7 +203,7 @@ func (o *Orchestrator) gateEdit(ctx context.Context, ds *dishState, req GateRequ
 	if err != nil {
 		return GateResult{}, nil, fmt.Errorf("orchestrator: apply edited ops: %w", err)
 	}
-	verID, err := o.commitVersion(ctx, dish, applied)
+	verID, err := o.commitVersion(ctx, dish, applied, pp.baseVersion)
 	if err != nil {
 		return GateResult{}, nil, err
 	}
@@ -240,7 +241,7 @@ func (o *Orchestrator) gateTakeOver(ctx context.Context, ds *dishState, req Gate
 	if err != nil {
 		return GateResult{}, nil, err
 	}
-	verID, err := o.commitVersion(ctx, dish, userDraft)
+	verID, err := o.commitVersion(ctx, dish, userDraft, "")
 	if err != nil {
 		return GateResult{}, nil, err
 	}
@@ -281,20 +282,21 @@ func (o *Orchestrator) screenHumanWrite(ctx context.Context, cur draft.Draft, op
 // redirect, alternatives): the gate_* event records the kickoff — the fresh
 // move appends no separate move_requested — and any in-flight generation is
 // detached first (redirect from proposing), making it the silent loser of
-// the race.
-func (o *Orchestrator) respawn(ctx context.Context, ds *dishState, req GateRequest, eventType, moveType, steer string, n int) (GateResult, *Outcome, error) {
+// the race. A post-cook move keeps its base version across respawns.
+func (o *Orchestrator) respawn(ctx context.Context, ds *dishState, req GateRequest, eventType, moveType, steer, baseVersion string, n int) (GateResult, *Outcome, error) {
 	if ds.inflight != nil {
 		ds.inflight.cancel()
 		ds.inflight = nil
 	}
-	dish, cur, thread, err := o.moveInputs(ctx, req.DishID)
+	dish, cur, thread, err := o.moveInputs(ctx, req.DishID, baseVersion)
 	if err != nil {
 		return GateResult{}, nil, err
 	}
 	newMoveID := newID("mv")
 	if err := o.append(ctx, req.DishID, req.SessionID, eventType, gatePayload{
 		Verb: req.Verb, ProposalID: req.ProposalID, MoveType: moveType,
-		Steer: steerForPayload(req.Verb, steer), NewMoveID: newMoveID, AutonomyDial: dish.AutonomyDial,
+		Steer: steerForPayload(req.Verb, steer), BaseVersion: baseVersion,
+		NewMoveID: newMoveID, AutonomyDial: dish.AutonomyDial,
 	}); err != nil {
 		return GateResult{}, nil, err
 	}
@@ -302,7 +304,7 @@ func (o *Orchestrator) respawn(ctx context.Context, ds *dishState, req GateReque
 	ds.blocked = nil
 	out, err := o.launch(ctx, ds, moveKickoff{
 		dishID: req.DishID, sessionID: req.SessionID, moveID: newMoveID,
-		moveType: moveType, steer: steer, n: n,
+		moveType: moveType, steer: steer, baseVersion: baseVersion, n: n,
 	}, dish, cur, thread)
 	if err != nil {
 		return GateResult{}, nil, err

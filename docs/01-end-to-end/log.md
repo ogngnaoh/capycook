@@ -121,3 +121,12 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   methodology + empty results table guarded by a docs-freeze test; T1 amendment text
   drafted for the USER to log at milestone-02 start. eval/fixtures holds only
   README/CHANGELOG/move_script.json; PREREGISTRATION diff verified empty.
+- **5.3 post-cook contract (baseVersion):** the pinned `POST /move` body gains the
+  spec-§8-sanctioned additive `baseVersion` field (plan API note updated). Design
+  choice: generation AND gate resolution key on the pending move's base — the
+  proposal's ops are relative to the base version's draft, so accept/edit apply
+  against it and parent the new version to it (sibling branch when the base is not
+  the trunk head), and regenerate/redirect/alternatives respawns inherit the base.
+  `base_version` rides move_requested (and respawning gate_*) payloads for replay;
+  invalid ids are 400 (`ErrUnknownBaseVersion`), distinct from 404s. take_over
+  stays baseless — it edits the current draft by definition.

@@ -12,10 +12,18 @@ const data: VersionsResponse = {
   ],
 }
 
+function mount(over: Partial<Parameters<typeof VersionHistory>[0]> = {}) {
+  const props = {
+    data, selectedId: null as string | null,
+    onSelect: vi.fn(), onPromote: vi.fn(), onCook: vi.fn(), canCook: true,
+    ...over,
+  }
+  render(<VersionHistory {...props} />)
+  return props
+}
+
 test('lists the chain, marks current and sibling branches, promotes and selects', () => {
-  const onSelect = vi.fn()
-  const onPromote = vi.fn()
-  render(<VersionHistory data={data} selectedId={null} onSelect={onSelect} onPromote={onPromote} />)
+  const { onSelect, onPromote } = mount()
 
   expect(screen.getByText('One')).toBeInTheDocument()
   expect(screen.getByText('current')).toBeInTheDocument()
@@ -28,4 +36,30 @@ test('lists the chain, marks current and sibling branches, promotes and selects'
   expect(onSelect).toHaveBeenCalledWith(data.versions![2])
   fireEvent.click(screen.getAllByRole('button', { name: 'Promote' })[1])
   expect(onPromote).toHaveBeenCalledWith('v3')
+})
+
+test('"I cooked this" opens the feedback form and asks for a rework of that version', () => {
+  const { onCook } = mount()
+  // Every version is cookable — including the current one.
+  expect(screen.getAllByRole('button', { name: 'I cooked this' })).toHaveLength(3)
+  fireEvent.click(screen.getAllByRole('button', { name: 'I cooked this' })[2]) // v3
+  const box = screen.getByLabelText(/how did it cook/i)
+  fireEvent.change(box, { target: { value: 'too salty — cut the feta' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Propose a rework' }))
+  expect(onCook).toHaveBeenCalledWith('v3', 'too salty — cut the feta')
+})
+
+test('empty feedback cannot be sent', () => {
+  const { onCook } = mount()
+  fireEvent.click(screen.getAllByRole('button', { name: 'I cooked this' })[0])
+  fireEvent.click(screen.getByRole('button', { name: 'Propose a rework' }))
+  expect(onCook).not.toHaveBeenCalled()
+})
+
+test('a busy dish disables the cook entry point', () => {
+  // While a move is in flight (canCook=false) the entry point is disabled.
+  mount({ canCook: false })
+  for (const b of screen.getAllByRole('button', { name: 'I cooked this' })) {
+    expect(b).toBeDisabled()
+  }
 })

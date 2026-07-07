@@ -37,3 +37,16 @@ test('mutating requests carry X-Session-Id', async () => {
   expect(headers['X-Session-Id']).toBeTruthy()
   expect(JSON.parse(init.body as string)).toEqual({ moveType: 'seed_expand', steer: 'lean into thyme' })
 })
+
+test('a post-cook move sends baseVersion; plain moves omit it', async () => {
+  const fetchMock = vi.fn(async () => jsonResponse({ moveId: 'mv_1' }))
+  vi.stubGlobal('fetch', fetchMock)
+  await postMove('d1', 'iterate_feedback', 'less salt next time', 'ver_3')
+  const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+  expect(JSON.parse(init.body as string)).toEqual({
+    moveType: 'iterate_feedback', steer: 'less salt next time', baseVersion: 'ver_3',
+  })
+  await postMove('d1', 'seed_expand', '')
+  const [, plain] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
+  expect(JSON.parse(plain.body as string)).toEqual({ moveType: 'seed_expand', steer: '' })
+})

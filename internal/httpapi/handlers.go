@@ -77,9 +77,13 @@ type dishDetail struct {
 	Blocked          *blockedInfo        `json:"blocked,omitempty"`
 }
 
+// moveRequest is POST /move. baseVersion (additive, spec §8 post-cook flow)
+// runs the move against that version's draft instead of the trunk head;
+// accepting the proposal parents the new version to it.
 type moveRequest struct {
-	MoveType string `json:"moveType"`
-	Steer    string `json:"steer"`
+	MoveType    string `json:"moveType"`
+	Steer       string `json:"steer"`
+	BaseVersion string `json:"baseVersion"`
 }
 
 type moveResponse struct {
@@ -277,7 +281,7 @@ func (a *API) handleMove(w http.ResponseWriter, r *http.Request) {
 			moveType = llm.MoveTypeIterateFeedback
 		}
 	}
-	moveID, err := a.orch.Move(r.Context(), dish.ID, session, moveType, req.Steer)
+	moveID, err := a.orch.MoveFrom(r.Context(), dish.ID, session, moveType, req.Steer, strings.TrimSpace(req.BaseVersion))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -557,7 +561,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		errors.Is(err, store.ErrNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, orchestrator.ErrUnknownMoveType),
-		errors.Is(err, orchestrator.ErrUnknownVerb):
+		errors.Is(err, orchestrator.ErrUnknownVerb),
+		errors.Is(err, orchestrator.ErrUnknownBaseVersion):
 		writeError(w, http.StatusBadRequest, err.Error())
 	default:
 		internalError(w, "domain call", err)

@@ -1,10 +1,11 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import Workbench from './Workbench'
-import { MockEventSource, dishDetail, jsonResponse, sampleProposal } from '../fixtures'
-import type { DishDetail, LLMStatusResponse } from '../types'
+import { MockEventSource, dishDetail, jsonResponse, sampleDraft, sampleProposal } from '../fixtures'
+import type { DishDetail, LLMStatusResponse, VersionsResponse } from '../types'
 
 let detail: DishDetail
 let llmStatus: LLMStatusResponse
+let versionsData: VersionsResponse
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
@@ -13,12 +14,11 @@ beforeEach(() => {
   vi.stubGlobal('EventSource', MockEventSource)
   detail = dishDetail()
   llmStatus = { llm_mode: 'live', model: 'deepseek-v4-pro', budget_spent_usd: 0, budget_cap_usd: 10 }
+  versionsData = { currentVersionId: detail.currentVersionId, versions: [] }
   fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url === '/api/dishes/d1') return jsonResponse(detail)
-    if (url === '/api/dishes/d1/versions') {
-      return jsonResponse({ currentVersionId: detail.currentVersionId, versions: [] })
-    }
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
     if (url === '/api/status') return jsonResponse(llmStatus)
     return jsonResponse({})
   })
@@ -145,6 +145,61 @@ test('live mode: no stub banner once /api/status has answered', async () => {
   await mount()
   await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/status'))
   expect(screen.queryByTestId('stub-banner')).not.toBeInTheDocument()
+})
+
+test('post-cook: "I cooked this" on a version posts iterate_feedback with baseVersion and threads the entry', async () => {
+  versionsData = {
+    currentVersionId: 'ver_1',
+    versions: [
+      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() },
+    ],
+  }
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: 'Versions' }))
+  await screen.findByTestId('version-history')
+  fireEvent.click(screen.getByRole('button', { name: 'I cooked this' }))
+  fireEvent.change(screen.getByLabelText(/how did it cook/i),
+    { target: { value: 'too salty — cut the feta by half' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Propose a rework' }))
+  await waitFor(() => {
+    const call = fetchMock.mock.calls.find(([u]) => String(u) === '/api/dishes/d1/move')
+    expect(call).toBeTruthy()
+    expect(JSON.parse((call![1] as RequestInit).body as string)).toEqual({
+      moveType: 'iterate_feedback',
+      steer: 'too salty — cut the feta by half',
+      baseVersion: 'ver_1',
+    })
+  })
+  // The iteration entry lands in the thread: cooked version → feedback.
+  const entry = screen.getByTestId('cooked-entry')
+  expect(entry).toHaveTextContent(/cooked/i)
+  expect(entry).toHaveTextContent('ver_1')
+  expect(entry).toHaveTextContent('too salty — cut the feta by half')
+})
+
+test('a dropped stream shows the quiet reconnecting banner until it reopens', async () => {
+  const es = await mount()
+  act(() => es.fail())
+  expect(screen.getByTestId('reconnect-banner')).toHaveTextContent(/reconnecting — your draft is safe/i)
+  act(() => es.open())
+  await waitFor(() => expect(screen.queryByTestId('reconnect-banner')).not.toBeInTheDocument())
+})
+
+test('move-failed offers Try again, which re-posts the same move', async () => {
+  const es = await mount()
+  fireEvent.change(screen.getByLabelText(/steer/i), { target: { value: 'brighter' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Propose a move' }))
+  await waitFor(() => {
+    expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/dishes/d1/move')).toBe(true)
+  })
+  act(() => es.emit('move-failed', { moveId: 'mv_9', reason: 'llm: parse error' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  await waitFor(() => {
+    const moves = fetchMock.mock.calls.filter(([u]) => String(u) === '/api/dishes/d1/move')
+    expect(moves).toHaveLength(2)
+    expect(JSON.parse((moves[1][1] as RequestInit).body as string))
+      .toEqual(JSON.parse((moves[0][1] as RequestInit).body as string))
+  })
 })
 
 test('move_auto_advanced collapses into an auto-applied thread entry', async () => {

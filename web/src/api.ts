@@ -92,8 +92,11 @@ export const createDish = (req: CreateDishRequest) =>
 export const setAutonomyDial = (id: string, on: boolean) =>
   send<DialResponse>('PATCH', `/api/dishes/${id}`, { autonomy_dial: on })
 
-export const postMove = (id: string, moveType: string, steer: string) =>
-  send<MoveResponse>('POST', `/api/dishes/${id}/move`, { moveType, steer })
+// postMove starts a move. baseVersion (additive, spec §8 post-cook flow)
+// runs the move against that version's draft; omitted for plain moves.
+export const postMove = (id: string, moveType: string, steer: string, baseVersion?: string) =>
+  send<MoveResponse>('POST', `/api/dishes/${id}/move`,
+    baseVersion ? { moveType, steer, baseVersion } : { moveType, steer })
 
 export const postCancel = (id: string) =>
   send<CancelResponse>('POST', `/api/dishes/${id}/cancel`)
@@ -112,8 +115,10 @@ export interface DishStreamHandlers {
   onProposalBlocked?: (e: ProposalBlockedEvent) => void
   onMoveCancelled?: (e: MoveCancelledEvent) => void
   onMoveFailed?: (e: MoveFailedEvent) => void
-  // onReconnect fires when the stream re-opens after a drop; the caller
-  // re-syncs state via GET /api/dishes/{id} (the stream carries no history).
+  // onDrop fires once when the stream drops (the reconnecting state);
+  // onReconnect fires when it re-opens — the caller re-syncs state via
+  // GET /api/dishes/{id} (the stream carries no history).
+  onDrop?: () => void
   onReconnect?: () => void
 }
 
@@ -139,7 +144,10 @@ export function openDishStream(dishId: string, h: DishStreamHandlers): { close: 
       }
     }
     es.onerror = () => {
-      dropped = true
+      if (!dropped) {
+        dropped = true
+        h.onDrop?.()
+      }
       if (!closed && es && es.readyState === EventSource.CLOSED) {
         retry = setTimeout(connect, STREAM_RETRY_MS)
       }

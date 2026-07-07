@@ -22,7 +22,7 @@ export default function App() {
 
   const dish = path.match(/^\/dishes\/([^/]+)$/)
   return (
-    <main data-testid="app-root" className="min-h-screen bg-gray-100">
+    <main data-testid="app-root" className="min-h-screen bg-page text-ink">
       {dish
         ? <Workbench key={dish[1]} dishId={dish[1]} onNavigate={navigate} />
         : <Home onNavigate={navigate} />}
@@ -39,25 +39,29 @@ function Home({ onNavigate }: { onNavigate: (to: string) => void }) {
   }, [])
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <header>
-        <h1 className="text-lg font-semibold text-gray-900">CapyCook — Dish Development Workbench</h1>
+    <div className="max-w-3xl mx-auto p-4 space-y-5">
+      <header className="h-header flex items-center border-b border-hairline">
+        <h1 className="uppercase font-medium text-sm">
+          CapyCook <span className="text-muted font-regular">— dish development workbench</span>
+        </h1>
       </header>
       <SeedSetup onCreated={(d) => onNavigate(`/dishes/${d.id}`)} />
       <section className="space-y-2">
-        <h2 className="text-xs uppercase tracking-wide text-gray-500">Recent dishes</h2>
-        {loadError && <p className="text-sm text-gray-500">Could not load recent dishes.</p>}
+        <h2 className="uppercase text-muted">Recent dishes</h2>
+        {loadError && (
+          <p className="text-muted">The dish list did not load — check the server and refresh.</p>
+        )}
         {!loadError && dishes.length === 0 && (
-          <p className="text-sm text-gray-400">No dishes yet — start one above.</p>
+          <p className="text-muted">No dishes yet — start one above.</p>
         )}
         {dishes.length > 0 && (
-          <ul className="divide-y divide-gray-200 bg-white border border-gray-200 rounded">
+          <ul className="border-t border-hairline">
             {dishes.map((d) => (
               <li key={d.id}>
                 <button onClick={() => onNavigate(`/dishes/${d.id}`)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex justify-between gap-2">
-                  <span className="truncate">{d.title}</span>
-                  <span className="text-xs text-gray-400 shrink-0">{new Date(d.updated_at).toLocaleString()}</span>
+                  className="w-full text-left px-2 py-2 border-b border-x border-hairline bg-page transition hover:bg-surface flex justify-between gap-2">
+                  <span className="truncate text-ink">{d.title}</span>
+                  <span className="font-mono text-2xs text-muted shrink-0">{new Date(d.updated_at).toLocaleString()}</span>
                 </button>
               </li>
             ))}

@@ -1,7 +1,7 @@
 // Theme preference: 'light' | 'dark' pin the palette via [data-theme] on
 // <html>; 'system' clears it so the prefers-color-scheme media query in
 // tokens.css decides. Preference persists in localStorage and is applied
-// on boot (main.tsx). The header toggle control lands in task 5.3.
+// on boot (main.tsx); the header control is components/ThemeToggle.tsx.
 
 export type Theme = 'light' | 'dark' | 'system'
 
