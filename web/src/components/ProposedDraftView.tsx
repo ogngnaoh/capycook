@@ -142,7 +142,11 @@ function happened(kind: 'added' | 'removed' | 'changed'): string {
 // when added, was/now when changed. Provenance ids stay behind Technical
 // view at the pass (brief call #2).
 function IngredientRow({ row }: { row: Row<Ingredient> }) {
-  const line = (v: Ingredient) => `${formatQty(v.qty, v.unit)} ${v.name}`
+  const line = (v: Ingredient) => (
+    <>
+      <span className="font-mono text-2xs">{formatQty(v.qty, v.unit)}</span> {v.name}
+    </>
+  )
   if (row.kind === 'same') {
     return (
       <span className="flex items-baseline gap-1">

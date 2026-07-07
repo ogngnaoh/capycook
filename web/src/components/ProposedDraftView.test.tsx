@@ -31,9 +31,10 @@ test('the canvas shows the would-be recipe with inline change marks', () => {
   // The removed ingredient is still visible, struck, in place.
   const struck = [...view.querySelectorAll('del')].map((d) => d.textContent)
   expect(struck.some((t) => t?.includes('thyme'))).toBe(true)
-  // The added ingredient renders inserted.
-  const added = [...view.querySelectorAll('ins')].map((d) => d.textContent)
-  expect(added.some((t) => t?.includes('lemon'))).toBe(true)
+  // The added ingredient renders inserted, quantity in the house mono face.
+  const lemonIns = [...view.querySelectorAll('ins')].find((d) => d.textContent?.includes('lemon'))
+  expect(lemonIns).toBeTruthy()
+  expect(lemonIns!.querySelector('.font-mono')).not.toBeNull()
   // Untouched rows render plain.
   expect(view).toHaveTextContent('chicken thigh')
 })

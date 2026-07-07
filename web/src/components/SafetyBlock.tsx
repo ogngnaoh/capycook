@@ -1,9 +1,24 @@
 import { useEffect, useRef } from 'react'
-import type { Op } from '../types'
+import type { Ingredient, Op, Step } from '../types'
 import { list } from '../types'
 import { opLineLabel } from '../lib/pathLabels'
 import { CORRECTIVE_ACTION, SAFETY_HOLD_TITLE } from '../vocab'
+import { formatQty } from './DraftPane'
 import { formatValue } from './ProposalCard'
+
+// dishValue renders an op operand in dish notation (notation rule: never
+// raw wire tuples): ingredients as `4 clove garlic`, steps as their text,
+// anything else through the compact formatter.
+function dishValue(v: unknown): string {
+  if (typeof v === 'object' && v !== null) {
+    const o = v as Partial<Ingredient & Step>
+    if (typeof o.name === 'string' && typeof o.qty === 'number' && typeof o.unit === 'string') {
+      return `${formatQty(o.qty, o.unit)} ${o.name}`
+    }
+    if (typeof o.text === 'string') return o.text
+  }
+  return formatValue(v)
+}
 
 // SafetyBlock is the hold pane: the critical alert plus the evidence —
 // the held change's ops, grayed beneath the rule, so the chef sees WHAT
@@ -31,7 +46,7 @@ export default function SafetyBlock({ reason, ruleId, ops }: {
           {held.map((op, i) => (
             <li key={i} className="py-1">
               <span className="uppercase text-2xs text-muted">{opLineLabel(op)}</span>{' '}
-              <span className="text-ink">{formatValue(op.value ?? op.from)}</span>
+              <span className="text-ink">{dishValue(op.value ?? op.from)}</span>
               {i === anchor && (
                 <span data-testid="rule-anchor"
                   className="ml-1 px-1 font-mono text-2xs normal-case border border-critical text-critical">
@@ -59,7 +74,7 @@ function findAnchor(ops: Op[], ruleId: string): number {
   let best = -1
   let bestScore = 0
   ops.forEach((op, i) => {
-    const hay = `${op.path} ${formatValue(op.value ?? op.from)}`.toLowerCase()
+    const hay = `${op.path} ${dishValue(op.value ?? op.from)}`.toLowerCase()
     const score = tokens.filter((t) => hay.includes(t)).length
     if (score > bestScore) { best = i; bestScore = score }
   })

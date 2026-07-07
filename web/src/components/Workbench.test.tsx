@@ -169,6 +169,11 @@ test('proposal-blocked shows the safety hold with its evidence, focused, with on
   // The held change stays visible as grayed evidence, and the hold takes focus.
   expect(screen.getByTestId('blocked-evidence')).toHaveTextContent('Steep garlic in oil overnight.')
   expect(block).toHaveFocus()
+  // The hold owns the top of the canvas — it precedes the draft, not the footer.
+  const draftPane = screen.getByTestId('draft-pane')
+  expect(block.compareDocumentPosition(draftPane) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  // And the idle-footer line is gone while blocked; bench voice only when idle.
+  expect(screen.queryByText(/propose a move from the steering rail/i)).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Regenerate' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Ask for changes' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /accept|^edit$|alternatives|take over|more/i })).not.toBeInTheDocument()
@@ -422,6 +427,12 @@ test('move_auto_advanced collapses into an auto-applied thread entry', async () 
   fireEvent.click(screen.getByRole('button', { name: /propose a move/i }))
   const entry = await screen.findByTestId('auto-advanced')
   expect(entry).toHaveTextContent(`auto-applied: ${MOVE_LABEL.scale_servings}`)
+})
+
+test('the idle footer speaks bench-ready voice, not protocol Idle', async () => {
+  await mount()
+  expect(screen.getByText(/bench is ready — propose a move from the steering rail/i)).toBeInTheDocument()
+  expect(screen.queryByText(/^idle — propose/i)).not.toBeInTheDocument()
 })
 
 test('the header speaks kitchen states with a plain gloss and a functional dial name', async () => {

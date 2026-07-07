@@ -461,6 +461,14 @@ export default function Workbench({ dishId, onNavigate }: {
             onCook={(versionId, feedback) => void propose('iterate_feedback', feedback, versionId)}
             canCook={detail.state === 'idle'} />
           <div className="flex-1 overflow-y-auto">
+            {/* The hold owns the top of the canvas: the stopped change is
+                the news, shown grayed right where it would have landed. */}
+            {detail.state === 'blocked' && detail.blocked && !snapshot && (
+              <div className="p-3 pb-0">
+                <SafetyBlock reason={detail.blocked.reason} ruleId={detail.blocked.ruleId}
+                  ops={detail.blocked.ops} />
+              </div>
+            )}
             {snapshot ? (
               <div className="p-3 space-y-2">
                 <div className="flex items-center gap-2">
@@ -498,14 +506,10 @@ export default function Workbench({ dishId, onNavigate }: {
             {detail.state === 'awaiting_gate' && <GateBar onVerb={onVerb} />}
             {detail.state === 'proposing' && <GateBar state="proposing" onCancel={cancelMove} />}
             {detail.state === 'blocked' && detail.blocked && (
-              <div className="space-y-2">
-                <SafetyBlock reason={detail.blocked.reason} ruleId={detail.blocked.ruleId}
-                  ops={detail.blocked.ops} />
-                <GateBar state="blocked" onVerb={onVerb} />
-              </div>
+              <GateBar state="blocked" onVerb={onVerb} />
             )}
             {detail.state === 'idle' && (
-              <p className="text-muted">Idle — propose a move from the steering pane.</p>
+              <p className="text-muted">The bench is ready — propose a move from the steering rail.</p>
             )}
           </div>
         </div>

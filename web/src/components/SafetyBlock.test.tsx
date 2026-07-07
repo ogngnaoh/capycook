@@ -6,6 +6,10 @@ import SafetyBlock from './SafetyBlock'
 const ops: Op[] = [
   { op: 'replace', path: '/title', from: 'Chicken', value: 'Confit Chicken' },
   {
+    op: 'add', path: '/ingredients/-',
+    value: { name: 'garlic', fdc_id: '169230', foodon_id: null, qty: 4, unit: 'clove' },
+  },
+  {
     op: 'add', path: '/steps/-',
     value: { text: 'Steep the garlic in oil overnight at room temperature.', technique: 'infuse', internal_temp_c: null, why: '' },
   },
@@ -26,6 +30,10 @@ test('keeps the blocked change as grayed evidence with the rule anchored to the 
   expect(evidence).toHaveTextContent('Title — changed')
   expect(evidence).toHaveTextContent('Method — added')
   expect(evidence).toHaveTextContent('Steep the garlic in oil overnight')
+  // Dish notation, never raw wire tuples (notation rule).
+  expect(evidence).not.toHaveTextContent(/fdc_id|foodon_id|qty:/)
+  // The ingredient line reads as dish notation.
+  expect(evidence).toHaveTextContent('4 clove garlic')
   // The rule anchors to the line whose content matches it, not the header only.
   const anchored = screen.getByTestId('rule-anchor')
   expect(anchored).toHaveTextContent('anaerobic-garlic-oil')
