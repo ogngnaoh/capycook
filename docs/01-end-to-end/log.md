@@ -130,3 +130,12 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   `base_version` rides move_requested (and respawning gate_*) payloads for replay;
   invalid ids are 400 (`ErrUnknownBaseVersion`), distinct from 404s. take_over
   stays baseless — it edits the current draft by definition.
+- **Gate C: REDIRECT (visuals not converged; seeds NOT ratified).** User verdict:
+  "the UI looks good from a stylistic standpoint" but wants deeper **accessibility**
+  and **information architecture** so the app "exudes a 'Michelin-star, agentic
+  computational gastronomy, recipe development platform that cooks of all levels
+  can use'". Benchmark seeds not ruled on — they remain an unratified draft in
+  docs/ (nothing copied to eval/fixtures). Research fan-out (a11y audit, IA
+  restructure, brand-feel references) dispatched; synthesized brief lands at
+  agent_docs/2026-07-07-gate-c-redesign-brief.md for the next session. User may
+  alternatively supply a design system — that would augment/override the brief.
