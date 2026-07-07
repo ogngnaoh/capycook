@@ -1,0 +1,23 @@
+{"claim_id": "clm-synth-k01", "arm": "grounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim k01", "source": "synthetic://usda/000101", "label_r1": "grounded-correct", "label_r2": "grounded-correct"}
+{"claim_id": "clm-synth-k02", "arm": "grounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim k02", "source": "synthetic://usda/000102", "label_r1": "grounded-correct", "label_r2": "grounded-correct"}
+{"claim_id": "clm-synth-k03", "arm": "grounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim k03", "source": "synthetic://usda/000103", "label_r1": "grounded-correct", "label_r2": "grounded-correct"}
+{"claim_id": "clm-synth-k04", "arm": "flavorgraph", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim k04", "source": "synthetic://usda/000104", "label_r1": "grounded-correct", "label_r2": "grounded-correct"}
+{"claim_id": "clm-synth-k05", "arm": "flavorgraph", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim k05", "source": "synthetic://usda/000105", "label_r1": "grounded-correct", "label_r2": "grounded-correct"}
+{"claim_id": "clm-synth-k06", "arm": "ungrounded", "dish": "dish-synthetic-3", "text": "SYNTHETIC claim k06", "source": "synthetic://usda/000106", "label_r1": "grounded-correct", "label_r2": "grounded-correct"}
+{"claim_id": "clm-synth-k07", "arm": "grounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim k07", "source": "synthetic://usda/000107", "label_r1": "grounded-correct", "label_r2": "grounded-mischaracterized"}
+{"claim_id": "clm-synth-k08", "arm": "grounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim k08", "source": "synthetic://usda/000108", "label_r1": "grounded-mischaracterized", "label_r2": "grounded-correct"}
+{"claim_id": "clm-synth-k09", "arm": "flavorgraph", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim k09", "source": "synthetic://usda/000109", "label_r1": "grounded-mischaracterized", "label_r2": "grounded-mischaracterized"}
+{"claim_id": "clm-synth-k10", "arm": "grounded", "dish": "dish-synthetic-3", "text": "SYNTHETIC claim k10", "source": "synthetic://usda/000110", "label_r1": "grounded-mischaracterized", "label_r2": "grounded-mischaracterized"}
+{"claim_id": "clm-synth-k11", "arm": "ungrounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim k11 [unverified]", "source": "", "label_r1": "correctly-unverified", "label_r2": "correctly-unverified"}
+{"claim_id": "clm-synth-k12", "arm": "ungrounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim k12 [unverified]", "source": "", "label_r1": "correctly-unverified", "label_r2": "correctly-unverified"}
+{"claim_id": "clm-synth-k13", "arm": "flavorgraph", "dish": "dish-synthetic-3", "text": "SYNTHETIC claim k13 [unverified]", "source": "", "label_r1": "correctly-unverified", "label_r2": "correctly-unverified"}
+{"claim_id": "clm-synth-k14", "arm": "grounded", "dish": "dish-synthetic-3", "text": "SYNTHETIC claim k14 [unverified]", "source": "", "label_r1": "correctly-unverified", "label_r2": "hallucinated"}
+{"claim_id": "clm-synth-k15", "arm": "ungrounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim k15", "source": "", "label_r1": "hallucinated", "label_r2": "correctly-unverified"}
+{"claim_id": "clm-synth-k16", "arm": "ungrounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim k16", "source": "", "label_r1": "hallucinated", "label_r2": "hallucinated"}
+{"claim_id": "clm-synth-k17", "arm": "ungrounded", "dish": "dish-synthetic-3", "text": "SYNTHETIC claim k17", "source": "", "label_r1": "hallucinated", "label_r2": "hallucinated"}
+{"claim_id": "clm-synth-k18", "arm": "flavorgraph", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim k18", "source": "", "label_r1": "hallucinated", "label_r2": "hallucinated"}
+{"claim_id": "clm-synth-k19", "arm": "grounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim k19 (a matter of taste)", "source": "", "label_r1": "opinion-non-checkable", "label_r2": "opinion-non-checkable"}
+{"claim_id": "clm-synth-k20", "arm": "flavorgraph", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim k20 (a matter of taste)", "source": "", "label_r1": "opinion-non-checkable", "label_r2": "opinion-non-checkable"}
+{"claim_id": "clm-synth-k21", "arm": "grounded", "dish": "dish-synthetic-1", "text": "SYNTHETIC claim k21 (single-labeled)", "source": "synthetic://usda/000121", "label_r1": "grounded-correct", "label_r2": ""}
+{"claim_id": "clm-synth-k22", "arm": "ungrounded", "dish": "dish-synthetic-2", "text": "SYNTHETIC claim k22 (r2 only)", "source": "", "label_r1": "", "label_r2": "correctly-unverified"}
+{"claim_id": "clm-synth-k23", "arm": "flavorgraph", "dish": "dish-synthetic-3", "text": "SYNTHETIC claim k23 (not yet labeled)", "source": "", "label_r1": "", "label_r2": ""}

@@ -367,7 +367,7 @@ replayed token-cadence **after** the safety screen passes.
   session count (session_id boundaries); frozen-five roll-up via the spec §4 mapping
   table (`internal/eval/mapping.go`, exported as data). Three rates per PREREG §7a
   formulas over labeled-claim files. Known-fixture → known-numbers tests. Commit.
-- [ ] **4.2 kappa** — Create `internal/eval/kappa.go` + tests: Cohen's κ + confusion
+- [x] **4.2 kappa** — Create `internal/eval/kappa.go` + tests: Cohen's κ + confusion
   matrix over double-labeled subset; verify against a hand-computed 20-claim fixture.
   Commit.
 - [ ] **4.3 arm runner** — Create `internal/eval/runner.go` + tests (stub LLM): runs

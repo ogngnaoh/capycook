@@ -13,3 +13,7 @@ label values are permitted here and ONLY here.
 - `claims_labeled.jsonl` — synthetic labeled-claim file (plan 4.6 schema) with
   hand-picked labels covering all five frozen §7a categories plus an unlabeled
   row. Expected rates are hand-computed in `rates_test.go`.
+- `claims_double_labeled.jsonl` — synthetic claim file whose double-labeled
+  subset is exactly 20 rows (plus 3 rows missing a label, which the κ subset
+  must exclude). The full confusion matrix, marginals, and Cohen's κ are
+  hand-computed in `kappa_test.go`.
