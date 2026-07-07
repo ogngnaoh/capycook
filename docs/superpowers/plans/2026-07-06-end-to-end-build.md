@@ -199,7 +199,7 @@ replayed token-cadence **after** the safety screen passes.
   contract; `Apply(ops)` returns new Draft (immutably), errors on bad pointer/op.
   TDD: apply add/remove/replace on ingredients + steps + scalar fields; bad path →
   error, draft unchanged. Commit.
-- [ ] **1.3 proposal** — Create `internal/proposal/{proposal.go,diff.go}` + tests.
+- [x] **1.3 proposal** — Create `internal/proposal/{proposal.go,diff.go}` + tests.
   `ComputeDiff(old,new)` emits minimal ops with `From` on replace; round-trip
   property: `old.Apply(ComputeDiff(old,new)) == new` (table of cases incl. list
   insert/delete/edit). Commit.
