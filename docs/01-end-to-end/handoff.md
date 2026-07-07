@@ -1,26 +1,25 @@
 # Handoff — Milestone 01 (end-to-end build)
 
 ## Next session start here
-**Gate B** (plan task 3.6 stop): user provides DEEPSEEK_API_KEY + LANGFUSE_{PUBLIC_KEY,
-SECRET_KEY,HOST} in `.env` and confirms the $10 cap. Then: run the live smoke
-(`CAPYCOOK_LIVE_TEST=1 go test ./internal/llm -run Live`), record real fixtures,
-verify one trace in Langfuse (screenshot → evidence/phase3/), tag `phase-3-model`,
-continue at Phase 4 task 4.1.
+**Gate C review** (plan task 5.4 stop): user judges the styled UI
+(docs/01-end-to-end/evidence/phase5/ — 38 screenshots, both themes, +
+self-critique.md) and ratifies the benchmark seeds
+(docs/01-end-to-end/proposed-benchmark-seeds.json). On approval: copy seeds →
+eval/fixtures/seeds.json + CHANGELOG entry, then task 5.5 (demo GIFs + full
+README), tag phase-5-ui, then Phase 6 (fork kit → Gate D).
 
 ## Current state
-- Branch `e2e`; Phases 1–2 tagged; Phase 3 built through 3.6 in stub mode (untagged —
-  live smoke pending keys). All suites green; e2e passes local + docker with the
-  stub-mode banner asserted via GET /api/status.
-- LLM edge: prompt pack (golden-tested, arm-parity-tested) + DeepSeek strict
-  tool-calling client w/ json_object fallback + persisted USD budget ledger
-  (<DB_PATH>.budget.json, pre-call hard-stop at LLM_BUDGET_USD=10) + per-arm evidence
-  assembly + OTel→Langfuse spans on GenerateMove only. Synthetic wire fixtures only —
-  zero live calls made.
+- Branch `e2e`; phases 1–4 tagged; Phase 5 built through 5.4 (convergence loop
+  done, 3 iterations, 6 fixes). All suites green (16 Go pkgs, 63 vitests).
+- Styled UI live in both themes: token system (Acne structure + Anthropic warm
+  layer), signature components (diff view, gate bar, chips), all screens/states,
+  post-cook iterate flow (baseVersion additive API extension, TDD'd).
+- LLM spend: ~$0.005 of the $2 cap (live smoke + one traced server move).
 
 ## Active concerns
-- Gate B pending: no live call until the user hands over keys + cap confirmation.
-- 3.3 caveat: synthetic fixtures assume go-openai's wire mapping of DeepSeek strict
-  tool-calls — the Gate-B live smoke records real fixtures to confirm.
-- 3.2 open question for Gate B: evidence block sits between constraints and thread
-  (better prompt-cache behavior) vs. the spec's assembly listing (evidence after
-  thread) — flag to user, reorder if desired.
+- Gate C judgment calls flagged in self-critique.md: streaming shot shows
+  card-at-gate (stub resolves instantly); identical stub alternatives cards;
+  dual pane primaries in cook-feedback state; light warning-surface contrast is
+  AA-large-only (locked palette); locale timestamps.
+- bench-12 (pesto + tree-nut allergen) is a deliberate allergen-gate stress
+  seed — confirm intended at ratification.
