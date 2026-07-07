@@ -325,7 +325,7 @@ replayed token-cadence **after** the safety screen passes.
   strict semantics, `json_object` caveat, pricing/context. Cosmetic drift → patch
   SPEC §2/§4c same commit + log.md line. **Structural drift → STOP (Gate B hand-back).**
   Record verified values in log.md. Commit.
-- [ ] **3.2 prompt pack** — Create `internal/llm/prompts/{system.tmpl,move.tmpl,evidence.tmpl}`
+- [x] **3.2 prompt pack** — Create `internal/llm/prompts/{system.tmpl,move.tmpl,evidence.tmpl}`
   + `prompts_test.go` (golden files in `internal/llm/testdata/golden/`), and
   `internal/llm/testdata/dev_seeds.json` (3–5 dev dishes, DISJOINT from benchmark).
   Template contract: cache-stable prefix (system+draft) → volatile steer suffix;

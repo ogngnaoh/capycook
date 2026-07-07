@@ -1,0 +1,132 @@
+## Current draft
+```json
+{
+  "title": "Pan-Roasted Trout with Sorrel Butter",
+  "concept": "crisp-skinned trout against a sharp, grassy butter sauce",
+  "flavor_rationale": [
+    {
+      "claim": "sorrel's acidity cuts the richness of browned butter",
+      "provenance": null,
+      "cuisine_context": "western"
+    }
+  ],
+  "ingredients": [
+    {
+      "name": "trout fillet",
+      "fdc_id": "175154",
+      "foodon_id": null,
+      "qty": 2,
+      "unit": "whole"
+    },
+    {
+      "name": "sorrel",
+      "fdc_id": null,
+      "foodon_id": null,
+      "qty": 60,
+      "unit": "g"
+    },
+    {
+      "name": "butter",
+      "fdc_id": null,
+      "foodon_id": null,
+      "qty": 45,
+      "unit": "g"
+    }
+  ],
+  "steps": [
+    {
+      "text": "Pan-roast the trout skin-side down until the flesh is opaque.",
+      "technique": "saute",
+      "internal_temp_c": 63,
+      "why": "crisp skin without overcooking the flesh"
+    },
+    {
+      "text": "Wilt the sorrel into the browned butter off the heat.",
+      "technique": "raw",
+      "internal_temp_c": null,
+      "why": "keeps the sorrel's acidity bright"
+    }
+  ],
+  "constraints": {
+    "dietary": [],
+    "allergens": [
+      "tree nuts"
+    ],
+    "equipment": [
+      "skillet"
+    ],
+    "skill": "intermediate",
+    "servings": 2,
+    "on_hand": [
+      "trout",
+      "sorrel"
+    ],
+    "cuisine": "western"
+  },
+  "analysis": {
+    "cost": {
+      "total_usd": 9.4,
+      "per_serving_usd": 4.7,
+      "approximate": true,
+      "missing": [
+        "sorrel"
+      ]
+    },
+    "nutrition": {
+      "calories": 410,
+      "protein_g": 32,
+      "fat_g": 27,
+      "sat_fat_g": 12,
+      "carbs_g": 6,
+      "fiber_g": 2,
+      "sugar_g": 1,
+      "sodium_mg": 340,
+      "unverified": [
+        "sorrel"
+      ]
+    }
+  }
+}
+```
+
+## Hard constraints (must still hold after this move)
+```json
+{
+  "dietary": [],
+  "allergens": [
+    "tree nuts"
+  ],
+  "equipment": [
+    "skillet"
+  ],
+  "skill": "intermediate",
+  "servings": 2,
+  "on_hand": [
+    "trout",
+    "sorrel"
+  ],
+  "cuisine": "western"
+}
+```
+
+## Grounding evidence
+[BEGIN ARM-DEPENDENT EVIDENCE]
+FlavorGraph pairing suggestions for the current ingredients (contested
+compound-sharing signal — see the system prompt). Cite one as
+{source: "flavorgraph", ref: "pairing:<ingredient>", date: ""}:
+- thyme (score 0.91)
+- lemon (score 0.84)
+- hazelnut (score 0.77)
+[END ARM-DEPENDENT EVIDENCE]
+
+## Steering thread (oldest first; most recent last)
+cook: seed: pan-roasted trout with sorrel butter sauce
+system: proposal accepted (seed_expand)
+cook: keep the sauce light, no cream
+
+## Move request
+Move type: ingredient_change
+Change the ingredient list in one focused way: substitute, add, or remove ingredients to serve the steer and the hard constraints. Adjust affected steps and flavor_rationale so the draft stays coherent.
+
+Steer from the cook (most recent instruction — highest priority):
+swap the butter for something brighter

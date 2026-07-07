@@ -1,0 +1,17 @@
+{{- if or .Pairings .Resolutions -}}
+{{- if .Pairings -}}
+FlavorGraph pairing suggestions for the current ingredients (contested
+compound-sharing signal — see the system prompt). Cite one as
+{source: "flavorgraph", ref: "pairing:<ingredient>", date: ""}:
+{{range .Pairings}}- {{.Ingredient}} (score {{printf "%.2f" .Score}})
+{{end}}{{- end -}}
+{{- if .Resolutions}}
+Resolved ingredient entities (deterministic USDA FoodData Central / FoodOn
+resolution). Cite one as {source: "usda-fdc", ref: "fdc:<fdc_id>", date: ""}
+or {source: "foodon", ref: "<foodon_id>", date: ""}:
+{{range .Resolutions}}- {{.Canonical}}: fdc_id={{orNull .FDCID}}, foodon_id={{orNull .FoodOnID}}
+{{end}}{{- end -}}
+{{- else -}}
+No grounding evidence is supplied for this run. Cite nothing: every flavor
+claim must carry a null provenance and be listed in unverified.
+{{- end -}}

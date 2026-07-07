@@ -1,0 +1,27 @@
+## Current draft
+```json
+{{.DraftJSON}}
+```
+
+## Hard constraints (must still hold after this move)
+```json
+{{.ConstraintsJSON}}
+```
+
+## Grounding evidence
+{{.EvidenceBlock}}
+
+## Steering thread (oldest first; most recent last)
+{{if .Thread}}{{range .Thread}}{{.Role}}: {{.Text}}
+{{end}}{{else}}(no prior turns)
+{{end}}
+## Move request
+Move type: {{.MoveType}}
+{{.Directive}}
+{{if .IterateFeedback}}
+Cooked-version feedback (the cook cooked the current draft and reports):
+{{if .Steer}}{{.Steer}}{{else}}(none given){{end}}
+{{else if .Steer}}
+Steer from the cook (most recent instruction — highest priority):
+{{.Steer}}
+{{end}}

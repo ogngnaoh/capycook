@@ -1,0 +1,70 @@
+{
+  "comment": "DEV prompt-iteration seeds ONLY (milestone 01, task 3.2). Prompt development iterates exclusively against these five deliberately obscure Western dishes, chosen to be DISJOINT from any plausible 12-15 dish Western benchmark draft (task 4.5 / PREREGISTRATION §6) — no canonical benchmark candidate (roast chicken, bolognese, chowder, ...) appears here. Never copy these into eval/fixtures/ and never iterate prompts against benchmark seeds.",
+  "seeds": [
+    {
+      "id": "dev-01",
+      "seed": "savory rye porridge with mushroom broth and crispy shallots",
+      "constraints": {
+        "dietary": ["vegetarian"],
+        "allergens": [],
+        "equipment": ["saucepan", "skillet"],
+        "skill": "intermediate",
+        "servings": 2,
+        "on_hand": ["rye flakes", "dried porcini"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "dev-02",
+      "seed": "celeriac schnitzel with caper brown butter",
+      "constraints": {
+        "dietary": ["vegetarian"],
+        "allergens": ["sesame"],
+        "equipment": ["skillet", "oven"],
+        "skill": "beginner",
+        "servings": 4,
+        "on_hand": ["celeriac", "capers"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "dev-03",
+      "seed": "pan-roasted trout with sorrel butter sauce",
+      "constraints": {
+        "dietary": [],
+        "allergens": ["tree nuts"],
+        "equipment": ["skillet"],
+        "skill": "intermediate",
+        "servings": 2,
+        "on_hand": ["trout", "sorrel"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "dev-04",
+      "seed": "juniper-spiced elk meatballs with braised red cabbage",
+      "constraints": {
+        "dietary": [],
+        "allergens": ["milk"],
+        "equipment": ["oven", "dutch oven"],
+        "skill": "advanced",
+        "servings": 4,
+        "on_hand": ["ground elk", "juniper berries"],
+        "cuisine": "western"
+      }
+    },
+    {
+      "id": "dev-05",
+      "seed": "parsnip and pear soup with hazelnut gremolata",
+      "constraints": {
+        "dietary": ["vegan"],
+        "allergens": [],
+        "equipment": ["saucepan", "blender"],
+        "skill": "beginner",
+        "servings": 4,
+        "on_hand": ["parsnips", "pears", "hazelnuts"],
+        "cuisine": "western"
+      }
+    }
+  ]
+}
