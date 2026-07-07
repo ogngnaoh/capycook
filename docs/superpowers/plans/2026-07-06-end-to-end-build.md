@@ -237,7 +237,7 @@ replayed token-cadence **after** the safety screen passes.
   status codes exact (202/409/404/400); `X-Session-Id` read onto every appended event.
   httptest coverage per endpoint incl. the 409 single-flight and gate idempotency.
   Commit.
-- [ ] **1.9 web workbench** — Modify `web/src/{App.tsx,api.ts,types.ts}`, create
+- [x] **1.9 web workbench** — Modify `web/src/{App.tsx,api.ts,types.ts}`, create
   `web/src/screens/SeedSetup.tsx`, `web/src/components/{VersionHistory.tsx,SafetyBlock.tsx,DialToggle.tsx}`,
   extend ProposalCard/GateBar/Workbench; **delete dev state-toggle**. TS types mirror
   pinned contracts. Seed screen: typed constraints (Big-9 multiselect, cuisine enum
