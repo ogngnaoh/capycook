@@ -108,3 +108,16 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   attrs session_id/arm/move_type present) and visually in the Tracing UI. Total
   live spend ≈ $0.005 of the $2 cap. Satisfies the re-homed "one replayable traced
   event" criterion.
+- **Phase 4 shipped (eval harness, stub-only):** replay fold reports the NATIVE verb
+  distribution per move-category (frozen-five as a stated derivation via the exported
+  mapping table); three rates implement PREREG §7a verbatim (checkable denominator,
+  mischaracterized counts neither way); κ verified against a hand-computed 20-claim
+  fixture (κ=113/153); scripted arm runner drives the real orchestrator (run_kind=
+  harness) with auto-accept, exports UNLABELED claims, 3-arm stub dry-run renders the
+  all-zero table (re-homed "empty baseline" criterion); labeling kit pins a seeded
+  (20260706) 18% per-arm-stratified double-label sampler with in-source Fisher–Yates;
+  13 proposed benchmark seeds (195≈200 claim arithmetic) live in docs/ as an
+  UNRATIFIED draft with a disjointness test against dev seeds; README carries the
+  methodology + empty results table guarded by a docs-freeze test; T1 amendment text
+  drafted for the USER to log at milestone-02 start. eval/fixtures holds only
+  README/CHANGELOG/move_script.json; PREREGISTRATION diff verified empty.

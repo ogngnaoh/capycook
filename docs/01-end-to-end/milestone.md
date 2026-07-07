@@ -32,8 +32,8 @@ Working doc for all phases: `docs/superpowers/plans/2026-07-06-end-to-end-build.
 | 1 | Skeleton (absorbed skeleton spec §3–§6 + spec §4 contracts) | shipped |
 | 2 | Data + deterministic services + safety gate → **Gate A** | shipped (Gate A cleared 2026-07-07) |
 | 3 | Real DeepSeek + telemetry → **Gate B** | shipped (Gate B cleared 2026-07-07) |
-| 4 | Eval harness (stop-line: unlabeled, labeling-ready outputs) | in-progress |
-| 5 | Styled UI + demo materials → **Gate C** | planned |
+| 4 | Eval harness (stop-line: unlabeled, labeling-ready outputs) | shipped |
+| 5 | Styled UI + demo materials → **Gate C** | in-progress |
 | 6 | Fork kit + hand-back → **Gate D** (no auto-merge) | planned |
 
 ## Integration notes
