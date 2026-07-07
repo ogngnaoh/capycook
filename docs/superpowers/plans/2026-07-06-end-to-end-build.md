@@ -428,6 +428,36 @@ replayed token-cadence **after** the safety screen passes.
   until self-consistent. Save final screenshots to evidence/phase5/. **→ STOP:
   Gate C** — present screenshots + ratify benchmark seeds (task 4.5 → copy into
   `eval/fixtures/` + CHANGELOG). Loop on redirects until user calls it converged.
+- **5.4R Gate C redirect** (2026-07-07) — a11y + IA + voice rebuild to
+  `agent_docs/2026-07-07-gate-c-redesign-brief.md` (locked constraints §0, tasks §7);
+  design input = brief alone (user-confirmed); style tokens LOCKED. Wave order from
+  collision analysis; TDD per task; both suites green + commit per wave-item. Test
+  notes: assert `aria-disabled` via `toHaveAttribute` (jest-dom `toBeDisabled()` is
+  blind to it) and keep behavioral "fires nothing" guards; tests import `vocab.ts`
+  instead of raw strings.
+  - [ ] **W1 foundations** (disjoint files): T12 contrast pair → T9 `vocab.ts`
+    module (+ leaf applications) → in parallel: T6-server blocked-ops payload
+    (additive; `ops` only, NEVER a `proposal` key — hub_test invariant; rule→line
+    anchoring stays client-side; log.md amendment line like baseVersion precedent) ·
+    T10 fiche-technique canvas · T15 override `<dialog>`.
+  - [ ] **W2 IA restructure** (serial through Workbench): T1 ProposedDraftView
+    (+ `applyOps.ts`, `DiffMark.tsx`; riskiest) → T3 gate-bar two-level ∥ T7
+    TrialStrip → T5 alternatives radio group · T6-client safety hold w/ evidence.
+  - [ ] **→ USER CHECKPOINT** — ~10 screenshots of new canvas / gate bar / trial
+    strip; IA-direction check before annotation waves (user-requested hedge
+    against a second redirect).
+  - [ ] **W3 a11y annotation** (settled tree): T2 lifecycle live region + 4-rule
+    focus protocol · T4 APG toolbar + scoped remappable shortcuts · T8 aural diff
+    grammar · T13 structure pass (h1/landmarks/title/skip links/GOV.UK errors) ·
+    T11 uncertainty ledger.
+  - [ ] **W4**: T14 narrow-viewport collapse (solo, last — needs the final tree).
+  - [ ] **Convergence rerun**: vendor shot script into `web/tools/` +
+    `puppeteer-core` devDep (reverses logged scratchpad-only decision — log why;
+    rescued copy in session scratchpad), adapt to renamed controls, extend for new
+    states (narrow viewport, Technical view on/off, More ▾ open, safety hold w/
+    evidence, focus-visible set, novice seed form, dashboard expand), both themes →
+    evidence/phase5/; self-critique. **→ STOP: re-present Gate C** (visual judgment
+    + seed ratification incl. bench-12 tree-nut stress seed).
 - [ ] **5.5 demo GIFs + full README** — Record GIFs via browser automation: (1) seed →
   streaming move → accept → history; (2) safety block on garlic-oil steer;
   (3) restart-survival; (4) post-cook iterate. Save to `docs/media/`, embed in
