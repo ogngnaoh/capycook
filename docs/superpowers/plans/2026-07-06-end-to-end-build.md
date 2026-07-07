@@ -225,7 +225,7 @@ replayed token-cadence **after** the safety screen passes.
   cancel = context cancel, discard, `move_cancelled`, nothing stored. TDD every
   transition + the races (accept-vs-cancel: first transition wins; double-accept: one
   version). Commit.
-- [ ] **1.7 transport** — Create `internal/transport/{sse.go,hub.go}` + tests
+- [x] **1.7 transport** — Create `internal/transport/{sse.go,hub.go}` + tests
   (`httptest`). Per-dish hub, single-goroutine select loop (SPEC §4a pattern),
   15s heartbeat, Flush per write; rationale replayed word-by-word at ~30ms cadence
   post-screen; cancel endpoint wiring; client disconnect cleans up. Test: block case
