@@ -230,7 +230,7 @@ replayed token-cadence **after** the safety screen passes.
   15s heartbeat, Flush per write; rationale replayed word-by-word at ~30ms cadence
   post-screen; cancel endpoint wiring; client disconnect cleans up. Test: block case
   emits ONLY `proposal-blocked` (no tokens, no proposal payload). Commit.
-- [ ] **1.8 httpapi** — Create `internal/httpapi/{routes.go,handlers.go}` + tests;
+- [x] **1.8 httpapi** — Create `internal/httpapi/{routes.go,handlers.go}` + tests;
   modify `cmd/server/main.go` to wire config→store→orchestrator→transport→httpapi;
   **delete** `cmd/server/api.go` stub endpoints + their tests. Full API surface per
   contract incl. `POST /promote` (pointer reassignment + `branch_promoted` event);
