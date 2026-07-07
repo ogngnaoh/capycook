@@ -7,24 +7,60 @@ beforeEach(() => {
   sessionStorage.clear()
 })
 
-test('validateSeedForm rejects an empty seed and non-positive servings', () => {
+test('validateSeedForm returns field-scoped errors for an empty seed and non-positive servings', () => {
   const base = {
     seed: '', allergens: [], skill: 'beginner', servings: '2',
     dietary: '', equipment: '', onHand: '',
   }
-  expect(validateSeedForm(base)).toHaveLength(1)
-  expect(validateSeedForm({ ...base, seed: 'stew', servings: '0' })).toHaveLength(1)
+  expect(validateSeedForm(base)).toEqual([{ field: 'seed', message: expect.stringMatching(/enter a seed/i) }])
+  expect(validateSeedForm({ ...base, seed: 'stew', servings: '0' })).toEqual([
+    { field: 'servings', message: expect.stringMatching(/servings/i) },
+  ])
   expect(validateSeedForm({ ...base, seed: 'stew', servings: '2.5' })).toHaveLength(1)
   expect(validateSeedForm({ ...base, seed: 'stew', servings: '4' })).toHaveLength(0)
 })
 
-test('submitting an empty form shows errors and does not call the API', async () => {
+test('submitting an empty form shows an error summary and does not call the API', async () => {
   const fetchMock = vi.fn()
   vi.stubGlobal('fetch', fetchMock)
   render(<SeedSetup onCreated={() => {}} />)
   fireEvent.click(screen.getByRole('button', { name: /start dish/i }))
-  expect(await screen.findByRole('alert')).toHaveTextContent(/seed is required/i)
+  const summary = await screen.findByRole('alert')
+  expect(summary).toHaveTextContent(/there is a problem/i)
+  expect(summary).toHaveTextContent(/enter a seed/i)
   expect(fetchMock).not.toHaveBeenCalled()
+})
+
+test('the error summary receives focus on a failed submit', async () => {
+  render(<SeedSetup onCreated={() => {}} />)
+  fireEvent.click(screen.getByRole('button', { name: /start dish/i }))
+  const summary = await screen.findByRole('alert')
+  expect(summary).toHaveFocus()
+})
+
+test('each summary error is a link that moves focus to its field', async () => {
+  render(<SeedSetup onCreated={() => {}} />)
+  fireEvent.click(screen.getByRole('button', { name: /start dish/i }))
+  const link = await screen.findByRole('link', { name: /enter a seed/i })
+  expect(link).toHaveAttribute('href', '#field-seed')
+  fireEvent.click(link)
+  expect(screen.getByLabelText(/seed/i)).toHaveFocus()
+})
+
+test('fields with errors get aria-invalid and aria-describedby pointing at an inline message', async () => {
+  render(<SeedSetup onCreated={() => {}} />)
+  fireEvent.click(screen.getByRole('button', { name: /start dish/i }))
+  await screen.findByRole('alert')
+
+  const seed = screen.getByLabelText(/seed/i)
+  expect(seed).toHaveAttribute('aria-invalid', 'true')
+  const describedby = seed.getAttribute('aria-describedby')
+  expect(describedby).toBeTruthy()
+  const inline = document.getElementById(describedby as string)
+  expect(inline).toHaveTextContent(/enter a seed/i)
+  // Inline messages are plain spans, not a second alert (multiple-alert trap).
+  expect(inline).not.toHaveAttribute('role', 'alert')
+  expect(screen.getAllByRole('alert')).toHaveLength(1)
 })
 
 test('renders all nine FDA Big-9 allergens as a multiselect', () => {
