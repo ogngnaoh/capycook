@@ -438,7 +438,8 @@ export default function Workbench({ dishId, onNavigate }: {
             {detail.state === 'proposing' && <GateBar state="proposing" onCancel={cancelMove} />}
             {detail.state === 'blocked' && detail.blocked && (
               <div className="space-y-2">
-                <SafetyBlock reason={detail.blocked.reason} ruleId={detail.blocked.ruleId} />
+                <SafetyBlock reason={detail.blocked.reason} ruleId={detail.blocked.ruleId}
+                  ops={detail.blocked.ops} />
                 <GateBar state="blocked" onVerb={onVerb} />
               </div>
             )}

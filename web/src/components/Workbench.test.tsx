@@ -154,14 +154,18 @@ test('an empty draft with a proposal pending shows the would-be recipe, not an e
   expect(screen.queryByText(/propose the first move/i)).not.toBeInTheDocument()
 })
 
-test('proposal-blocked shows the safety block with only regenerate/redirect', async () => {
+test('proposal-blocked shows the safety hold with its evidence, focused, with only the legal verbs', async () => {
   const es = await mount()
   act(() => es.emit('proposal-blocked', {
     moveId: 'mv_9', reason: 'anaerobic garlic-in-oil', ruleId: 'anaerobic-garlic-oil',
+    ops: [{ op: 'add', path: '/steps/-', value: { text: 'Steep garlic in oil overnight.', technique: 'infuse', internal_temp_c: null, why: '' } }],
   }))
   const block = screen.getByTestId('safety-block')
   expect(block).toHaveTextContent('anaerobic garlic-in-oil')
   expect(block).toHaveTextContent('anaerobic-garlic-oil')
+  // The held change stays visible as grayed evidence, and the hold takes focus.
+  expect(screen.getByTestId('blocked-evidence')).toHaveTextContent('Steep garlic in oil overnight.')
+  expect(block).toHaveFocus()
   expect(screen.getByRole('button', { name: 'Regenerate' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Ask for changes' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /accept|^edit$|alternatives|take over|more/i })).not.toBeInTheDocument()

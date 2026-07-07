@@ -147,6 +147,9 @@ export interface BlockedInfo {
   moveId: string
   reason: string
   ruleId: string
+  // The held change's ops — evidence for the safety-hold pane. Ops only,
+  // never the proposal (DESIGN §6.3); null from pre-ops events/servers.
+  ops?: Op[] | null
 }
 
 export interface DishDetail {
@@ -244,6 +247,7 @@ export interface ProposalBlockedEvent {
   moveId: string
   reason: string
   ruleId: string
+  ops?: Op[] | null
 }
 
 export interface MoveCancelledEvent {
