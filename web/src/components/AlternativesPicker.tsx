@@ -34,8 +34,8 @@ export default function AlternativesPicker({ base, proposals, selectedId, onSele
 
   return (
     <div className="flex-1 min-w-0 p-3 space-y-2">
-      <h3 className="uppercase text-muted">{ALTERNATIVES_HEADER}</h3>
-      <div role="radiogroup" aria-label={ALTERNATIVES_HEADER}
+      <h3 id="proposal-heading" tabIndex={-1} className="uppercase text-muted">{ALTERNATIVES_HEADER}</h3>
+      <div role="radiogroup" aria-labelledby="proposal-heading"
         className="border border-hairline divide-y divide-hairline bg-page">
         {proposals.map((p, i) => {
           const checked = p.id === selected?.id

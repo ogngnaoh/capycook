@@ -1,7 +1,10 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import Workbench from './Workbench'
 import { MockEventSource, dishDetail, jsonResponse, sampleDraft, sampleProposal } from '../fixtures'
-import { MOVE_LABEL, STATE_GLOSS, STATE_LABEL } from '../vocab'
+import {
+  ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED, ANNOUNCE_PROPOSING,
+  GATE_ANNOUNCE, MOVE_LABEL, STATE_GLOSS, STATE_LABEL, announceProposalReady,
+} from '../vocab'
 import type { DishDetail, LLMStatusResponse, VersionsResponse } from '../types'
 
 let detail: DishDetail
@@ -251,6 +254,75 @@ test('the override prompt is a modal alert dialog: named, described, Back-focuse
   })
 })
 
+test('a permanent status region narrates the gate lifecycle, never the token stream', async () => {
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ moveId: 'mv_9' })
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  const es = await mount()
+  const region = screen.getByTestId('gate-live-region')
+  expect(region).toHaveAttribute('role', 'status')
+  expect(region.className).toMatch(/sr-only/)
+  // Tokens stream silently — only lifecycle transitions speak.
+  act(() => es.emit('token', { moveId: 'mv_9', text: 'Building depth.' }))
+  expect(region).not.toHaveTextContent(/building depth/i)
+  fireEvent.click(screen.getByRole('button', { name: /propose a move/i }))
+  expect(region).toHaveTextContent(ANNOUNCE_PROPOSING)
+  // The POST settles and hands the wait to mv_9 — its proposal announces.
+  await waitFor(() => {
+    expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/dishes/d1/move')).toBe(true)
+  })
+  act(() => es.emit('proposal-ready', { moveId: 'mv_9', proposal: sampleProposal({ id: 'pr_9', move_id: 'mv_9' }) }))
+  await waitFor(() => expect(region).toHaveTextContent(announceProposalReady(1)))
+  act(() => es.emit('move-failed', { moveId: 'mv_9', reason: 'llm: parse error' }))
+  expect(region).toHaveTextContent(ANNOUNCE_MOVE_FAILED)
+  act(() => es.emit('move-cancelled', { moveId: 'mv_9' }))
+  expect(region).toHaveTextContent(ANNOUNCE_MOVE_CANCELLED)
+})
+
+test('accepting announces through the status region', async () => {
+  detail = dishDetail({
+    state: 'awaiting_gate',
+    pendingProposal: sampleProposal(),
+    pendingProposals: [sampleProposal()],
+  })
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: 'Accept' }))
+  expect(screen.getByTestId('gate-live-region')).toHaveTextContent(GATE_ANNOUNCE.accept)
+})
+
+test('proposal arrival moves focus to the proposal heading', async () => {
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
+  const es = await mount()
+  act(() => es.emit('proposal-ready', { moveId: 'mv_9', proposal: sampleProposal({ id: 'pr_9', move_id: 'mv_9' }) }))
+  await waitFor(() => {
+    const heading = document.getElementById('proposal-heading')
+    expect(heading).not.toBeNull()
+    expect(heading).toHaveFocus()
+  })
+})
+
+test('opening a verb panel focuses its first field; cancel returns focus to the gate bar', async () => {
+  detail = dishDetail({
+    state: 'awaiting_gate',
+    pendingProposal: sampleProposal(),
+    pendingProposals: [sampleProposal()],
+  })
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: 'More' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+  const form = await screen.findByTestId('edit-form')
+  expect(form.querySelector('input')).toHaveFocus()
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  await waitFor(() => {
+    expect(screen.getByTestId('gate-bar').contains(document.activeElement)).toBe(true)
+  })
+})
+
 test('move-failed shows a failure banner distinct from the safety block', async () => {
   const es = await mount()
   act(() => es.emit('move-failed', { moveId: 'mv_9', reason: 'llm: parse error' }))
@@ -294,10 +366,10 @@ test('post-cook: "I cooked this" on a version posts iterate_feedback with baseVe
     ],
   }
   await mount()
-  fireEvent.click(screen.getByRole('button', { name: 'Versions' }))
-  await screen.findByTestId('version-history')
+  // The trial record is persistent — "I cooked this" sits on the current pill.
+  await screen.findByTestId('trial-strip')
   fireEvent.click(screen.getByRole('button', { name: 'I cooked this' }))
-  fireEvent.change(screen.getByLabelText(/how did it cook/i),
+  fireEvent.change(screen.getByLabelText(/tasting notes/i),
     { target: { value: 'too salty — cut the feta by half' } })
   fireEvent.click(screen.getByRole('button', { name: 'Propose a rework' }))
   await waitFor(() => {

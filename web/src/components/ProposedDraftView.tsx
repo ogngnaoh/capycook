@@ -35,7 +35,9 @@ export default function ProposedDraftView({ base, proposal, children }: {
   return (
     <section data-testid="proposed-draft" className="flex-1 min-w-0 p-3 space-y-3">
       <div className="flex items-baseline gap-2 flex-wrap">
-        <h2 className="uppercase text-muted">Proposal</h2>
+        {/* Focus target for proposal arrival (P1); outline stays on the
+            focus ring's terms via :focus-visible only. */}
+        <h2 id="proposal-heading" tabIndex={-1} className="uppercase text-muted">Proposal</h2>
         <span className="text-ink">{MOVE_LABEL[proposal.move_type as keyof typeof MOVE_LABEL] ?? proposal.move_type}</span>
         <span className="font-mono text-2xs text-muted">{proposal.move_type}</span>
         <button type="button" aria-pressed={techView} onClick={toggleTech}

@@ -78,6 +78,29 @@ export const SR_NOW = 'now: '
 export const SR_ADDED = 'added: '
 export const SR_REMOVED = 'removed: '
 
+// Gate-lifecycle announcements for the permanent status region (P1): one
+// sentence per transition, never the token stream.
+export const ANNOUNCE_PROPOSING = 'Proposing a move…'
+export const ANNOUNCE_MOVE_FAILED = 'Move failed'
+export const ANNOUNCE_MOVE_CANCELLED = 'Move cancelled'
+
+export function announceProposalReady(changes: number): string {
+  return `Proposal ready — ${changes} ${changes === 1 ? 'change' : 'changes'} to review`
+}
+
+export function announceAlternatives(count: number): string {
+  return `${count} alternatives ready — pick one to develop`
+}
+
+export const GATE_ANNOUNCE: Record<GateVerb, string> = {
+  accept: 'Accepting…',
+  edit: 'Applying the edit…',
+  regenerate: 'Regenerating…',
+  alternatives: 'Drafting alternatives…',
+  redirect: 'Sending direction…',
+  take_over: 'Saving your draft…',
+}
+
 // Version aliasing: v1/v2/v3 in running text, Trial pills on the strip,
 // 8-char hash refs where precision matters (full hash only on the snapshot).
 export function versionAlias(n: number): string {
