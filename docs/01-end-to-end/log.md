@@ -150,3 +150,11 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   proposal's rationale/citations/confidence (hub_test TestBlockedEmitsOnlyProposalBlocked
   still asserts no `proposal` key and passes). eval/replay ignores the unknown key,
   so events_gate_dynamics.json fixtures need no change and keep passing.
+- **2026-07-07 · Vendored the evidence-screenshot tooling into `web/tools/` (reverses
+  the Phase-1 "scratchpad-only tooling, not a repo dependency" call above).** The
+  convergence loop recurs — the 5.4R rerun for the redesigned UI, the 5.5 restart/
+  reconnect GIFs, and any future redirect pass all re-drive the same headless capture —
+  and the scratchpad `phase5_shots.mjs` + its puppeteer-core copy nearly got GC'd out
+  from under the next session. `web/tools/shots.mjs` (adapted to the redesigned IA:
+  TrialStrip, two-level gate, renamed verbs, narrow RailTabs) + `web/tools/README.md`
+  now live in-repo, with `puppeteer-core` a `web/` devDependency.
