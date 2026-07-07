@@ -274,7 +274,7 @@ replayed token-cadence **after** the safety screen passes.
   staples: name, aliases, category, big9_flags placeholder) + `data/README.md`
   provenance section. Draft via stated procedure (staple lists from named public
   sources), logged in log.md. Commit.
-- [ ] **2.2 USDA vendoring + nutrition** — Create `scripts/vendor_usda.py` (bulk CSV,
+- [x] **2.2 USDA vendoring + nutrition** — Create `scripts/vendor_usda.py` (bulk CSV,
   Foundation primary/SR Legacy fallback, pinned release date; extracts universe rows +
   panel nutrients + foodPortion gram weights → `data/usda/{nutrients.csv,portions.csv,PROVENANCE.md}`);
   implement `internal/services/nutrition.go` (per-100g × grams; household units via

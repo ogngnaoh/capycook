@@ -1,0 +1,715 @@
+name,fdc_id,source_dataset,amount,unit,portion_description,gram_weight
+all-purpose flour,168894,sr_legacy,1,cup,cup,125
+allspice,171315,sr_legacy,1,tsp,tsp,1.9
+allspice,171315,sr_legacy,1,tbsp,tbsp,6
+almond,170567,sr_legacy,1,cup,"cup, whole",143
+almond,170567,sr_legacy,1,cup,"cup, sliced",92
+almond,170567,sr_legacy,1,cup,"cup, slivered",108
+almond,170567,sr_legacy,1,cup,"cup, ground",95
+almond,170567,sr_legacy,1,oz,oz (23 whole kernels),28.35
+almond,170567,sr_legacy,1,whole,almond,1.2
+almond butter,168603,sr_legacy,1,tbsp,tbsp,16
+almond butter,168603,sr_legacy,1,cup,cup,250
+anchovy,174183,sr_legacy,1,oz,"oz, boneless",28.35
+anchovy,174183,sr_legacy,1,whole,anchovy,4
+anchovy,174183,sr_legacy,1,can,can (2 oz),45
+anchovy,174183,sr_legacy,5,whole,anchovies,20
+apple,171688,sr_legacy,1,cup,"cup, quartered or chopped",125
+apple,171688,sr_legacy,1,cup,cup slices,109
+apple,171688,sr_legacy,1,large,"large (3-1/4"" dia)",223
+apple,171688,sr_legacy,1,medium,"medium (3"" dia)",182
+apple,171688,sr_legacy,1,small,"small (2-3/4"" dia)",149
+apple,171688,sr_legacy,1,extra,"extra small (2-1/2"" dia)",101
+apple,171688,sr_legacy,1,nlea,NLEA serving,242
+apple cider vinegar,173469,sr_legacy,1,tbsp,tbsp,14.9
+apple cider vinegar,173469,sr_legacy,1,cup,cup,239
+apple cider vinegar,173469,sr_legacy,1,tsp,tsp,5
+arborio rice,168881,sr_legacy,1,cup,cup,200
+arugula,169387,sr_legacy,1,leaf,leaf,2
+arugula,169387,sr_legacy,0.5,cup,cup,10
+asparagus,168389,sr_legacy,1,cup,cup,134
+asparagus,168389,sr_legacy,1,spear,"spear, small (5"" long or less)",12
+asparagus,168389,sr_legacy,1,spear,"spear, medium (5-1/4"" to 7"" long)",16
+asparagus,168389,sr_legacy,1,spear,"spear, large (7-1/4"" to 8-1/2"")",20
+asparagus,168389,sr_legacy,1,spear,"spear, extra large (8-3/4"" to 10"" long)",24
+asparagus,168389,sr_legacy,1,spear,"spear tip (2"" long or less)",3.5
+avocado,171705,sr_legacy,1,cup,"cup, cubes",150
+avocado,171705,sr_legacy,1,cup,"cup, pureed",230
+avocado,171705,sr_legacy,1,cup,"cup, sliced",146
+avocado,171705,sr_legacy,1,whole,"avocado, NS as to Florida or California",201
+avocado,171705,sr_legacy,1,nlea,NLEA Serving,50
+bacon,168277,sr_legacy,4,oz,oz,113
+bacon,168277,sr_legacy,1,slice,slice raw,28
+bacon,168277,sr_legacy,1,package,package,442
+baking powder,172803,sr_legacy,1,tsp,tsp,4.6
+baking powder,172803,sr_legacy,0.5,tsp,tsp,2.3
+baking soda,175040,sr_legacy,1,tsp,tsp,4.6
+baking soda,175040,sr_legacy,0.5,tsp,tsp,2.3
+balsamic vinegar,172241,sr_legacy,1,tbsp,tbsp,16
+balsamic vinegar,172241,sr_legacy,1,cup,cup,255
+balsamic vinegar,172241,sr_legacy,1,tsp,tsp,5.3
+banana,173944,sr_legacy,1,cup,"cup, mashed",225
+banana,173944,sr_legacy,1,cup,"cup, sliced",150
+banana,173944,sr_legacy,1,extra,"extra small (less than 6"" long)",81
+banana,173944,sr_legacy,1,small,"small (6"" to 6-7/8"" long)",101
+banana,173944,sr_legacy,1,medium,"medium (7"" to 7-7/8"" long)",118
+banana,173944,sr_legacy,1,large,"large (8"" to 8-7/8"" long)",136
+banana,173944,sr_legacy,1,extra,"extra large (9"" or longer)",152
+banana,173944,sr_legacy,1,nlea,NLEA serving,126
+barley,170284,sr_legacy,1,cup,cup,200
+basil,172232,sr_legacy,5,leaves,leaves,2.5
+basil,172232,sr_legacy,2,tbsp,"tbsp, chopped",5.3
+basil,172232,sr_legacy,0.25,cup,"cup leaves, whole",6
+bay leaf,170917,sr_legacy,1,tsp,"tsp, crumbled",0.6
+bay leaf,170917,sr_legacy,1,tbsp,"tbsp, crumbled",1.8
+bbq sauce,174523,sr_legacy,1,tbsp,tbsp,17
+bbq sauce,174523,sr_legacy,0.5,cup,cup,143
+bbq sauce,174523,sr_legacy,1,cup,cup,279
+beef broth,171538,sr_legacy,1,cup,cup,240
+beef broth,171538,sr_legacy,1,can,can 14.5 oz,435
+beef broth,171538,sr_legacy,1,container,container 32 oz,960
+beef steak,168726,sr_legacy,4,oz,oz,113
+beef steak,168726,sr_legacy,1,whole,steak,608
+beet,169145,sr_legacy,1,cup,cup,136
+beet,169145,sr_legacy,1,whole,"beet (2"" dia)",82
+bell pepper,170108,sr_legacy,1,cup,"cup, chopped",149
+bell pepper,170108,sr_legacy,1,cup,"cup, sliced",92
+bell pepper,170108,sr_legacy,1,tablespoon,tablespoon,9.3
+bell pepper,170108,sr_legacy,1,large,"large (2-1/4 per pound, approx 3-3/4"" long, 3"" dia.)",164
+bell pepper,170108,sr_legacy,1,medium,"medium (approx 2-3/4"" long, 2-1/2 dia.)",119
+bell pepper,170108,sr_legacy,1,small,small,74
+bell pepper,170108,sr_legacy,1,ring,"ring (3"" dia., 1/4"" thick)",10
+black bean,173734,sr_legacy,1,cup,cup,194
+black bean,173734,sr_legacy,1,tbsp,tbsp,12.1
+black pepper,170931,sr_legacy,1,tsp,"tsp, ground",2.3
+black pepper,170931,sr_legacy,1,tbsp,"tbsp, ground",6.9
+black pepper,170931,sr_legacy,1,tsp,"tsp, whole",2.9
+black pepper,170931,sr_legacy,1,dash,dash,0.1
+blackberry,173946,sr_legacy,1,cup,cup,144
+blueberry,171711,sr_legacy,1,cup,cup,148
+blueberry,171711,sr_legacy,50,berries,berries,68
+bread,325871,foundation,1,slice,,27.3
+breadcrumb,174928,sr_legacy,1,oz,oz,28.35
+breadcrumb,174928,sr_legacy,1,cup,cup,108
+broccoli,747447,foundation,1,cup,chopped,76
+brown rice,169703,sr_legacy,1,cup,cup,185
+brown sugar,168833,sr_legacy,1,tsp,tsp unpacked,3
+brown sugar,168833,sr_legacy,1,cup,cup packed,220
+brown sugar,168833,sr_legacy,1,cup,cup unpacked,145
+brown sugar,168833,sr_legacy,1,tsp,tsp packed,4.6
+brown sugar,168833,sr_legacy,1,tsp,tsp brownulated,3.2
+brussels sprout,170383,sr_legacy,1,cup,cup,88
+brussels sprout,170383,sr_legacy,1,whole,sprout,19
+bulgur,170688,sr_legacy,1,cup,cup,140
+butter,173410,sr_legacy,1,pat,"pat (1"" sq, 1/3"" high)",5
+butter,173410,sr_legacy,1,tbsp,tbsp,14.2
+butter,173410,sr_legacy,1,cup,cup,227
+butter,173410,sr_legacy,1,stick,stick,113
+buttermilk,170874,sr_legacy,1,cup,cup,245
+buttermilk,170874,sr_legacy,1,fl oz,fl oz,30.6
+buttermilk,170874,sr_legacy,1,quart,quart,980
+butternut squash,169295,sr_legacy,1,cup,"cup, cubes",140
+cabbage,169975,sr_legacy,1,cup,"cup, chopped",89
+cabbage,169975,sr_legacy,1,cup,"cup, shredded",70
+cabbage,169975,sr_legacy,1,head,"head, large (about 7"" dia)",1248
+cabbage,169975,sr_legacy,1,leaf,"leaf, large",33
+cabbage,169975,sr_legacy,1,head,"head, medium (about 5-3/4"" dia)",908
+cabbage,169975,sr_legacy,1,leaf,"leaf, medium",23
+cabbage,169975,sr_legacy,1,head,"head, small (about 4-1/2"" dia)",714
+cabbage,169975,sr_legacy,1,leaf,leaf,15
+canned tomato,170051,sr_legacy,1,cup,cup,240
+canned tomato,170051,sr_legacy,1,tbsp,tbsp,15
+canned tomato,170051,sr_legacy,1,can,can,190
+canned tomato,170051,sr_legacy,1,large,large,164
+canned tomato,170051,sr_legacy,1,medium,medium,111
+canned tomato,170051,sr_legacy,1,small,small,82
+canned tuna,173709,sr_legacy,1,oz,oz,28.35
+canned tuna,173709,sr_legacy,3,oz,oz,85
+canned tuna,173709,sr_legacy,1,can,can,165
+canned tuna,173709,sr_legacy,1,cup,"cup, solid or chunks",154
+canned tuna,173709,sr_legacy,1,can,"can (12.5 oz), drained",315
+cantaloupe,169092,sr_legacy,1,cup,"cup, balls",177
+cantaloupe,169092,sr_legacy,1,cup,"cup, cubes",160
+cantaloupe,169092,sr_legacy,1,cup,"cup, diced",156
+cantaloupe,169092,sr_legacy,1,melon,"melon, large (about 6-1/2"" dia)",814
+cantaloupe,169092,sr_legacy,1,wedge,"wedge, large (1/8 of large melon)",102
+cantaloupe,169092,sr_legacy,1,melon,"melon, medium (about 5"" dia)",552
+cantaloupe,169092,sr_legacy,1,wedge,"wedge, medium (1/8 of medium melon)",69
+cantaloupe,169092,sr_legacy,1,melon,"melon, small (about 4-1/4"" dia)",441
+cantaloupe,169092,sr_legacy,1,wedge,"wedge, small (1/8 of small melon)",55
+cantaloupe,169092,sr_legacy,10,whole,cantaloupe balls,138
+cantaloupe,169092,sr_legacy,1,nlea,NLEA serving,134
+caper,172238,sr_legacy,1,tbsp,"tbsp, drained",8.6
+cardamom,170919,sr_legacy,1,tsp,"tsp, ground",2
+cardamom,170919,sr_legacy,1,tbsp,"tbsp, ground",5.8
+carrot,170393,sr_legacy,1,cup,cup chopped,128
+carrot,170393,sr_legacy,1,cup,cup grated,110
+carrot,170393,sr_legacy,1,cup,cup strips or slices,122
+carrot,170393,sr_legacy,1,large,"large (7-1/4"" to 8-/1/2"" long)",72
+carrot,170393,sr_legacy,1,medium,medium,61
+carrot,170393,sr_legacy,1,small,"small (5-1/2"" long)",50
+carrot,170393,sr_legacy,1,slice,slice,3
+carrot,170393,sr_legacy,1,strip,"strip large (3"" long)",7
+carrot,170393,sr_legacy,1,strip,strip medium,4
+cashew,170162,sr_legacy,1,oz,oz,28.35
+cauliflower,169986,sr_legacy,1,cup,"cup chopped (1/2"" pieces)",107
+cauliflower,169986,sr_legacy,1,floweret,floweret,13
+cauliflower,169986,sr_legacy,1,head,"head large (6-7"" dia.)",840
+cauliflower,169986,sr_legacy,1,head,"head medium (5-6"" dia.)",588
+cauliflower,169986,sr_legacy,1,head,"head small (4"" dia.)",265
+cayenne pepper,170932,sr_legacy,1,tsp,tsp,1.8
+cayenne pepper,170932,sr_legacy,1,tbsp,tbsp,5.3
+celery,169988,sr_legacy,1,cup,cup chopped,101
+celery,169988,sr_legacy,1,nlea,NLEA serving,110
+celery,169988,sr_legacy,1,tbsp,tbsp,7.5
+celery,169988,sr_legacy,1,stalk,"stalk, large (11""-12"" long)",64
+celery,169988,sr_legacy,1,stalk,"stalk, medium (7-1/2"" - 8"" long)",40
+celery,169988,sr_legacy,1,stalk,"stalk, small (5"" long)",17
+celery,169988,sr_legacy,1,strip,"strip (4"" long)",4
+cheddar,173414,sr_legacy,1,cup,"cup, diced",132
+cheddar,173414,sr_legacy,1,cup,"cup, melted",244
+cheddar,173414,sr_legacy,1,cup,"cup, shredded",113
+cheddar,173414,sr_legacy,1,oz,oz,28.35
+cheddar,173414,sr_legacy,1,cubic,cubic inch,17
+cheddar,173414,sr_legacy,1,slice,slice (1 oz),28
+cherry,171719,sr_legacy,1,cup,"cup, with pits, yields",138
+cherry,171719,sr_legacy,1,cup,"cup, without pits",154
+cherry,171719,sr_legacy,1,whole,cherry,8.2
+cherry,171719,sr_legacy,1,nlea,NLEA serving,140
+cherry tomato,321360,foundation,5,whole,,49.7
+cherry tomato,321360,foundation,1,cup,,152
+chia seed,170554,sr_legacy,1,oz,oz,28.35
+chicken breast,171077,sr_legacy,4,oz,oz,113
+chicken breast,171077,sr_legacy,1,piece,piece,272
+chicken breast,171077,sr_legacy,1,package,package,926
+chicken broth,174536,sr_legacy,1,cup,cup,249
+chicken thigh,173627,sr_legacy,4,oz,oz,113
+chicken thigh,173627,sr_legacy,1,whole,thigh without skin,149
+chickpea,173756,sr_legacy,1,cup,cup,200
+chickpea,173756,sr_legacy,1,tbsp,tbsp,12.5
+chili powder,171319,sr_legacy,1,tsp,tsp,2.7
+chili powder,171319,sr_legacy,1,tbsp,tbsp,8
+chive,169994,sr_legacy,1,tbsp,tbsp chopped,3
+chive,169994,sr_legacy,1,tsp,tsp chopped,1
+chocolate chip,167976,sr_legacy,1,serving,serving,14.5
+chocolate chip,167976,sr_legacy,1,cup,cup large chips,182
+chocolate chip,167976,sr_legacy,1,cup,cup mini chips,173
+chocolate chip,167976,sr_legacy,1,oz,oz (approx 60 pcs),28.35
+chocolate chip,167976,sr_legacy,1,cup,cup chips (6 oz package),168
+cilantro,169997,sr_legacy,0.25,cup,cup,4
+cilantro,169997,sr_legacy,9,sprigs,sprigs,20
+cinnamon,171320,sr_legacy,1,tsp,tsp,2.6
+cinnamon,171320,sr_legacy,1,tbsp,tbsp,7.8
+clam,174214,sr_legacy,3,oz,oz,85
+clam,174214,sr_legacy,1,large,large,20
+clam,174214,sr_legacy,1,lb,"lb (with shell), yield after shell removed",68
+clam,174214,sr_legacy,1,medium,medium,14.5
+clam,174214,sr_legacy,1,small,small,9
+clam,174214,sr_legacy,1,cup,cup (with liquid and clams),227
+clove,171321,sr_legacy,1,tsp,tsp,2.1
+clove,171321,sr_legacy,1,tbsp,tbsp,6.5
+cocoa powder,169593,sr_legacy,1,cup,cup,86
+cocoa powder,169593,sr_legacy,1,tbsp,tbsp,5.4
+coconut milk,170173,sr_legacy,1,cup,cup,226
+coconut milk,170173,sr_legacy,1,tbsp,tbsp,15
+coconut oil,171412,sr_legacy,1,tbsp,tbsp,13.6
+coconut oil,171412,sr_legacy,1,cup,cup,218
+coconut oil,171412,sr_legacy,1,tsp,tsp,4.5
+cod,171955,sr_legacy,3,oz,oz,85
+cod,171955,sr_legacy,1,fillet,fillet,231
+collard greens,170406,sr_legacy,1,cup,"cup, chopped",36
+coriander,170922,sr_legacy,1,tsp,tsp,1.8
+coriander,170922,sr_legacy,1,tbsp,tbsp,5
+corn,169998,sr_legacy,1,cup,cup,145
+corn,169998,sr_legacy,1,ear,"ear, large (7-3/4"" to 9"" long) yields",143
+corn,169998,sr_legacy,1,ear,"ear, medium (6-3/4"" to 7-1/2"" long) yields",102
+corn,169998,sr_legacy,1,ear,"ear, small (5-1/2"" to 6-1/2"" long)",73
+corn tortilla,175036,sr_legacy,1,oz,oz,28.35
+corn tortilla,175036,sr_legacy,1,enchilada,enchilada,19
+corn tortilla,175036,sr_legacy,1,whole,tortilla,24
+cornmeal,168867,sr_legacy,1,cup,cup,157
+cornstarch,169698,sr_legacy,1,cup,cup,128
+cottage cheese,172179,sr_legacy,4,oz,oz,113
+cottage cheese,172179,sr_legacy,1,cup,"cup, large curd (not packed)",210
+cottage cheese,172179,sr_legacy,1,cup,"cup, small curd (not packed)",225
+couscous,169699,sr_legacy,1,cup,cup,173
+crab,174204,sr_legacy,3,oz,oz,85
+crab,174204,sr_legacy,1,whole,crab,21
+cracker,172746,sr_legacy,5,whole,crackers,14.9
+cracker,172746,sr_legacy,0.5,oz,oz,14.2
+cracker,172746,sr_legacy,1,cup,"cup, crushed",70
+cracker,172746,sr_legacy,5,whole,crackers square (1 serving),15
+cracker,172746,sr_legacy,1,whole,cracker square,3
+cracker,172746,sr_legacy,1,whole,"cracker, round large",10
+cracker,172746,sr_legacy,1,whole,"cracker, oyster",1
+cracker,172746,sr_legacy,1,whole,"cracker, rectangle",6
+cracker,172746,sr_legacy,1,cup,cup oyster crackers,45
+cream cheese,173418,sr_legacy,1,tbsp,tbsp,14.5
+cream cheese,173418,sr_legacy,1,cup,cup,232
+cream cheese,173418,sr_legacy,1,tbsp,"tbsp, whipped",10
+cream cheese,173418,sr_legacy,1,oz,oz,28.35
+cream cheese,173418,sr_legacy,1,cubic,cubic inch,16
+cream cheese,173418,sr_legacy,1,package,"package, small (3 oz)",85
+cream of tartar,175041,sr_legacy,1,tsp,tsp,3
+cream of tartar,175041,sr_legacy,0.5,tsp,tsp,1.5
+cucumber,168409,sr_legacy,0.5,cup,cup slices,52
+cucumber,168409,sr_legacy,1,whole,"cucumber (8-1/4"")",301
+cumin,170923,sr_legacy,1,tsp,"tsp, whole",2.1
+cumin,170923,sr_legacy,1,tbsp,"tbsp, whole",6
+curry powder,170924,sr_legacy,1,tsp,tsp,2
+curry powder,170924,sr_legacy,1,tbsp,tbsp,6.3
+dark chocolate,170273,sr_legacy,1,oz,oz,28.35
+dark chocolate,170273,sr_legacy,1,bar,bar,101
+date,168191,sr_legacy,1,whole,"date, pitted",24
+dijon mustard,326698,foundation,1,teaspoon,,6
+dijon mustard,326698,foundation,1,cup,,249
+dill,172233,sr_legacy,5,sprigs,sprigs,1
+dill,172233,sr_legacy,1,cup,cup sprigs,8.9
+dried apricot,173941,sr_legacy,1,cup,"cup, halves",130
+dried apricot,173941,sr_legacy,1,half,half,3.5
+dried basil,171317,sr_legacy,1,tsp,"tsp, leaves",0.7
+dried basil,171317,sr_legacy,1,tbsp,"tbsp, leaves",2.1
+dried basil,171317,sr_legacy,1,tsp,"tsp, ground",1.4
+dried basil,171317,sr_legacy,1,tbsp,"tbsp, ground",4.5
+dried cranberry,171723,sr_legacy,0.25,cup,cup,40
+dried thyme,170938,sr_legacy,1,tsp,"tsp, leaves",1
+dried thyme,170938,sr_legacy,1,tbsp,"tbsp, leaves",2.7
+dried thyme,170938,sr_legacy,1,tsp,"tsp, ground",1.4
+dried thyme,170938,sr_legacy,1,tbsp,"tbsp, ground",4.3
+edamame,168410,sr_legacy,1,cup,cup,118
+edamame,168410,sr_legacy,1,package,package,432
+egg,748967,foundation,1,whole,whole without shell,50.3
+egg noodle,169731,sr_legacy,1,cup,cup,38
+egg noodle,169731,sr_legacy,2,oz,oz,57
+eggplant,169228,sr_legacy,1,cup,"cup, cubes",82
+eggplant,169228,sr_legacy,1,whole,"eggplant, peeled (yield from 1-1/4 lb)",458
+eggplant,169228,sr_legacy,1,whole,"eggplant, unpeeled (approx 1-1/4 lb)",548
+fennel,169385,sr_legacy,1,cup,"cup, sliced",87
+fennel,169385,sr_legacy,1,bulb,bulb,234
+fennel seed,171323,sr_legacy,1,tsp,"tsp, whole",2
+fennel seed,171323,sr_legacy,1,tbsp,"tbsp, whole",5.8
+feta,173420,sr_legacy,1,cup,"cup, crumbled",150
+feta,173420,sr_legacy,1,oz,oz,28.35
+feta,173420,sr_legacy,1,cubic,cubic inch,17
+feta,173420,sr_legacy,1,wedge,wedge (1.33 oz),38
+fish sauce,174531,sr_legacy,1,tbsp,tbsp,18
+flax seed,169414,sr_legacy,1,tbsp,"tbsp, whole",10.3
+flax seed,169414,sr_legacy,1,cup,"cup, whole",168
+flax seed,169414,sr_legacy,1,tbsp,"tbsp, ground",7
+flax seed,169414,sr_legacy,1,tsp,"tsp, whole",3.4
+flax seed,169414,sr_legacy,1,tsp,"tsp, ground",2.5
+flour tortilla,167535,sr_legacy,1,whole,tortilla,49
+flour tortilla,167535,sr_legacy,1,package,package,484
+garlic,169230,sr_legacy,1,cup,cup,136
+garlic,169230,sr_legacy,1,tsp,tsp,2.8
+garlic,169230,sr_legacy,1,clove,clove,3
+garlic,169230,sr_legacy,3,cloves,cloves,9
+garlic powder,171325,sr_legacy,1,tsp,tsp,3.1
+garlic powder,171325,sr_legacy,1,tbsp,tbsp,9.7
+ginger,169231,sr_legacy,1,tsp,tsp,2
+ginger,169231,sr_legacy,0.25,cup,"cup slices (1"" dia)",24
+ginger,169231,sr_legacy,5,slices,"slices (1"" dia)",11
+goat cheese,173435,sr_legacy,1,oz,oz,28.35
+granulated sugar,169655,sr_legacy,1,serving,serving packet,2.8
+granulated sugar,169655,sr_legacy,1,tsp,tsp,4.2
+granulated sugar,169655,sr_legacy,1,cup,cup,200
+granulated sugar,169655,sr_legacy,1,serving,serving 1 cube,2.3
+grape,174683,sr_legacy,1,cup,cup,151
+grape,174683,sr_legacy,10,whole,grapes,49
+grape,174683,sr_legacy,1,nlea,NLEA serving,126
+grapefruit,174673,sr_legacy,1,cup,"cup sections, with juice",230
+grapefruit,174673,sr_legacy,0.5,fruit,"fruit (3-3/4"" dia)",123
+grapefruit,174673,sr_legacy,1,nlea,NLEA serving,154
+green bean,169961,sr_legacy,1,cup,"cup 1/2"" pieces",100
+green bean,169961,sr_legacy,10,whole,"beans (4"" long)",55
+green pea,170419,sr_legacy,1,cup,cup,145
+ground beef,174036,sr_legacy,4,oz,oz,113
+ground ginger,170926,sr_legacy,1,tsp,tsp,1.8
+ground ginger,170926,sr_legacy,1,tbsp,tbsp,5.2
+ground pork,167902,sr_legacy,1,oz,oz,28.35
+ground pork,167902,sr_legacy,4,oz,oz,113
+ground turkey,171505,sr_legacy,4,oz,oz,113
+ground turkey,171505,sr_legacy,1,lb,lb,453.6
+ground turkey,171505,sr_legacy,1,patty,"patty, 4 oz",114
+halibut,174200,sr_legacy,3,oz,oz,85
+halibut,174200,sr_legacy,0.5,fillet,fillet,204
+ham,173864,sr_legacy,56,grams,grams 1 serving,56
+ham,173864,sr_legacy,1,slice,slice,28
+hazelnut,170581,sr_legacy,1,cup,"cup, chopped",115
+hazelnut,170581,sr_legacy,1,cup,"cup, ground",75
+hazelnut,170581,sr_legacy,1,cup,"cup, whole",135
+hazelnut,170581,sr_legacy,1,oz,oz (21 whole kernels),28.35
+hazelnut,170581,sr_legacy,10,nuts,nuts,14
+heavy cream,170859,sr_legacy,1,cup,"cup, whipped",120
+heavy cream,170859,sr_legacy,1,cup,"cup, fluid (yields 2 cups whipped)",238
+heavy cream,170859,sr_legacy,1,tbsp,tbsp,15
+heavy cream,170859,sr_legacy,1,fl oz,fl oz,29.8
+honey,169640,sr_legacy,1,cup,cup,339
+honey,169640,sr_legacy,1,tbsp,tbsp,21
+honey,169640,sr_legacy,1,packet,packet (0.5 oz),14
+hot sauce,174528,sr_legacy,1,tsp,tsp,4.7
+hot sauce,174528,sr_legacy,0.25,tsp,tsp,1.2
+italian sausage,171631,sr_legacy,1,link,link,101
+jalapeno,168576,sr_legacy,1,cup,"cup, sliced",90
+jalapeno,168576,sr_legacy,1,pepper,pepper,14
+jam,169641,sr_legacy,1,tbsp,tbsp,20
+jam,169641,sr_legacy,1,packet,packet (0.5 oz),14
+kale,168421,sr_legacy,1,cup,cup,21
+ketchup,168556,sr_legacy,1,tbsp,tbsp,17
+ketchup,168556,sr_legacy,1,packet,packet,9
+ketchup,168556,sr_legacy,1,cup,cup,240
+kidney bean,175193,sr_legacy,1,cup,cup,184
+kiwi,168153,sr_legacy,1,cup,"cup, sliced",180
+kiwi,168153,sr_legacy,1,fruit,"fruit (2"" dia)",69
+kiwi,168153,sr_legacy,1,nlea,NLEA serving,148
+lamb,174370,sr_legacy,1,oz,oz,28.35
+lamb,174370,sr_legacy,4,oz,oz,113
+leek,169246,sr_legacy,1,cup,cup,89
+leek,169246,sr_legacy,1,whole,leek,89
+leek,169246,sr_legacy,1,slice,slice,6
+lemon,167746,sr_legacy,1,cup,"cup, sections",212
+lemon,167746,sr_legacy,1,fruit,"fruit (2-1/8"" dia)",58
+lemon,167746,sr_legacy,1,fruit,"fruit (2-3/8"" dia)",84
+lemon,167746,sr_legacy,1,wedge,"wedge or slice (1/8 of one 2-1/8"" dia lemon)",7
+lemon,167746,sr_legacy,1,nlea,NLEA serving,58
+lentil,172420,sr_legacy,1,cup,cup,192
+lentil,172420,sr_legacy,1,tablespoon,tablespoon,12
+lettuce,169248,sr_legacy,1,cup,cup shredded,72
+lettuce,169248,sr_legacy,1,cup,"cup, chopped (1/2"" pieces, loosely packed)",57
+lettuce,169248,sr_legacy,1,head,"head, large",755
+lettuce,169248,sr_legacy,1,head,"head, medium (6"" dia)",539
+lettuce,169248,sr_legacy,1,head,"head, small",324
+lettuce,169248,sr_legacy,1,leaf,"leaf, large",15
+lettuce,169248,sr_legacy,1,leaf,"leaf, medium",8
+lettuce,169248,sr_legacy,1,leaf,"leaf, small",5
+lettuce,169248,sr_legacy,1,nlea,NLEA Serving,89
+lime,168155,sr_legacy,1,fruit,"fruit (2"" dia)",67
+lime,168155,sr_legacy,1,nlea,NLEA serving,67
+mango,169910,sr_legacy,1,cup,cup pieces,165
+mango,169910,sr_legacy,1,fruit,fruit without refuse,336
+maple syrup,169661,sr_legacy,1,tbsp,tbsp,20
+maple syrup,169661,sr_legacy,1,serving,serving 1/4 cup,83
+maple syrup,169661,sr_legacy,1,cup,cup,315
+mayonnaise,171009,sr_legacy,1,tbsp,tbsp,13.8
+mayonnaise,171009,sr_legacy,1,cup,cup,220
+mayonnaise,171009,sr_legacy,1,packet,packet,10
+milk,171265,sr_legacy,1,cup,cup,244
+milk,171265,sr_legacy,1,fl oz,fl oz,30.5
+milk,171265,sr_legacy,1,tbsp,tbsp,15
+milk,171265,sr_legacy,1,quart,quart,976
+mint,173475,sr_legacy,2,leaves,leaves,0.3
+mint,173475,sr_legacy,2,tbsp,tbsp,11.4
+molasses,168820,sr_legacy,1,cup,cup,337
+molasses,168820,sr_legacy,1,serving,serving 1 tbsp,20
+mozzarella,170845,sr_legacy,1,cup,"cup, shredded",112
+mozzarella,170845,sr_legacy,1,oz,oz,28.35
+mozzarella,170845,sr_legacy,6,slices,slices,170
+mushroom,169251,sr_legacy,1,cup,"cup, pieces or slices",70
+mushroom,169251,sr_legacy,1,cup,"cup, whole",96
+mushroom,169251,sr_legacy,1,large,large,23
+mushroom,169251,sr_legacy,1,medium,medium,18
+mushroom,169251,sr_legacy,1,slice,slice,6
+mushroom,169251,sr_legacy,1,small,small,10
+mushroom,169251,sr_legacy,0.5,cup,cup pieces,35
+mussel,174216,sr_legacy,1,cup,cup,150
+mussel,174216,sr_legacy,1,oz,oz,28.35
+mussel,174216,sr_legacy,1,large,large,20
+mussel,174216,sr_legacy,1,medium,medium,16
+mussel,174216,sr_legacy,1,small,small,10
+mussel,174216,sr_legacy,3,oz,oz,85
+mustard powder,170929,sr_legacy,1,tsp,tsp,2
+mustard powder,170929,sr_legacy,1,tbsp,tbsp,6.3
+navy bean,173745,sr_legacy,1,cup,cup,208
+nutmeg,171326,sr_legacy,1,tsp,tsp,2.2
+nutmeg,171326,sr_legacy,1,tbsp,tbsp,7
+oat,173904,sr_legacy,1,cup,cup,81
+oat,173904,sr_legacy,0.33,cup,cup,27
+olive,169094,sr_legacy,1,tbsp,tbsp,8.4
+olive,169094,sr_legacy,1,large,large,4.4
+olive,169094,sr_legacy,1,small,small,3.2
+olive oil,171413,sr_legacy,1,tablespoon,tablespoon,13.5
+olive oil,171413,sr_legacy,1,cup,cup,216
+olive oil,171413,sr_legacy,1,tsp,tsp,4.5
+onion,170000,sr_legacy,1,cup,"cup, chopped",160
+onion,170000,sr_legacy,1,cup,"cup, sliced",115
+onion,170000,sr_legacy,1,tbsp,tbsp chopped,10
+onion,170000,sr_legacy,1,large,large,150
+onion,170000,sr_legacy,1,slice,"slice, large (1/4"" thick)",38
+onion,170000,sr_legacy,1,medium,"medium (2-1/2"" dia)",110
+onion,170000,sr_legacy,1,slice,"slice, medium (1/8"" thick)",14
+onion,170000,sr_legacy,1,small,small,70
+onion,170000,sr_legacy,1,slice,"slice, thin",9
+onion,170000,sr_legacy,10,rings,rings,60
+onion powder,171327,sr_legacy,1,tsp,tsp,2.4
+onion powder,171327,sr_legacy,1,tbsp,tbsp,6.9
+orange,169097,sr_legacy,1,cup,"cup, sections",180
+orange,169097,sr_legacy,1,large,"large (3-1/16"" dia)",184
+orange,169097,sr_legacy,1,small,"small (2-3/8"" dia)",96
+orange,169097,sr_legacy,1,fruit,"fruit (2-5/8"" dia)",131
+oregano,171328,sr_legacy,1,tsp,"tsp, leaves",1
+oregano,171328,sr_legacy,1,tsp,"tsp, ground",1.8
+oyster sauce,174529,sr_legacy,1,tbsp,tbsp,18
+paprika,171329,sr_legacy,1,tsp,tsp,2.3
+paprika,171329,sr_legacy,1,tbsp,tbsp,6.8
+parmesan,171247,sr_legacy,1,cup,cup,100
+parmesan,171247,sr_legacy,1,tbsp,tbsp,5
+parmesan,171247,sr_legacy,1,oz,oz,28.35
+parsley,170416,sr_legacy,1,cup,cup chopped,60
+parsley,170416,sr_legacy,1,tbsp,tbsp,3.8
+parsley,170416,sr_legacy,10,sprigs,sprigs,10
+parsnip,170417,sr_legacy,1,cup,cup slices,133
+pasta,169736,sr_legacy,1,cup,cup spaghetti,91
+pasta,169736,sr_legacy,2,oz,oz,57
+pasta,169736,sr_legacy,1,cup,cup elbows,122
+pasta,169736,sr_legacy,1,cup,cup penne,95
+pasta,169736,sr_legacy,1,cup,cup farfalle,81
+pasta,169736,sr_legacy,1,cup,cup rotini,96
+pasta,169736,sr_legacy,1,cup,cup shells,64
+pasta,169736,sr_legacy,1,cup,cup lasagna,90
+peach,169928,sr_legacy,1,cup,cup slices,154
+peach,169928,sr_legacy,1,small,"small (2-1/2"" dia)",130
+peach,169928,sr_legacy,1,medium,"medium (2-2/3"" dia)",150
+peach,169928,sr_legacy,1,large,"large (2-3/4"" dia)",175
+peach,169928,sr_legacy,1,extra,"extra large (3"" dia)",224
+peach,169928,sr_legacy,1,nlea,NLEA serving,147
+peanut,172430,sr_legacy,1,oz,oz,28.35
+peanut,172430,sr_legacy,1,cup,cup,146
+peanut butter,324860,foundation,2,tablespoon,,32
+peanut butter,324860,foundation,1,cup,,258
+peanut oil,171410,sr_legacy,1,tbsp,tbsp,13.5
+peanut oil,171410,sr_legacy,1,cup,cup,216
+peanut oil,171410,sr_legacy,1,tsp,tsp,4.5
+pear,169118,sr_legacy,1,cup,"cup, slices",140
+pear,169118,sr_legacy,1,cup,"cup, cubes",161
+pear,169118,sr_legacy,1,small,small,148
+pear,169118,sr_legacy,1,medium,medium,178
+pear,169118,sr_legacy,1,large,large,230
+pear,169118,sr_legacy,1,nlea,NLEA serving,166
+pecan,170182,sr_legacy,1,cup,"cup, chopped",109
+pecan,170182,sr_legacy,1,cup,"cup, halves",99
+pecan,170182,sr_legacy,1,oz,oz (19 halves),28.35
+pesto,171579,sr_legacy,0.25,cup,cup,63
+pickle,168558,sr_legacy,1,spear,"spear, small",35
+pickle,168558,sr_legacy,1,slice,slice,7
+pickle,168558,sr_legacy,1,large,"large (4"" long)",135
+pickle,168558,sr_legacy,1,cup,"cup, chopped or diced",143
+pickle,168558,sr_legacy,1,cup,cup (about 23 slices),155
+pine nut,170591,sr_legacy,1,cup,cup,135
+pine nut,170591,sr_legacy,1,oz,oz (167 kernels),28.35
+pine nut,170591,sr_legacy,10,whole,nuts,1.7
+pineapple,169124,sr_legacy,1,cup,"cup, chunks",165
+pineapple,169124,sr_legacy,1,fruit,fruit,905
+pineapple,169124,sr_legacy,1,slice,"slice (4-2/3"" dia x 3/4"" thick)",166
+pineapple,169124,sr_legacy,1,slice,"slice (3-1/2"" dia x 3/4"" thick)",84
+pineapple,169124,sr_legacy,1,slice,"slice, thin (3-1/2"" dia x 1/2"" thick)",56
+pinto bean,175199,sr_legacy,1,cup,cup,193
+pinto bean,175199,sr_legacy,1,tbsp,tbsp,12
+pistachio,170184,sr_legacy,1,cup,cup,123
+pistachio,170184,sr_legacy,1,oz,oz (49 kernels),28.35
+pistachio,170184,sr_legacy,1,kernel,kernel,0.7
+plum,169949,sr_legacy,1,cup,"cup, sliced",165
+plum,169949,sr_legacy,1,fruit,"fruit (2-1/8"" dia)",66
+plum,169949,sr_legacy,1,nlea,NLEA serving,151
+popcorn,167959,sr_legacy,1,cup,cup,8
+popcorn,167959,sr_legacy,1,oz,oz,28.35
+pork chop,168238,sr_legacy,4,oz,oz,113
+pork chop,168238,sr_legacy,1,whole,"chop without refuse (Yield from 1 raw chop, with refuse, weighing 259g)",199
+pork shoulder,167843,sr_legacy,4,oz,oz,113
+pork shoulder,167843,sr_legacy,1,lb,lb,453.6
+pork tenderloin,168312,sr_legacy,4,oz,oz,113
+pork tenderloin,168312,sr_legacy,1,roast,"roast (Yield from 1 raw roast, with refuse, weighing 504g)",505
+potato,170026,sr_legacy,0.5,cup,"cup, diced",75
+potato,170026,sr_legacy,1,whole,"Potato large (3"" to 4-1/4"" dia)",369
+potato,170026,sr_legacy,1,whole,"Potato medium (2-1/4"" to 3-1/4"" dia)",213
+potato,170026,sr_legacy,1,whole,"Potato small (1-3/4"" to 2-1/2"" dia)",170
+powdered sugar,169656,sr_legacy,1,cup,cup unsifted,120
+powdered sugar,169656,sr_legacy,1,cup,cup sifted,100
+powdered sugar,169656,sr_legacy,1,tbsp,tbsp unsifted,8
+powdered sugar,169656,sr_legacy,1,tsp,tsp,2.5
+pumpkin,168448,sr_legacy,1,cup,"cup (1"" cubes)",116
+pumpkin seed,170556,sr_legacy,1,cup,cup,129
+pumpkin seed,170556,sr_legacy,1,oz,oz,28.35
+quinoa,168874,sr_legacy,1,cup,cup,170
+radish,169276,sr_legacy,1,cup,cup slices,116
+radish,169276,sr_legacy,1,large,"large (1"" to 1-1/4"" dia)",9
+radish,169276,sr_legacy,1,medium,"medium (3/4"" to 1"" dia)",4.5
+radish,169276,sr_legacy,1,slice,slice,1
+radish,169276,sr_legacy,1,small,small,2
+radish,169276,sr_legacy,0.5,cup,cup slices,58
+raisin,168165,sr_legacy,1,cup,"cup, packed",165
+raisin,168165,sr_legacy,1,cup,cup (not packed),145
+raisin,168165,sr_legacy,1,miniature,miniature box (.5 oz),14
+raisin,168165,sr_legacy,1,small,small box (1.5 oz),43
+raisin,168165,sr_legacy,50,whole,raisins,26
+raisin,168165,sr_legacy,1,oz,oz (60 raisins),28.35
+raspberry,167755,sr_legacy,1,cup,cup,123
+raspberry,167755,sr_legacy,1,pint,"pint as purchased, yields",312
+raspberry,167755,sr_legacy,10,whole,raspberries,19
+red onion,790577,foundation,1,whole,Edible,197
+red pepper flake,170932,sr_legacy,1,tsp,tsp,1.8
+red pepper flake,170932,sr_legacy,1,tbsp,tbsp,5.3
+red wine,173190,sr_legacy,1,fl oz,fl oz,29.4
+red wine,173190,sr_legacy,1,serving,serving (5 fl oz),147
+red wine vinegar,172240,sr_legacy,1,tbsp,tbsp,14.9
+red wine vinegar,172240,sr_legacy,1,cup,cup,239
+red wine vinegar,172240,sr_legacy,1,tsp,tsp,5
+rice vinegar,172237,sr_legacy,1,tbsp,tbsp,14.9
+rice vinegar,172237,sr_legacy,1,cup,cup,238
+rice vinegar,172237,sr_legacy,1,tsp,tsp,5
+ricotta,170851,sr_legacy,0.5,cup,cup,124
+ricotta,170851,sr_legacy,1,cup,cup,246
+romaine lettuce,169247,sr_legacy,1,cup,cup shredded,47
+romaine lettuce,169247,sr_legacy,1,leaf,leaf inner,6
+romaine lettuce,169247,sr_legacy,1,leaf,leaf outer,28
+romaine lettuce,169247,sr_legacy,1,head,head,626
+romaine lettuce,169247,sr_legacy,1,nlea,NLEA serving,85
+rosemary,173473,sr_legacy,1,tsp,tsp,0.7
+rosemary,173473,sr_legacy,1,tbsp,tbsp,1.7
+salmon,175167,sr_legacy,3,oz,oz,85
+salmon,175167,sr_legacy,0.5,fillet,fillet,198
+salsa,174524,sr_legacy,2,tbsp,tbsp,36
+salsa,174524,sr_legacy,0.5,cup,cup,130
+salsa,174524,sr_legacy,1,cup,cup,259
+salt,173468,sr_legacy,1,tsp,tsp,6
+salt,173468,sr_legacy,1,tbsp,tbsp,18
+salt,173468,sr_legacy,1,cup,cup,292
+salt,173468,sr_legacy,1,dash,dash,0.4
+sardine,175139,sr_legacy,1,cup,"cup, drained",149
+sardine,175139,sr_legacy,1,oz,oz,28.35
+sardine,175139,sr_legacy,1,cubic,cubic inch,16
+sardine,175139,sr_legacy,1,can,can (3.75 oz),92
+sardine,175139,sr_legacy,1,small,"small (2-2/3"" x 1/2"" x 1/4"")",12
+sardine,175139,sr_legacy,2,whole,sardines,24
+scallion,170005,sr_legacy,1,cup,"cup, chopped",100
+scallion,170005,sr_legacy,1,tbsp,tbsp chopped,6
+scallion,170005,sr_legacy,1,large,large,25
+scallion,170005,sr_legacy,1,medium,"medium (4-1/8"" long)",15
+scallion,170005,sr_legacy,1,small,"small (3"" long)",5
+scallop,174220,sr_legacy,1,unit,unit 2 large or 5 small,30
+scallop,174220,sr_legacy,3,oz,oz,85
+sesame oil,171016,sr_legacy,1,tablespoon,tablespoon,13.6
+sesame oil,171016,sr_legacy,1,cup,cup,218
+sesame oil,171016,sr_legacy,1,tsp,tsp,4.5
+sesame seed,170150,sr_legacy,1,cup,cup,144
+sesame seed,170150,sr_legacy,1,tbsp,tbsp,9
+shallot,170499,sr_legacy,1,tbsp,tbsp chopped,10
+shrimp,175179,sr_legacy,3,oz,oz,85
+smoked paprika,171329,sr_legacy,1,tsp,tsp,2.3
+smoked paprika,171329,sr_legacy,1,tbsp,tbsp,6.8
+sour cream,171257,sr_legacy,1,tbsp,tbsp,12
+sour cream,171257,sr_legacy,1,cup,cup,230
+soy sauce,174277,sr_legacy,1,tbsp,tbsp,16
+soy sauce,174277,sr_legacy,1,tsp,tsp,5.3
+soy sauce,174277,sr_legacy,1,cup,cup,255
+soy sauce,174277,sr_legacy,1,individual,individual packet,8.9
+spinach,168462,sr_legacy,1,cup,cup,30
+spinach,168462,sr_legacy,1,bunch,bunch,340
+spinach,168462,sr_legacy,1,leaf,leaf,10
+spinach,168462,sr_legacy,1,package,package (10 oz),284
+split pea,172428,sr_legacy,1,cup,cup,196
+strawberry,167762,sr_legacy,1,cup,"cup, halves",152
+strawberry,167762,sr_legacy,1,cup,"cup, pureed",232
+strawberry,167762,sr_legacy,1,cup,"cup, sliced",166
+strawberry,167762,sr_legacy,1,cup,"cup, whole",144
+strawberry,167762,sr_legacy,1,extra,"extra large (1-5/8"" dia)",27
+strawberry,167762,sr_legacy,1,large,"large (1-3/8"" dia)",18
+strawberry,167762,sr_legacy,1,medium,"medium (1-1/4"" dia)",12
+strawberry,167762,sr_legacy,1,pint,"pint as purchased, yields",357
+strawberry,167762,sr_legacy,1,small,"small (1"" dia)",7
+strawberry,167762,sr_legacy,1,nlea,NLEA serving,147
+sunflower seed,170562,sr_legacy,1,cup,"cup, with hulls, edible yield",46
+sunflower seed,170562,sr_legacy,1,cup,cup,140
+sweet potato,168482,sr_legacy,1,cup,"cup, cubes",133
+sweet potato,168482,sr_legacy,1,sweetpotato,"sweetpotato, 5"" long",130
+swiss chard,169991,sr_legacy,1,cup,cup,36
+swiss chard,169991,sr_legacy,1,leaf,leaf,48
+tahini,170189,sr_legacy,1,tbsp,tbsp,15
+tahini,170189,sr_legacy,1,oz,oz,28.35
+tempeh,174272,sr_legacy,1,cup,cup,166
+thyme,173470,sr_legacy,1,tsp,tsp,0.8
+thyme,173470,sr_legacy,0.5,tsp,tsp,0.4
+tilapia,175176,sr_legacy,1,fillet,fillet,116
+tofu,172475,sr_legacy,0.5,cup,cup,126
+tofu,172475,sr_legacy,0.25,block,block,81
+tomato,170457,sr_legacy,1,cup,cup cherry tomatoes,149
+tomato,170457,sr_legacy,1,cup,"cup, chopped or sliced",180
+tomato,170457,sr_legacy,1,italian,Italian tomato,62
+tomato,170457,sr_legacy,1,cherry,cherry,17
+tomato,170457,sr_legacy,1,large,"large whole (3"" dia)",182
+tomato,170457,sr_legacy,1,medium,"medium whole (2-3/5"" dia)",123
+tomato,170457,sr_legacy,1,slice,"slice, medium (1/4"" thick)",20
+tomato,170457,sr_legacy,1,plum,plum tomato,62
+tomato,170457,sr_legacy,1,small,"small whole (2-2/5"" dia)",91
+tomato,170457,sr_legacy,1,slice,"slice, thick/large (1/2"" thick)",27
+tomato,170457,sr_legacy,1,wedge,wedge (1/4 of medium tomato),31
+tomato,170457,sr_legacy,1,slice,"slice, thin/small",15
+tomato,170457,sr_legacy,1,nlea,NLEA serving,148
+tomato paste,170459,sr_legacy,0.25,cup,cup,66
+tomato paste,170459,sr_legacy,1,cup,cup,262
+tomato paste,170459,sr_legacy,1,tbsp,tbsp,16
+tomato paste,170459,sr_legacy,1,can,can (6 oz),170
+tomato sauce,170054,sr_legacy,1,cup,cup,245
+trout,173717,sr_legacy,1,fillet,fillet,79
+trout,173717,sr_legacy,3,oz,oz,85
+turkey breast,171098,sr_legacy,4,oz,oz,113
+turkey breast,171098,sr_legacy,1,whole,breast,1769
+turmeric,172231,sr_legacy,1,tsp,tsp,3
+turmeric,172231,sr_legacy,1,tbsp,tbsp,9.4
+turnip,170465,sr_legacy,1,cup,"cup, cubes",130
+turnip,170465,sr_legacy,1,large,large,183
+turnip,170465,sr_legacy,1,medium,medium,122
+turnip,170465,sr_legacy,1,slice,slice,15
+turnip,170465,sr_legacy,1,small,small,61
+turnip,170465,sr_legacy,0.5,cup,"cup, cubes",65
+vanilla extract,173471,sr_legacy,1,tsp,tsp,4.2
+vanilla extract,173471,sr_legacy,1,tbsp,tbsp,13
+vanilla extract,173471,sr_legacy,1,cup,cup,208
+vegetable broth,171583,sr_legacy,1,cup,cup,221
+vegetable broth,171583,sr_legacy,1,can,can,390
+vegetable broth,171583,sr_legacy,1,carton,carton (32 oz),926
+vegetable oil,172336,sr_legacy,1,tbsp,tbsp,14
+vegetable oil,172336,sr_legacy,1,cup,cup,218
+vegetable oil,172336,sr_legacy,1,tsp,tsp,4.5
+walnut,170187,sr_legacy,1,cup,"cup, chopped",117
+walnut,170187,sr_legacy,1,cup,"cup, ground",80
+walnut,170187,sr_legacy,1,cup,"cup, in shell, edible yield (7 nuts)",28
+walnut,170187,sr_legacy,1,cup,cup shelled (50 halves),100
+walnut,170187,sr_legacy,1,cup,cup pieces or chips,120
+walnut,170187,sr_legacy,1,oz,oz (14 halves),28.35
+watermelon,167765,sr_legacy,1,cup,"cup, balls",154
+watermelon,167765,sr_legacy,1,cup,"cup, diced",152
+watermelon,167765,sr_legacy,1,melon,"melon (15"" long x 7-1/2"" dia)",4518
+watermelon,167765,sr_legacy,1,wedge,wedge (approx 1/16 of melon),286
+watermelon,167765,sr_legacy,10,whole,watermelon balls,122
+watermelon,167765,sr_legacy,1,nlea,NLEA serving,280
+white rice,168877,sr_legacy,1,cup,cup,185
+white vinegar,172237,sr_legacy,1,tbsp,tbsp,14.9
+white vinegar,172237,sr_legacy,1,cup,cup,238
+white vinegar,172237,sr_legacy,1,tsp,tsp,5
+white wine,174837,sr_legacy,1,fl oz,fl oz,29.4
+white wine,174837,sr_legacy,1,serving,serving (5 fl oz),147
+white wine vinegar,172240,sr_legacy,1,tbsp,tbsp,14.9
+white wine vinegar,172240,sr_legacy,1,cup,cup,239
+white wine vinegar,172240,sr_legacy,1,tsp,tsp,5
+whole chicken,171447,sr_legacy,4,oz,oz,113
+whole chicken,171447,sr_legacy,1,unit,unit (yield from 1 lb ready-to-cook chicken),276
+whole chicken,171447,sr_legacy,0.5,whole,"chicken, bone removed",460
+whole-wheat flour,168893,sr_legacy,1,cup,cup,120
+worcestershire sauce,171610,sr_legacy,1,tbsp,tbsp,17
+worcestershire sauce,171610,sr_legacy,1,cup,cup,275
+yeast,175043,sr_legacy,1,tsp,tsp,4
+yeast,175043,sr_legacy,1,tbsp,tbsp,12
+yeast,175043,sr_legacy,1,packet,packet,7.2
+yellow mustard,326698,foundation,1,teaspoon,,6
+yellow mustard,326698,foundation,1,cup,,249
+yellow squash,168464,sr_legacy,1,cup,cup sliced,127
+yogurt,171284,sr_legacy,1,container,container (6 oz),170
+yogurt,171284,sr_legacy,1,container,container (8 oz),227
+yogurt,171284,sr_legacy,0.5,container,container (4 oz),113
+yogurt,171284,sr_legacy,1,cup,cup (8 fl oz),245
+zucchini,169291,sr_legacy,1,cup,"cup, chopped",124
+zucchini,169291,sr_legacy,1,cup,"cup, sliced",113
+zucchini,169291,sr_legacy,1,large,large,323
+zucchini,169291,sr_legacy,1,medium,medium,196
+zucchini,169291,sr_legacy,1,slice,slice,9.9
+zucchini,169291,sr_legacy,1,small,small,118
