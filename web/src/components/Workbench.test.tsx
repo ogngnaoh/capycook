@@ -42,12 +42,46 @@ test('opens one EventSource per dish and streams tokens into the thread', async 
 })
 
 test('proposal-ready lands the card at the gate with all six verbs', async () => {
+  // Reload mid-move: the dish is proposing and GET reports the in-flight
+  // move, whose proposal-ready then lands the card.
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
   const es = await mount()
   act(() => es.emit('proposal-ready', { moveId: 'mv_9', proposal: sampleProposal({ id: 'pr_9', move_id: 'mv_9' }) }))
   expect(screen.getByText('A tighter concept.')).toBeInTheDocument()
   for (const label of ['Accept', 'Edit', 'Regenerate', 'Alternatives', 'Redirect', 'Take over']) {
     expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
   }
+})
+
+test('a stale proposal-ready after the gate resolves does not resurrect the card', async () => {
+  // The SSE hub replays rationale tokens on a cadence and emits
+  // proposal-ready at the end; a fast accept (stub mode resolves moves
+  // instantly) lands before that tail. The late event is stale theater —
+  // it must not re-open the gate the server already resolved.
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ moveId: 'mv_9' })
+    if (url === '/api/dishes/d1/gate') {
+      return jsonResponse({ verb: 'accept', proposalId: 'pr_9', newVersionId: 'ver_2' })
+    }
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  const es = await mount()
+  fireEvent.click(screen.getByRole('button', { name: /propose a move/i }))
+  await waitFor(() => {
+    expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/dishes/d1/move')).toBe(true)
+  })
+  const ready = { moveId: 'mv_9', proposal: sampleProposal({ id: 'pr_9', move_id: 'mv_9' }) }
+  act(() => es.emit('proposal-ready', ready))
+  fireEvent.click(screen.getByRole('button', { name: 'Accept' }))
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument())
+  // The token replay's trailing proposal-ready arrives after the accept.
+  act(() => es.emit('proposal-ready', ready))
+  expect(screen.queryByTestId('proposal-card')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument()
 })
 
 test('accept posts the gate verb with the pending proposal id and session header', async () => {
@@ -82,6 +116,21 @@ test('two pending proposals render as a card picker; choosing one targets it', a
   })
 })
 
+test('an empty draft with a proposal pending invites review, not proposing', async () => {
+  // The empty-state line must not invite an action the gate has locked:
+  // while a proposal is pending, the act to take is reviewing it.
+  detail = dishDetail({
+    state: 'awaiting_gate',
+    draft: sampleDraft({ title: '', concept: '', ingredients: [], steps: [], flavor_rationale: [] }),
+    pendingProposal: sampleProposal(),
+    pendingProposals: [sampleProposal()],
+  })
+  render(<Workbench dishId="d1" onNavigate={() => {}} />)
+  await screen.findByTestId('proposal-card')
+  expect(screen.getByText(/empty draft — review the proposal below/i)).toBeInTheDocument()
+  expect(screen.queryByText(/propose the first move/i)).not.toBeInTheDocument()
+})
+
 test('proposal-blocked shows the safety block with only regenerate/redirect', async () => {
   const es = await mount()
   act(() => es.emit('proposal-blocked', {
@@ -110,6 +159,32 @@ test('redirect while blocked opens the steer form and targets the blocked move',
       proposalId: 'mv_9', verb: 'redirect', edit: { steer: 'use vinegar instead' },
     })
   })
+})
+
+test('an unsafe human write warns-and-confirms with the reason, not the wire prefix', async () => {
+  detail = dishDetail({
+    state: 'awaiting_gate',
+    pendingProposal: sampleProposal(),
+    pendingProposals: [sampleProposal()],
+  })
+  const reason = 'Room-temperature garlic-in-oil supports Clostridium botulinum growth.'
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') {
+      return jsonResponse({ error: `orchestrator: safety warning requires confirm override: ${reason}` }, 409)
+    }
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: 'Take over' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+  const prompt = await screen.findByTestId('override-prompt')
+  expect(prompt).toHaveTextContent(reason)
+  // The internal error prefix is wire plumbing, not cook-facing copy.
+  expect(prompt).not.toHaveTextContent(/orchestrator:/)
 })
 
 test('move-failed shows a failure banner distinct from the safety block', async () => {

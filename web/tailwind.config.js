@@ -72,6 +72,10 @@ export default {
     extend: {
       height: { header: 'var(--header-height)' },
       maxWidth: { container: 'var(--container-max)' },
+      // Fixed pane widths on the 5px rhythm. The replaced spacing scale
+      // (0–9) drops Tailwind's default width steps, so panes name their
+      // widths here — a bare w-96/w-72 would be a silent no-op.
+      width: { steering: '390px', versions: '290px' },
       zIndex: {
         sticky: '100',
         dropdown: '200',

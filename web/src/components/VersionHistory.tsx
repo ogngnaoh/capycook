@@ -25,7 +25,7 @@ export default function VersionHistory({ data, selectedId, onSelect, onPromote, 
   }
   return (
     <section data-testid="version-history"
-      className="w-72 shrink-0 border-l border-hairline p-3 space-y-2 overflow-y-auto bg-page">
+      className="w-versions shrink-0 border-l border-hairline p-3 space-y-2 overflow-y-auto bg-page">
       <h2 className="uppercase text-muted">Versions</h2>
       {versions.length === 0 && (
         <p className="text-muted">No versions yet — accept a proposal to start the chain.</p>
@@ -107,7 +107,7 @@ function CookFeedbackForm({ versionId, canCook, onSubmit, onCancel }: {
       </label>
       <div className="flex gap-1">
         <button type="submit" disabled={!canCook || feedback.trim() === ''}
-          className="px-2 py-1 uppercase bg-accent text-on-accent font-medium disabled:opacity-40">
+          className="px-2 py-1 uppercase font-medium enabled:bg-accent enabled:text-on-accent disabled:bg-surface disabled:text-muted">
           Propose a rework
         </button>
         <button type="button" onClick={onCancel}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MOVE_TYPES } from '../types'
 
 // ThreadEntry is one row of the steering thread: the cook's steer turns,
@@ -23,6 +23,20 @@ export default function SteeringPane({ thread, suggestedNext, canPropose, onProp
 }) {
   const [moveType, setMoveType] = useState('')
   const [steer, setSteer] = useState('')
+  // The thread follows its newest turn (streamed tokens land at the
+  // bottom) unless the cook has scrolled up to read older turns.
+  const threadBox = useRef<HTMLDivElement>(null)
+  const pinned = useRef(true)
+
+  useEffect(() => {
+    const el = threadBox.current
+    if (el && pinned.current) el.scrollTop = el.scrollHeight
+  }, [thread])
+
+  function onThreadScroll() {
+    const el = threadBox.current
+    if (el) pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40
+  }
 
   function propose(mt: string) {
     onPropose(mt, steer.trim())
@@ -31,12 +45,17 @@ export default function SteeringPane({ thread, suggestedNext, canPropose, onProp
 
   return (
     <section data-testid="steering-pane"
-      className="w-96 shrink-0 border-l border-hairline bg-page p-3 flex flex-col gap-3 overflow-y-auto">
+      className="w-steering shrink-0 border-l border-hairline bg-page p-3 flex flex-col gap-3 overflow-y-auto">
       <h2 className="uppercase text-muted">Steering</h2>
 
-      <div className="flex-1 space-y-2 overflow-y-auto">
+      <div data-testid="steering-thread" ref={threadBox} onScroll={onThreadScroll}
+        className="flex-1 space-y-2 overflow-y-auto">
         {thread.length === 0 && (
-          <p className="text-muted">No moves yet — propose the first move below.</p>
+          <p className="text-muted">
+            {canPropose
+              ? 'No moves yet — propose the first move below.'
+              : 'No moves in this session yet.'}
+          </p>
         )}
         {thread.map((e, i) => <ThreadItem key={i} entry={e} />)}
       </div>
@@ -66,7 +85,7 @@ export default function SteeringPane({ thread, suggestedNext, canPropose, onProp
             className="mt-1 w-full border border-hairline-strong bg-page p-1 text-ink normal-case" />
         </label>
         <button type="button" disabled={!canPropose} onClick={() => propose(moveType)}
-          className="w-full px-3 py-2 uppercase bg-accent text-on-accent font-medium disabled:opacity-40">
+          className="w-full px-3 py-2 uppercase font-medium enabled:bg-accent enabled:text-on-accent disabled:bg-surface disabled:text-muted">
           Propose a move
         </button>
         {!canPropose && (

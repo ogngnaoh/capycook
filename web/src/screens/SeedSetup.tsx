@@ -165,7 +165,7 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
       </div>
 
       <button type="submit" disabled={submitting}
-        className="px-4 py-2 uppercase bg-accent text-on-accent font-medium disabled:opacity-40">
+        className="px-4 py-2 uppercase font-medium enabled:bg-accent enabled:text-on-accent disabled:bg-surface disabled:text-muted">
         {submitting ? 'Starting…' : 'Start dish'}
       </button>
     </form>

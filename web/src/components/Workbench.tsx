@@ -64,6 +64,13 @@ export default function Workbench({ dishId, onNavigate }: {
   const [snapshot, setSnapshot] = useState<VersionItem | null>(null)
   const [stubMode, setStubMode] = useState(false)
   const lastMove = useRef<LastMove | null>(null)
+  // expectedMove is the move id this view is waiting a proposal for: set on
+  // POST /move, on gate verbs that spawn a move, and from inFlightMoveId on
+  // re-sync; cleared when the gate resolves. The SSE hub replays rationale
+  // tokens on a cadence and emits proposal-ready at the end, so a fast gate
+  // resolution (stub mode is instant) can leave a trailing proposal-ready —
+  // stale theater that must not re-open a gate the server already resolved.
+  const expectedMove = useRef<string | null>(null)
 
   // The stub-mode banner (task 3.3): GET /api/status reports which model
   // edge is wired. Advisory only — a failed fetch leaves the banner off.
@@ -76,6 +83,7 @@ export default function Workbench({ dishId, onNavigate }: {
   const resync = useCallback(async () => {
     try {
       const d = await getDish(dishId)
+      if (d.inFlightMoveId) expectedMove.current = d.inFlightMoveId
       setDetail(d)
       setLoadError(null)
     } catch (err) {
@@ -91,6 +99,7 @@ export default function Workbench({ dishId, onNavigate }: {
       onToken: (e) => setThread((t) => appendToken(t, e.moveId, e.text)),
       onProposalReady: (e) => {
         setThread((t) => finishTokens(t, e.moveId))
+        if (e.moveId !== expectedMove.current) return // stale replay tail
         setSuggestedNext(list(e.proposal.suggested_next))
         setSelectedProposalId((cur) => cur ?? e.proposal.id)
         setDetail((d) => (d ? addPending(d, e.proposal) : d))
@@ -146,7 +155,8 @@ export default function Workbench({ dishId, onNavigate }: {
     lastMove.current = { moveType, steer, baseVersion }
     const beforeVersion = detail?.currentVersionId ?? null
     try {
-      await postMove(dishId, moveType, steer, baseVersion)
+      const mv = await postMove(dishId, moveType, steer, baseVersion)
+      expectedMove.current = mv.moveId ?? null
       if (baseVersion) {
         setThread((t) => [...t, { kind: 'cooked', versionId: baseVersion, feedback: steer }])
       } else if (steer) {
@@ -172,6 +182,9 @@ export default function Workbench({ dishId, onNavigate }: {
     setMoveFailed(null)
     try {
       const res = await postGate(dishId, body)
+      // Verbs that spawn a move (regenerate/redirect/alternatives) hand
+      // over the wait to the new move id; resolving verbs clear it.
+      expectedMove.current = res.newMoveId ?? null
       setPanel(null)
       setSelectedProposalId(null)
       if (res.newVersionId) {
@@ -187,7 +200,10 @@ export default function Workbench({ dishId, onNavigate }: {
       // explicitly overrides (recorded as safety_warning_overridden).
       if (err instanceof ApiError && err.status === 409 && /confirm override/i.test(err.message)
         && (body.verb === 'edit' || body.verb === 'take_over')) {
-        setPanel({ kind: 'override', message: err.message, resend: { ...body, confirmOverride: true } })
+        // Show the cook the safety reasons only — the "orchestrator: safety
+        // warning requires confirm override:" prefix is wire plumbing.
+        const message = err.message.replace(/^.*?confirm override:\s*/i, '')
+        setPanel({ kind: 'override', message, resend: { ...body, confirmOverride: true } })
         return
       }
       setActionError(errMessage(err))
@@ -229,6 +245,7 @@ export default function Workbench({ dishId, onNavigate }: {
     setActionError(null)
     try {
       await postCancel(dishId)
+      expectedMove.current = null
       await resync()
     } catch (err) {
       setActionError(errMessage(err))
@@ -359,7 +376,7 @@ export default function Workbench({ dishId, onNavigate }: {
                 <DraftPane draft={snapshot.draft} heading="Snapshot" />
               </div>
             ) : (
-              <DraftPane draft={detail.draft}>
+              <DraftPane draft={detail.draft} emptyNote={emptyNoteFor(detail.state, pending.length)}>
                 {pending.length > 0 && (
                   <div className="space-y-2">
                     <h3 className="uppercase text-muted">
@@ -453,11 +470,24 @@ function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'request failed'
 }
 
+// emptyNoteFor keeps the empty-draft line an invitation to an act that is
+// actually available: reviewing the pending card, resolving the block, or
+// waiting out the in-flight move — proposing only when the dish is idle.
+function emptyNoteFor(state: string, pendingCount: number): string | undefined {
+  if (pendingCount > 0) {
+    return `Empty draft — review the proposal${pendingCount > 1 ? 's' : ''} below.`
+  }
+  if (state === 'blocked') return 'Empty draft — resolve the blocked move below.'
+  if (state === 'proposing') return 'Empty draft — a move is being proposed.'
+  return undefined // idle: the default "propose the first move" invitation
+}
+
 // --- verb panels ---
 
 // Shared panel control styles: ghost is the default voice; the panel's one
-// primary action fills terracotta.
-const panelPrimary = 'px-3 py-1 uppercase bg-accent text-on-accent font-medium disabled:opacity-40'
+// primary action fills terracotta — disabled it goes neutral, so only a
+// live primary ever wears the accent.
+const panelPrimary = 'px-3 py-1 uppercase font-medium enabled:bg-accent enabled:text-on-accent disabled:bg-surface disabled:text-muted'
 const panelGhost = 'px-3 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page'
 
 function editableValue(v: unknown): string {

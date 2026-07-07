@@ -422,7 +422,7 @@ replayed token-cadence **after** the safety screen passes.
   ("I cooked this" on a version → feedback textarea → POST move
   `{moveType:"iterate_feedback", steer:feedback, baseVersion:cookedId}` → one
   re-proposal against that version; iteration entries render in the thread). Commit.
-- [ ] **5.4 convergence loop** — Iterate: run app → browser screenshots of every
+- [x] **5.4 convergence loop** — Iterate: run app → browser screenshots of every
   screen/state → self-critique against DESIGN-SYSTEM.md's Do/Don't (90% neutral,
   one accent block max, no shadows/rounding, 12px resting size) → refine → repeat
   until self-consistent. Save final screenshots to evidence/phase5/. **→ STOP:

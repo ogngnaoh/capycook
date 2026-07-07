@@ -6,10 +6,13 @@ import { ApproximateChip, Chip, UnverifiedChip } from './Chips'
 // DraftPane renders the versioned dish draft (internal/draft shape):
 // title/concept, ingredients, steps, flavor rationale, constraints, and the
 // deterministic analysis panels. children carries the pending proposal
-// card(s) and verb panels the workbench pins under the draft.
-export default function DraftPane({ draft, heading = 'Draft', children }: {
+// card(s) and verb panels the workbench pins under the draft. emptyNote
+// overrides the empty-state line so it always invites an act that is
+// actually available (e.g. reviewing a pending proposal).
+export default function DraftPane({ draft, heading = 'Draft', emptyNote, children }: {
   draft: Draft
   heading?: string
+  emptyNote?: string
   children?: ReactNode
 }) {
   const ingredients = list(draft.ingredients)
@@ -21,7 +24,7 @@ export default function DraftPane({ draft, heading = 'Draft', children }: {
       <h2 className="uppercase text-muted">{heading}</h2>
       {empty ? (
         <div className="p-3 border border-hairline bg-page text-muted">
-          Empty draft — propose the first move to sketch the dish.
+          {emptyNote ?? 'Empty draft — propose the first move to sketch the dish.'}
         </div>
       ) : (
         <div className="p-3 border border-hairline bg-page space-y-3">
