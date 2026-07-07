@@ -1,3 +1,47 @@
+@import './styles/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* The resting state: ivory page, slate text, 12px/20px Inter, 0.3px
+     tracking. Everything inherits this; reach for the scale only for
+     real hierarchy. */
+  body {
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-base);
+    line-height: var(--leading-ui);
+    letter-spacing: var(--tracking);
+    font-weight: var(--weight-regular);
+  }
+
+  /* Focus is a 2px accent outline — visible in both themes. */
+  :focus-visible {
+    outline: var(--border-thick) solid var(--focus-ring);
+    outline-offset: 1px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Comfortable reading: 16px sentence-case prose, no UI tracking. */
+  .prose-comfort {
+    font-size: var(--font-size-md);
+    line-height: var(--leading-normal);
+    letter-spacing: var(--tracking-tight);
+    text-transform: none;
+  }
+}

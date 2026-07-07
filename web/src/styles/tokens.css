@@ -1,0 +1,198 @@
+/* ============================================================
+   CAPYCOOK DESIGN TOKENS
+   Acne structural system + Anthropic warm layer (spec §8, task 5.1).
+
+   Structure ported verbatim from the Acne-inspired design system
+   (acne-design-system/tokens.css): 12px home base, 0.3px tracking,
+   uppercase UI voice, 5px spacing rhythm, radius 0, hairline borders,
+   no shadows/gradients, ~120ms motion.
+
+   The Acne vibrant tier (pink/cobalt/orange) is REPLACED by the
+   Anthropic warm palette: ivory/oat surfaces, slate text, terracotta
+   accent. The Acne semantic status set is KEPT verbatim in light,
+   with dark-theme companions tuned for AA on the warm near-black.
+
+   Themes: :root = light; @media (prefers-color-scheme: dark)
+   overrides unless [data-theme="light"] pins light; [data-theme="dark"]
+   pins dark. theme.ts stamps the attribute.
+
+   Fonts load via the system/webfont fallback stacks below — no
+   bundled woff2 files.
+   ============================================================ */
+
+:root {
+  /* ---------- TYPOGRAPHY (structural, theme-independent) ---------- */
+  --font-sans: "Inter", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Base is 12px — the default for ALL UI text. Larger steps are a
+     restrained scale for real hierarchy only. */
+  --font-size-2xs:   11px;
+  --font-size-base:  12px;   /* DEFAULT — labels, nav, buttons, body UI */
+  --font-size-sm:    13px;
+  --font-size-md:    16px;   /* comfortable reading (.prose-comfort) */
+  --font-size-lg:    20px;
+  --font-size-xl:    28px;
+  --font-size-2xl:   40px;   /* display / hero */
+  --font-size-3xl:   64px;   /* large display, use rarely */
+
+  --weight-regular:  400;    /* default */
+  --weight-medium:   500;    /* subtle emphasis: active nav, table headers */
+  --weight-bold:     700;    /* rare, strong emphasis only */
+
+  --leading-tight:   1.05;   /* display */
+  --leading-ui:      20px;   /* 12px UI rows */
+  --leading-link:    24px;   /* clickable / short */
+  --leading-body:    30px;   /* 12px descriptions */
+  --leading-normal:  1.5;    /* scaled reading text */
+
+  --tracking:        0.3px;  /* the constant UI letter-spacing */
+  --tracking-tight:  0px;    /* large/scaled text and prose */
+  --uppercase:       uppercase;
+
+  /* ---------- SPACING (5px rhythm) ---------- */
+  --space-0:  0;
+  --space-1:  5px;
+  --space-2:  10px;
+  --space-3:  15px;
+  --space-4:  20px;
+  --space-5:  30px;
+  --space-6:  45px;
+  --space-7:  60px;
+  --space-8:  90px;
+  --space-9:  120px;
+
+  /* ---------- SHAPE & BORDERS ---------- */
+  --radius:        0px;   /* square corners everywhere — never round */
+  --border-width:  1px;   /* hairline structure */
+  --border-thick:  2px;   /* focus ring / emphasis only */
+
+  /* ---------- ELEVATION ---------- */
+  --shadow-none:   none;  /* no drop shadows — separate with borders + whitespace */
+
+  /* ---------- LAYOUT ---------- */
+  --header-height:  60px;
+  --container-max:  1440px;
+  --grid-columns:   12;
+  --grid-gutter:    var(--space-4);
+
+  /* ---------- MOTION ---------- */
+  --transition:      120ms ease;
+  --transition-slow: 240ms ease;
+
+  /* ---------- Z-INDEX ---------- */
+  --z-base:      0;
+  --z-sticky:    100;
+  --z-dropdown:  200;
+  --z-overlay:   300;
+  --z-modal:     400;
+  --z-toast:     500;
+  --z-tooltip:   600;
+
+  /* ---------- BREAKPOINTS (reference; use in @media) ---------- */
+  --bp-sm:  640px;
+  --bp-md:  1024px;
+  --bp-lg:  1440px;
+}
+
+/* ============================================================
+   PALETTE — Anthropic warm layer. Light is the default (:root);
+   the dark block is duplicated below for the media query and the
+   explicit [data-theme="dark"] pin.
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* Warm neutrals (~90% of any view) */
+  --color-page:           #FAF9F5;  /* ivory page */
+  --color-surface:        #F0EFEA;  /* oat — subtle fills, hover, zebra */
+  --color-ink:            #191919;  /* slate — primary text, filled surfaces */
+  --color-muted:          #6E6A63;  /* warm muted — secondary / meta text */
+  --color-border:         #E8E6E0;  /* warm hairline dividers, ghost outline */
+  --color-border-strong:  #C9C5BC;  /* inputs, controls, disabled */
+
+  /* Terracotta accent — fills, active states, focus. At most one hero
+     block per view. 3.1:1 on ivory: fine for fills/focus, NOT for
+     normal-size text — use --color-accent-text for that. */
+  --color-accent:       #CC785C;
+  --color-accent-text:  #A04E30;  /* AA (5.5:1) terracotta for text/links */
+  --color-on-accent:    #191919;  /* text on terracotta fills (5.4:1) */
+
+  /* Semantic status set — Acne values kept verbatim. Surfaces only
+     behind alerts/badges/chips; color never the only signal.
+     (Known caveat: warning-on-surface is 3.9:1 — AA-large/UI only;
+     pair warning text with an icon or keep it ≥ 16px/bold.) */
+  --color-info:             #0018A8;
+  --color-info-surface:     #EAEDFB;
+  --color-success:          #007701;
+  --color-success-surface:  #E5F5E0;
+  --color-warning:          #B36200;
+  --color-warning-surface:  #FBEED9;
+  --color-critical:         #C4271C;
+  --color-critical-surface: #FBE4E1;
+
+  /* Semantic aliases — theme by editing this layer only */
+  --text-primary:    var(--color-ink);
+  --text-secondary:  var(--color-muted);
+  --text-on-accent:  var(--color-on-accent);
+  --bg-page:         var(--color-page);
+  --bg-subtle:       var(--color-surface);
+  --border-default:  var(--color-border);
+  --border-control:  var(--color-border-strong);
+  --focus-ring:      var(--color-accent);
+}
+
+/* Dark palette — warm near-black. Applies when the OS prefers dark and
+   no explicit light pin is set… */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --color-page:           #1E1C19;  /* warm near-black page */
+    --color-surface:        #282520;  /* dark oat surface */
+    --color-ink:            #F0EEE9;  /* warm off-white text */
+    --color-muted:          #A8A297;
+    --color-border:         #3A362F;
+    --color-border-strong:  #57524A;
+
+    --color-accent:       #CC785C;  /* fills keep the same terracotta */
+    --color-accent-text:  #D98E73;  /* lighter tint — AA (6.5:1) on dark */
+    --color-on-accent:    #191919;
+
+    /* Semantic dark companions — tuned for AA on the warm near-black */
+    --color-info:             #8FA1F2;
+    --color-info-surface:     #20263E;
+    --color-success:          #5FB44E;
+    --color-success-surface:  #1F2E1A;
+    --color-warning:          #E3A04F;
+    --color-warning-surface:  #332614;
+    --color-critical:         #F2705F;
+    --color-critical-surface: #38201C;
+  }
+}
+
+/* …and when the toggle pins dark explicitly (must mirror the block above). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-page:           #1E1C19;
+  --color-surface:        #282520;
+  --color-ink:            #F0EEE9;
+  --color-muted:          #A8A297;
+  --color-border:         #3A362F;
+  --color-border-strong:  #57524A;
+
+  --color-accent:       #CC785C;
+  --color-accent-text:  #D98E73;
+  --color-on-accent:    #191919;
+
+  --color-info:             #8FA1F2;
+  --color-info-surface:     #20263E;
+  --color-success:          #5FB44E;
+  --color-success-surface:  #1F2E1A;
+  --color-warning:          #E3A04F;
+  --color-warning-surface:  #332614;
+  --color-critical:         #F2705F;
+  --color-critical-surface: #38201C;
+}

@@ -402,7 +402,7 @@ replayed token-cadence **after** the safety screen passes.
 
 ## Phase 5 — Styled UI + demo materials (spec §8) — Gate C
 
-- [ ] **5.1 design tokens** — Create `web/src/styles/tokens.css` + Tailwind config
+- [x] **5.1 design tokens** — Create `web/src/styles/tokens.css` + Tailwind config
   mapping: Acne structure (12px/0.3px uppercase UI, radius 0, hairline #F2F2F2/
   #C2C2C2 borders, no shadows, Inter + IBM Plex Mono, 5px-rhythm spacing) +
   Anthropic warm layer replacing the vibrant tier (ivory/oat surfaces ~#FAF9F5/#F0EFEA,
