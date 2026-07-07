@@ -205,7 +205,7 @@ replayed token-cadence **after** the safety screen passes.
   insert/delete/edit). Commit.
 - [x] **1.4 eventlog** — Create `internal/eventlog/{eventlog.go}` + tests on the store.
   Append assigns seq; Replay ordered; arm/run_kind persisted. Commit.
-- [ ] **1.5 stub edges** — Create `internal/llm/stub.go` (deterministic templated
+- [x] **1.5 stub edges** — Create `internal/llm/stub.go` (deterministic templated
   Proposals per move type; rationale text included; one seeded UNSAFE proposal:
   `technique:"infuse_oil"` garlic-in-oil when steer contains "garlic oil"),
   `internal/services/{nutrition_stub,cost_stub,safety_stub}.go` (safety stub blocks
