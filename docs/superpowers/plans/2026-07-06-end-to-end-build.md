@@ -450,10 +450,11 @@ replayed token-cadence **after** the safety screen passes.
     2026-07-07: **IA direction approved**. Punch list fixed + committed (dish
     notation in hold evidence, hold atop canvas, bench voice, mono qty in marks).
     Note: user prototypes live at :8099 (scratchpad DB, own $2-cap ledger).
-  - [ ] **W3 a11y annotation** (settled tree): T2 lifecycle live region + 4-rule
-    focus protocol · T4 APG toolbar + scoped remappable shortcuts · T8 aural diff
-    grammar · T13 structure pass (h1/landmarks/title/skip links/GOV.UK errors) ·
-    T11 uncertainty ledger.
+  - [ ] **W3 a11y annotation** (settled tree): T2 ✓ (landed with W2) · T4 ✓ APG
+    toolbar + scoped remappable shortcuts (localStorage store, no remap UI) ·
+    T8 ✓ aural grammar incl. Technical-view DiffLine · T11 ✓ uncertainty ledger ·
+    T13 seed-form half ✓ (GOV.UK, field-scoped validateSeedForm); structure half
+    (h1/landmarks/title/route focus/skip links/take-over error) IN FLIGHT.
   - [ ] **W4**: T14 narrow-viewport collapse (solo, last — needs the final tree).
   - [ ] **Convergence rerun**: vendor shot script into `web/tools/` +
     `puppeteer-core` devDep (reverses logged scratchpad-only decision — log why;
