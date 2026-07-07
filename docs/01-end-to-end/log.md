@@ -78,3 +78,13 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   **No structural drift — Phase 3 proceeds.** Cosmetic drift: pricing now
   $0.435/M in ($0.003625/M cache-hit) / $0.87/M out (~4x cheaper than SPEC's stale
   $1.74/$3.48); "5M free tokens" no longer documented. SPEC §2/§4c patched this commit.
+- **3.3 budget persistence — sidecar JSON, not a store table:** cumulative LLM
+  spend lives in `<DB_PATH>.budget.json` (atomic temp+rename writes), not in the
+  SQLite store. The ledger is operational state, not domain data: keeping it out
+  spares the pinned Store interface + migration chain, and a fork resets spend by
+  deleting one file. Pre-call hard-stop semantics: a call is refused once spend
+  ≥ cap, so the final in-budget call may overshoot slightly (per-call cost is
+  unknowable in advance). Record-replay fixtures under
+  `internal/llm/testdata/recorded/` are hand-authored `synthetic_*.json` until
+  Gate B; real recordings (`recorded_*.json`) only ever come from the
+  CAPYCOOK_LIVE_TEST=1 smoke test.

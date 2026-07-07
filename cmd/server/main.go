@@ -102,12 +102,46 @@ func wire(cfg config.Config) (http.Handler, func(), error) {
 		return nil, nil, err
 	}
 
+	// LLM edge (task 3.3): the real DeepSeek client iff a key is present
+	// (and CAPYCOOK_STUB_LLM doesn't force the stub), else the Phase-1 stub.
+	// The budget ledger is a sidecar JSON next to the SQLite file so the
+	// LLM_BUDGET_USD cap survives restarts.
+	var modelEdge llm.LLM = llm.Stub{}
+	llmStatus := func() httpapi.LLMStatus {
+		return httpapi.LLMStatus{Mode: "stub", BudgetCapUSD: cfg.LLMBudgetUSD}
+	}
+	if cfg.DeepSeekAPIKey != "" && !cfg.StubLLM {
+		meter, err := llm.OpenUsageMeter(cfg.DBPath+".budget.json", cfg.LLMBudgetUSD)
+		if err != nil {
+			closeStore()
+			return nil, nil, err
+		}
+		ds, err := llm.NewDeepSeek(llm.DeepSeekConfig{APIKey: cfg.DeepSeekAPIKey, Meter: meter})
+		if err != nil {
+			closeStore()
+			return nil, nil, err
+		}
+		modelEdge = ds
+		llmStatus = func() httpapi.LLMStatus {
+			return httpapi.LLMStatus{
+				Mode:           "live",
+				Model:          ds.Model(),
+				BudgetSpentUSD: meter.Spent(),
+				BudgetCapUSD:   meter.Cap(),
+			}
+		}
+		slog.Info("llm: live DeepSeek mode", "model", ds.Model(),
+			"budget_spent_usd", meter.Spent(), "budget_cap_usd", meter.Cap())
+	} else {
+		slog.Warn("llm: stub mode — no model key (set DEEPSEEK_API_KEY to go live)")
+	}
+
 	evlog := eventlog.New(st)
 	hub := transport.New(transport.Options{})
 	orch := orchestrator.New(orchestrator.Deps{
 		Store:             st,
 		Log:               evlog,
-		LLM:               llm.Stub{},
+		LLM:               modelEdge,
 		Safety:            safety,
 		Nutrition:         nutrition,
 		Cost:              cost,
@@ -117,6 +151,7 @@ func wire(cfg config.Config) (http.Handler, func(), error) {
 		Notify:            hub.Notify,
 	})
 	api := httpapi.New(st, evlog, orch, hub)
+	api.SetLLMStatus(llmStatus)
 	cleanup := func() {
 		hub.Close()
 		closeStore()

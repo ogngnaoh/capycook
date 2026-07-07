@@ -51,6 +51,38 @@ func TestLoadDataDir(t *testing.T) {
 	}
 }
 
+func TestLoadLLMBudgetUSD(t *testing.T) {
+	t.Setenv("LLM_BUDGET_USD", "")
+	if got := Load().LLMBudgetUSD; got != 10 {
+		t.Fatalf("default LLMBudgetUSD = %v, want 10", got)
+	}
+
+	t.Setenv("LLM_BUDGET_USD", "2.5")
+	if got := Load().LLMBudgetUSD; got != 2.5 {
+		t.Fatalf("LLMBudgetUSD = %v, want 2.5", got)
+	}
+
+	t.Setenv("LLM_BUDGET_USD", "not-a-number")
+	if got := Load().LLMBudgetUSD; got != 10 {
+		t.Fatalf("unparsable LLMBudgetUSD = %v, want default 10", got)
+	}
+}
+
+func TestLoadStubLLM(t *testing.T) {
+	t.Setenv("CAPYCOOK_STUB_LLM", "")
+	if Load().StubLLM {
+		t.Fatal("StubLLM default = true, want false")
+	}
+	t.Setenv("CAPYCOOK_STUB_LLM", "1")
+	if !Load().StubLLM {
+		t.Fatal("CAPYCOOK_STUB_LLM=1 not read")
+	}
+	t.Setenv("CAPYCOOK_STUB_LLM", "true")
+	if !Load().StubLLM {
+		t.Fatal("CAPYCOOK_STUB_LLM=true not read")
+	}
+}
+
 func TestLoadMissingSecretsNonFatal(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "")
 	c := Load() // must not panic / must not exit

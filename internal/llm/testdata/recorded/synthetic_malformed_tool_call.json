@@ -1,0 +1,25 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "I cannot produce a tool call for this request.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1751846400,
+  "id": "synthetic-0001",
+  "model": "deepseek-v4-pro",
+  "object": "chat.completion",
+  "synthetic_note": "synthetic pre-Gate-B fixture — hand-authored wire-format example, NOT a live recording (task 3.3)",
+  "usage": {
+    "completion_tokens": 20,
+    "prompt_tokens": 1000,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 1020
+  }
+}

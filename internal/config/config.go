@@ -6,6 +6,7 @@ package config
 import (
 	"log/slog"
 	"os"
+	"strconv"
 )
 
 // Config holds runtime configuration read from the environment.
@@ -17,6 +18,8 @@ type Config struct {
 	LangfusePublicKey string
 	LangfuseSecretKey string
 	LangfuseHost      string
+	LLMBudgetUSD      float64 // LLM_BUDGET_USD hard spend cap; default 10 (spec §3)
+	StubLLM           bool    // CAPYCOOK_STUB_LLM: force the stub LLM even with a key
 }
 
 // Load reads configuration from environment variables. Absent secrets are
@@ -30,6 +33,23 @@ func Load() Config {
 		LangfusePublicKey: os.Getenv("LANGFUSE_PUBLIC_KEY"),
 		LangfuseSecretKey: os.Getenv("LANGFUSE_SECRET_KEY"),
 		LangfuseHost:      os.Getenv("LANGFUSE_HOST"),
+		LLMBudgetUSD:      10,
+	}
+	if v := os.Getenv("LLM_BUDGET_USD"); v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			slog.Warn("config: LLM_BUDGET_USD unparsable, keeping default", "value", v, "default", c.LLMBudgetUSD)
+		} else {
+			c.LLMBudgetUSD = f
+		}
+	}
+	if v := os.Getenv("CAPYCOOK_STUB_LLM"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			slog.Warn("config: CAPYCOOK_STUB_LLM unparsable, keeping default false", "value", v)
+		} else {
+			c.StubLLM = b
+		}
 	}
 	for _, k := range []string{
 		"DEEPSEEK_API_KEY", "LANGFUSE_PUBLIC_KEY",

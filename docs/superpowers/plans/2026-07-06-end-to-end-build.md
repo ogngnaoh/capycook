@@ -332,7 +332,7 @@ replayed token-cadence **after** the safety screen passes.
   citation/[unverified]/confidence elicitation rules; cuisine disclaimer block;
   temps required for high-risk proteins; **arm-parity: evidence block is the only
   arm-varying region**. Commit.
-- [ ] **3.3 deepseek client** — Create `internal/llm/{deepseek.go,budget.go}` + tests.
+- [x] **3.3 deepseek client** — Create `internal/llm/{deepseek.go,budget.go}` + tests.
   Strict tool-call primary (tool schema = full Draft + rationale + citations +
   confidence + unverified + suggested_next; all-required, no additionalProperties);
   buffered `json_object` fallback w/ `DisallowUnknownFields`; 2 retries, 60s timeout;

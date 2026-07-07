@@ -44,6 +44,81 @@ func TestWireFailsWithoutDataAssets(t *testing.T) {
 	}
 }
 
+// statusOf fetches GET /api/status from a wired handler.
+func statusOf(t *testing.T, handler http.Handler) map[string]any {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/api/status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /api/status = %d, want 200", resp.StatusCode)
+	}
+	var st map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&st); err != nil {
+		t.Fatal(err)
+	}
+	return st
+}
+
+// TestStatusStubModeWithoutKey: no DEEPSEEK_API_KEY => Phase-1 stub LLM,
+// reported on /api/status (the UI's "stub mode — no model key" banner
+// source).
+func TestStatusStubModeWithoutKey(t *testing.T) {
+	st := statusOf(t, testHandler(t))
+	if st["llm_mode"] != "stub" {
+		t.Fatalf("llm_mode = %v, want stub", st["llm_mode"])
+	}
+}
+
+// TestStatusLiveModeWithKey: a key selects the real DeepSeek client (no
+// network at wiring time) and exposes the budget meter.
+func TestStatusLiveModeWithKey(t *testing.T) {
+	handler, cleanup, err := wire(config.Config{
+		Port:           "0",
+		DBPath:         filepath.Join(t.TempDir(), "server.db"),
+		DataDir:        filepath.Join("..", "..", "data"),
+		DeepSeekAPIKey: "test-key-not-used",
+		LLMBudgetUSD:   10,
+	})
+	if err != nil {
+		t.Fatalf("wire: %v", err)
+	}
+	defer cleanup()
+	st := statusOf(t, handler)
+	if st["llm_mode"] != "live" {
+		t.Fatalf("llm_mode = %v, want live", st["llm_mode"])
+	}
+	if st["model"] != "deepseek-v4-pro" {
+		t.Fatalf("model = %v, want deepseek-v4-pro", st["model"])
+	}
+	if st["budget_cap_usd"] != 10.0 || st["budget_spent_usd"] != 0.0 {
+		t.Fatalf("budget = %v/%v, want 0/10", st["budget_spent_usd"], st["budget_cap_usd"])
+	}
+}
+
+// TestStatusStubLLMOverridesKey: CAPYCOOK_STUB_LLM forces the stub even
+// with a key present.
+func TestStatusStubLLMOverridesKey(t *testing.T) {
+	handler, cleanup, err := wire(config.Config{
+		Port:           "0",
+		DBPath:         filepath.Join(t.TempDir(), "server.db"),
+		DataDir:        filepath.Join("..", "..", "data"),
+		DeepSeekAPIKey: "test-key-not-used",
+		StubLLM:        true,
+	})
+	if err != nil {
+		t.Fatalf("wire: %v", err)
+	}
+	defer cleanup()
+	if st := statusOf(t, handler); st["llm_mode"] != "stub" {
+		t.Fatalf("llm_mode = %v, want stub (CAPYCOOK_STUB_LLM set)", st["llm_mode"])
+	}
+}
+
 func TestHealthzReturnsOK(t *testing.T) {
 	srv := httptest.NewServer(testHandler(t))
 	defer srv.Close()
