@@ -88,3 +88,23 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   `internal/llm/testdata/recorded/` are hand-authored `synthetic_*.json` until
   Gate B; real recordings (`recorded_*.json`) only ever come from the
   CAPYCOOK_LIVE_TEST=1 smoke test.
+- **Gate B cleared (2026-07-07):** user directed "use what I have now (~$2)" —
+  LLM_BUDGET_USD tightened 10 → 2 in .env (spec's $10 is the ceiling; tighter is
+  safer). DeepSeek + Langfuse keys provided via .env by the user; Langfuse project
+  is US-region (us.cloud.langfuse.com — the EU default 401'd; host fixed in .env).
+- **Live-API drift found at the Gate-B smoke (undocumented):** v4-pro defaults to
+  thinking mode, which 400-rejects a forced tool_choice ("Thinking mode does not
+  support this tool_choice"). Fix: thinkingDisabledTransport injects DeepSeek's
+  custom thinking:{"type":"disabled"} on every chat-completion call (go-openai has
+  no vendor-extension field) — proposal extraction is a structured task and runs
+  non-thinking, keeping the strict forced-tool-call path. TDD'd; the 400 error
+  response is kept as a recorded fixture documenting the behavior.
+- **Phase-3 oracle complete:** live smoke green (8 ops, conf 0.85, $0.0022; real
+  wire fixture recorded_1783412942_01.json confirms the synthetic fixtures' assumed
+  mapping — propose_move tool call, six arg keys, cache hit/miss usage fields);
+  full server loop drove a real seed_expand (5 ops, conf 0.9, honest unverified on
+  an evidence-less empty draft, $0.0027); OTel span exported and verified in the
+  Langfuse CapyCook project BOTH via API (evidence/phase3/langfuse_trace.json —
+  attrs session_id/arm/move_type present) and visually in the Tracing UI. Total
+  live spend ≈ $0.005 of the $2 cap. Satisfies the re-homed "one replayable traced
+  event" criterion.

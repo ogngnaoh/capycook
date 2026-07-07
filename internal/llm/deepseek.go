@@ -1,10 +1,12 @@
 package llm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -114,9 +116,15 @@ func NewDeepSeek(cfg DeepSeekConfig) (*DeepSeek, error) {
 	if cfg.BaseURL != "" {
 		oc.BaseURL = cfg.BaseURL
 	}
-	if cfg.HTTPClient != nil {
-		oc.HTTPClient = cfg.HTTPClient
+	// Wrap whatever transport is in play (default or an injected test/replay
+	// one) so every chat-completion call carries thinking:{"type":"disabled"}.
+	base := cfg.HTTPClient
+	if base == nil {
+		base = &http.Client{}
 	}
+	hc := *base
+	hc.Transport = thinkingDisabledTransport{base: base.Transport}
+	oc.HTTPClient = &hc
 	d := &DeepSeek{
 		client:  openai.NewClientWithConfig(oc),
 		model:   DefaultDeepSeekModel,
@@ -130,6 +138,47 @@ func NewDeepSeek(cfg DeepSeekConfig) (*DeepSeek, error) {
 		d.timeout = cfg.CallTimeout
 	}
 	return d, nil
+}
+
+// thinkingDisabledTransport injects DeepSeek's custom
+// thinking:{"type":"disabled"} body field into chat-completion requests.
+// v4-pro defaults to thinking mode, which rejects a forced tool_choice with
+// a 400 ("Thinking mode does not support this tool_choice") — a live-API
+// behavior not in the docs (found at the Gate-B smoke, 2026-07-07).
+// Proposal extraction is a structured task; it runs non-thinking so the
+// strict forced tool-call path keeps working. go-openai has no field for
+// vendor extensions, hence the transport-level rewrite.
+type thinkingDisabledTransport struct{ base http.RoundTripper }
+
+func (t thinkingDisabledTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	if req.Method != http.MethodPost || req.Body == nil ||
+		!strings.HasSuffix(req.URL.Path, "/chat/completions") {
+		return base.RoundTrip(req)
+	}
+	body, err := io.ReadAll(req.Body)
+	_ = req.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("llm: reading request body to disable thinking: %w", err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(body, &fields); err == nil {
+		if _, set := fields["thinking"]; !set {
+			fields["thinking"] = json.RawMessage(`{"type":"disabled"}`)
+			if rewritten, err := json.Marshal(fields); err == nil {
+				body = rewritten
+			}
+		}
+	}
+	req.Body = io.NopCloser(bytes.NewReader(body))
+	req.ContentLength = int64(len(body))
+	req.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(body)), nil
+	}
+	return base.RoundTrip(req)
 }
 
 // Model returns the model id in use (for /api/status).

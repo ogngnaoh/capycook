@@ -45,6 +45,9 @@ type wireRequest struct {
 	ResponseFormat *struct {
 		Type string `json:"type"`
 	} `json:"response_format"`
+	Thinking *struct {
+		Type string `json:"type"`
+	} `json:"thinking"`
 }
 
 type replay struct {
@@ -154,6 +157,26 @@ func fixtureMoveOutput(t *testing.T, name string) moveOutput {
 }
 
 // ---- tests -----------------------------------------------------------------
+
+// v4-pro defaults to thinking mode, which rejects a forced tool_choice with
+// a 400 ("Thinking mode does not support this tool_choice" — live API,
+// 2026-07-07, not in the docs). Every generation call must therefore carry
+// DeepSeek's custom thinking:{"type":"disabled"} body field.
+func TestDeepSeekDisablesThinkingMode(t *testing.T) {
+	r, ts := newReplayServer(t, "synthetic_strict_tool_call.json")
+	ds := newTestDeepSeek(t, ts.URL, newTestMeter(t, 10))
+
+	if _, err := ds.GenerateMove(context.Background(), testMoveRequest()); err != nil {
+		t.Fatalf("GenerateMove: %v", err)
+	}
+	calls := r.calls()
+	if len(calls) != 1 {
+		t.Fatalf("made %d calls, want 1", len(calls))
+	}
+	if calls[0].Thinking == nil || calls[0].Thinking.Type != "disabled" {
+		t.Fatalf(`thinking = %+v, want {"type":"disabled"} on the wire`, calls[0].Thinking)
+	}
+}
 
 func TestDeepSeekStrictPath(t *testing.T) {
 	r, ts := newReplayServer(t, "synthetic_strict_tool_call.json")
