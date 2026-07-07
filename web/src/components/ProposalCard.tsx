@@ -1,6 +1,8 @@
 import type { Op, Proposal } from '../types'
 import { list } from '../types'
 import { Chip, CitationChip, ConfidenceChip, UnverifiedChip } from './Chips'
+import { DiffMark } from './DiffMark'
+import { opLineLabel } from '../lib/pathLabels'
 
 // formatValue renders an op operand readably: strings verbatim, objects as
 // compact `key: value` pairs (· separated, null/absent fields skipped),
@@ -27,10 +29,12 @@ const OP_VARIANT: Record<Op['op'], 'success' | 'critical' | 'info'> = {
 }
 
 // DiffLine renders one RFC-6902 op as a reviewed change: the field path as
-// an uppercase label with a tiny op badge, then old value struck-through in
-// warm muted → new value on the flat success tint, in 11px mono.
-// ComputeDiff fills `from` only on replace; removes are path-only.
+// an uppercase label with a tiny op badge, then the value pair through the
+// shared DiffMark grammar (del/ins + sr-only was/now, cook-labeled group)
+// in 11px mono. ComputeDiff fills `from` only on replace; removes are
+// path-only. A replace without `from` reads as an insertion.
 function DiffLine({ op }: { op: Op }) {
+  const kind = op.op === 'replace' && op.from === undefined ? 'add' : op.op
   return (
     <div className="py-1 space-y-1">
       <div className="flex flex-wrap items-center gap-2">
@@ -38,14 +42,10 @@ function DiffLine({ op }: { op: Op }) {
         <Chip variant={OP_VARIANT[op.op]}>{op.op.toUpperCase()}</Chip>
       </div>
       {(op.op !== 'remove' || op.from !== undefined) && (
-        <div className="flex flex-wrap items-baseline gap-2 font-mono text-2xs">
-          {op.from !== undefined && (
-            <span className="line-through text-muted">{formatValue(op.from)}</span>
-          )}
-          {op.op === 'replace' && <span aria-hidden="true" className="text-muted">→</span>}
-          {op.op !== 'remove' && (
-            <span className="px-1 bg-success-surface text-ink">{formatValue(op.value)}</span>
-          )}
+        <div className="font-mono text-2xs">
+          <DiffMark kind={kind} label={opLineLabel(op)}
+            from={op.from !== undefined ? formatValue(op.from) : undefined}
+            to={op.op !== 'remove' ? formatValue(op.value) : undefined} />
         </div>
       )}
     </div>

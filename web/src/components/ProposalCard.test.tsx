@@ -11,14 +11,19 @@ const ops: Op[] = [
   { op: 'remove', path: '/steps/1' },
 ]
 
-test('renders per-field diffs: old struck-through in muted, new on the success tint', () => {
+test('per-field diffs speak the aural grammar: del/ins with was/now, struck and tinted', () => {
   render(<ProposalCard proposal={sampleProposal({ change: ops })} />)
-  const oldValue = screen.getByText('Old Title')
-  expect(oldValue.className).toMatch(/line-through/)
-  expect(oldValue.className).toMatch(/text-muted/)
-  const newValue = screen.getByText('New Title')
-  expect(newValue.className).toMatch(/bg-success-surface/)
-  expect(newValue.className).not.toMatch(/line-through/)
+  const card = screen.getByTestId('proposal-card')
+  const del = card.querySelector('del')!
+  expect(del).toHaveTextContent('was: Old Title')
+  expect(del.className).toMatch(/line-through/)
+  expect(del.className).toMatch(/text-muted/)
+  const ins = card.querySelector('ins')!
+  expect(ins).toHaveTextContent('now: New Title')
+  expect(ins.className).toMatch(/bg-success-surface/)
+  // Each line is a group labeled in cook vocabulary, wire paths stay visible.
+  expect(screen.getByRole('group', { name: 'Title — changed' })).toBeInTheDocument()
+  expect(screen.getByRole('group', { name: 'Ingredients — added' })).toBeInTheDocument()
   expect(screen.getByText(/garlic/)).toBeInTheDocument()
   expect(screen.getByText('/steps/1')).toBeInTheDocument()
   expect(screen.getByText('/ingredients/2')).toBeInTheDocument()
