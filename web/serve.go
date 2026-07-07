@@ -18,16 +18,21 @@ func Handler() http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := strings.TrimPrefix(r.URL.Path, "/")
-		if p == "" {
-			p = "index.html"
+		if p != "" && p != "index.html" {
+			if _, err := fs.Stat(sub, p); err == nil {
+				fileServer.ServeHTTP(w, r)
+				return
+			}
 		}
-		if _, err := fs.Stat(sub, p); err == nil {
-			fileServer.ServeHTTP(w, r)
+		// SPA fallback: serve the index bytes directly. Routing /index.html
+		// through FileServer 301-canonicalizes it to "./", which resolves
+		// against the client's URL (/dishes/:id) and loops forever.
+		index, err := fs.ReadFile(sub, "index.html")
+		if err != nil {
+			http.NotFound(w, r)
 			return
 		}
-		// SPA fallback
-		r2 := r.Clone(r.Context())
-		r2.URL.Path = "/index.html"
-		fileServer.ServeHTTP(w, r2)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(index)
 	})
 }
