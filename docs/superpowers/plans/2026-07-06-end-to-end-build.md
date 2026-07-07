@@ -387,7 +387,7 @@ replayed token-cadence **after** the safety screen passes.
   constraints, drafted by stated procedure (documented inline); expected-claim
   arithmetic note (~200 total across arms). **Ratified at Gate C, only then copied to
   `eval/fixtures/seeds.json` + CHANGELOG entry.** Commit.
-- [ ] **4.6 labeling kit** — Create `eval/fixtures/{README.md,CHANGELOG.md}` updates:
+- [x] **4.6 labeling kit** — Create `eval/fixtures/{README.md,CHANGELOG.md}` updates:
   label schema (claim_id, arm, dish, text, source, label_r1, label_r2), CSV
   export/import via `cmd/eval export-labels|import-labels`, seeded stratified 15–20%
   double-label sampler. Hygiene rule stated in README (no synthetic data here, ever).

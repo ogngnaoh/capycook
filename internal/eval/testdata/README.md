@@ -21,3 +21,11 @@ label values are permitted here and ONLY here.
   (`runner_test.go`). Not benchmark data: the proposed benchmark seeds are
   drafted in `docs/01-end-to-end/proposed-benchmark-seeds.json` (plan 4.5)
   and reach `eval/fixtures/` only after Gate C ratification.
+- `labels_sheet_valid.csv` — synthetic hand-filled labeler sheet (plan 4.6
+  schema) covering all five frozen §7a categories, spreadsheet-style
+  TRUE/FALSE booleans, a trailing space on a label, and a still-unlabeled
+  double-label row. Expectations are hand-written in `labels_test.go`.
+- `labels_sheet_bad_label.csv` — synthetic sheet with a label value outside
+  the frozen five; `ReadLabelCSV` must reject it (`labels_test.go`).
+- `labels_sheet_r2_unmarked.csv` — synthetic sheet with `label_r2` on a
+  `double_label=false` row; `ReadLabelCSV` must reject it (`labels_test.go`).

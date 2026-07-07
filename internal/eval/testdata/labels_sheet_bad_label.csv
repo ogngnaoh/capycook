@@ -1,0 +1,2 @@
+claim_id,arm,dish,text,source,label_r1,label_r2,double_label
+clm-synth-x1,grounded,dish-synthetic-1,SYNTHETIC claim x1,,plausible,,FALSE

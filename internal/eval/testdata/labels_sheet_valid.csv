@@ -1,0 +1,7 @@
+claim_id,arm,dish,text,source,label_r1,label_r2,double_label
+clm-synth-s1,grounded,dish-synthetic-1,"SYNTHETIC claim s1, with a comma",synthetic://usda/000201,grounded-correct,grounded-correct,TRUE
+clm-synth-s2,grounded,dish-synthetic-1,SYNTHETIC claim s2,synthetic://usda/000202,grounded-mischaracterized,,FALSE
+clm-synth-s3,grounded,dish-synthetic-2,SYNTHETIC claim s3 [unverified],,correctly-unverified,hallucinated,true
+clm-synth-s4,flavorgraph,dish-synthetic-2,SYNTHETIC claim s4,,hallucinated ,,false
+clm-synth-s5,flavorgraph,dish-synthetic-2,SYNTHETIC claim s5 (a matter of taste),,opinion-non-checkable,,FALSE
+clm-synth-s6,ungrounded,dish-synthetic-3,SYNTHETIC claim s6 (not yet labeled),,,,TRUE

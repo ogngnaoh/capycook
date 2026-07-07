@@ -88,6 +88,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		err = cmdReplay(args[1:], stdout, stderr)
 	case "rates":
 		err = cmdRates(args[1:], stdout, stderr)
+	case "export-labels":
+		err = cmdExportLabels(args[1:], stdout, stderr)
+	case "import-labels":
+		err = cmdImportLabels(args[1:], stdout, stderr)
 	case "kappa":
 		err = cmdKappa(args[1:], stdout, stderr)
 	case "report":
@@ -125,6 +129,13 @@ func usage(w io.Writer) {
           over a labeled-claim JSONL file
   kappa   Cohen's κ + confusion matrix over the double-labeled subset
   report  compose rates + κ + gate dynamics into markdown (stdout) + JSON
+
+  export-labels
+          turn the run subcommand's UNLABELED claims JSONL into a labeler CSV
+          sheet, marking the seeded stratified double-label subset for R2
+  import-labels
+          validate a labeled CSV sheet against the five frozen PREREG §7a
+          categories and write the labeled-claim JSONL rates/kappa consume
 
 Run 'eval <subcommand> -h' for flags.
 `)
@@ -533,6 +544,125 @@ func labeledClaims(rates map[string]eval.ArmRates) int {
 		n += r.Total - r.Unlabeled
 	}
 	return n
+}
+
+// --- export-labels / import-labels (plan 4.6 labeling kit) ---
+
+// cmdExportLabels turns the runner's UNLABELED claims exports into one
+// labeler CSV sheet (schema + workflow: eval/fixtures/README.md). The label
+// columns are always empty — the phase-4 stop-line — and the seeded sampler
+// marks the PREREG §6 double-label subset per arm.
+func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("export-labels", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	claimsFlag := fs.String("claims", "", "comma-separated UNLABELED claims JSONL files (required; the run subcommand's claims_<arm>.jsonl exports)")
+	out := fs.String("out", filepath.Join(defaultOutDir, "labels.csv"), "labeler CSV sheet to write")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if *claimsFlag == "" {
+		return errors.New("export-labels: --claims is required (comma-separated claims JSONL files)")
+	}
+	var claims []eval.Claim
+	files := 0
+	for _, p := range strings.Split(*claimsFlag, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		cs, err := readClaimsFile(p)
+		if err != nil {
+			return err
+		}
+		claims = append(claims, cs...)
+		files++
+	}
+	rows, err := eval.BuildLabelSheet(claims)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
+		return err
+	}
+	f, err := os.Create(*out)
+	if err != nil {
+		return err
+	}
+	if err := eval.WriteLabelCSV(f, rows); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	total := map[string]int{}
+	marked := map[string]int{}
+	for _, r := range rows {
+		total[r.Arm]++
+		if r.DoubleLabel {
+			marked[r.Arm]++
+		}
+	}
+	arms := make([]string, 0, len(total))
+	for arm := range total {
+		arms = append(arms, arm)
+	}
+	sort.Strings(arms)
+	fmt.Fprintf(stdout, "claims: %d from %d files\n", len(rows), files)
+	fmt.Fprintf(stdout, "double-label subset: seeded sampler seed=%d rate=%d%% stratified per arm, min 1 (PREREG §6)\n",
+		eval.DoubleLabelSeed, int(eval.DoubleLabelRate*100))
+	for _, arm := range arms {
+		fmt.Fprintf(stdout, "arm %-11s %d/%d marked for R2 (double_label=true)\n", arm, marked[arm], total[arm])
+	}
+	fmt.Fprintf(stdout, "labeler sheet -> %s\n", *out)
+	fmt.Fprintln(stdout, "label_r1/label_r2 are EMPTY — labels only ever come from human raters (PREREG §7).")
+	return nil
+}
+
+// cmdImportLabels validates a labeled sheet (frozen §7a categories only;
+// label_r2 only inside the marked subset) and writes the labeled-claim JSONL
+// that rates/kappa/report consume. Rejection writes nothing.
+func cmdImportLabels(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("import-labels", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	csvFlag := fs.String("csv", "", "labeled CSV sheet (required)")
+	out := fs.String("out", filepath.Join(defaultOutDir, "claims_labeled.jsonl"), "labeled-claim JSONL to write")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if *csvFlag == "" {
+		return errors.New("import-labels: --csv is required (the labeled sheet)")
+	}
+	f, err := os.Open(*csvFlag)
+	if err != nil {
+		return fmt.Errorf("open label sheet: %w", err)
+	}
+	claims, err := eval.ReadLabelCSV(f)
+	f.Close()
+	if err != nil {
+		return err
+	}
+	if err := eval.WriteClaims(*out, claims); err != nil {
+		return err
+	}
+	labeled, double, unlabeled := 0, 0, 0
+	for _, c := range claims {
+		if c.LabelR1 != "" {
+			labeled++
+		}
+		if c.LabelR1 != "" && c.LabelR2 != "" {
+			double++
+		}
+		if c.LabelR1 == "" && c.LabelR2 == "" {
+			unlabeled++
+		}
+	}
+	fmt.Fprintf(stdout, "claims: %d imported (%d labeled by R1, %d double-labeled, %d still unlabeled)\n",
+		len(claims), labeled, double, unlabeled)
+	fmt.Fprintf(stdout, "labeled claims -> %s\n", *out)
+	fmt.Fprintf(stdout, "next: eval rates --labels=%s · eval kappa --labels=%s\n", *out, *out)
+	return nil
 }
 
 // --- kappa ---

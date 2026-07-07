@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -88,7 +89,7 @@ func TestUsageAndDispatch(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("help: code=%d, want 0", code)
 	}
-	mustContain(t, "help", stdout, "run", "replay", "rates", "kappa", "report")
+	mustContain(t, "help", stdout, "run", "replay", "rates", "kappa", "report", "export-labels", "import-labels")
 }
 
 // --- seeds resolution ---
@@ -416,6 +417,131 @@ func TestReportComposed(t *testing.T) {
 	}
 	if rep.GateDynamics.FrozenFive["reject"] != 1 || rep.GateDynamics.FrozenFive["accept"] != 2 {
 		t.Errorf("frozen five = %v, want accept=2 reject=1 (cancel folded)", rep.GateDynamics.FrozenFive)
+	}
+}
+
+// --- export-labels / import-labels (plan 4.6) ---
+
+// writeUnlabeledClaims writes one temp claims_<arm>.jsonl the way the runner
+// does — UNLABELED, no label values anywhere in this test file.
+func writeUnlabeledClaims(t *testing.T, dir, arm string, n int) string {
+	t.Helper()
+	claims := make([]eval.Claim, n)
+	for i := range claims {
+		claims[i] = eval.Claim{
+			ClaimID: fmt.Sprintf("clm-synth-%s-%03d", arm, i+1),
+			Arm:     arm,
+			Dish:    "dish-synthetic-1",
+			Text:    fmt.Sprintf("SYNTHETIC %s claim %d", arm, i+1),
+		}
+	}
+	path := filepath.Join(dir, "claims_"+arm+".jsonl")
+	if err := eval.WriteClaims(path, claims); err != nil {
+		t.Fatalf("write claims fixture: %v", err)
+	}
+	return path
+}
+
+func TestExportLabelsCommand(t *testing.T) {
+	dir := t.TempDir()
+	paths := []string{
+		writeUnlabeledClaims(t, dir, "ungrounded", 5),  // k = max(1, round(0.9)) = 1
+		writeUnlabeledClaims(t, dir, "flavorgraph", 4), // k = 1
+		writeUnlabeledClaims(t, dir, "grounded", 3),    // k = 1
+	}
+	out := filepath.Join(dir, "labels.csv")
+	code, stdout, stderr := runCLI(t, "export-labels", "--claims", strings.Join(paths, ","), "--out", out)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	// Seed + per-arm marks are printed so the operator can see the pinned
+	// sampler at work; labels are EMPTY by the stop-line.
+	mustContain(t, "export summary", stdout,
+		"seed=20260706",
+		"ungrounded  1/5", "flavorgraph 1/4", "grounded    1/3",
+		"EMPTY", "human raters",
+	)
+
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read sheet: %v", err)
+	}
+	marked := 0
+	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+		if strings.HasSuffix(line, ",true") {
+			marked++
+		}
+	}
+	if marked != 3 {
+		t.Errorf("marked rows = %d, want 3 (one per arm)", marked)
+	}
+	f, err := os.Open(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	claims, err := eval.ReadLabelCSV(f)
+	if err != nil {
+		t.Fatalf("ReadLabelCSV: %v", err)
+	}
+	if len(claims) != 12 {
+		t.Errorf("sheet rows = %d, want 12", len(claims))
+	}
+	for _, c := range claims {
+		if c.LabelR1 != "" || c.LabelR2 != "" {
+			t.Errorf("claim %s exported with labels (%q/%q) — the sheet must be EMPTY", c.ClaimID, c.LabelR1, c.LabelR2)
+		}
+	}
+
+	if code, _, stderr := runCLI(t, "export-labels", "--out", out); code != 1 || !strings.Contains(stderr, "--claims") {
+		t.Errorf("missing --claims: code=%d stderr=%q, want 1 naming the flag", code, stderr)
+	}
+	// A claims file that already carries labels can never become a fresh sheet.
+	if code, _, stderr := runCLI(t, "export-labels", "--claims", testLabelsPath, "--out", filepath.Join(dir, "labels2.csv")); code != 1 || !strings.Contains(stderr, "labels") {
+		t.Errorf("labeled input: code=%d stderr=%q, want 1 refusing the pre-labeled file", code, stderr)
+	}
+}
+
+func TestImportLabelsCommand(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "claims_labeled.jsonl")
+	sheet := "../../internal/eval/testdata/labels_sheet_valid.csv"
+	code, stdout, stderr := runCLI(t, "import-labels", "--csv", sheet, "--out", out)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	// Fixture arithmetic (labels_test.go): 6 rows, 5 with label_r1, 2 with
+	// both labels, 1 still unlabeled.
+	mustContain(t, "import summary", stdout,
+		"6 imported", "5 labeled by R1", "2 double-labeled", "1 still unlabeled", out,
+	)
+	f, err := os.Open(out)
+	if err != nil {
+		t.Fatalf("open imported jsonl: %v", err)
+	}
+	claims, err := eval.ReadClaims(f)
+	f.Close()
+	if err != nil {
+		t.Fatalf("ReadClaims: %v", err)
+	}
+	if len(claims) != 6 {
+		t.Errorf("imported claims = %d, want 6", len(claims))
+	}
+	// The imported JSONL is what rates/kappa consume.
+	if code, _, stderr := runCLI(t, "rates", "--labels", out); code != 0 {
+		t.Errorf("rates over imported jsonl: code=%d stderr=%q, want 0", code, stderr)
+	}
+
+	if code, _, stderr := runCLI(t, "import-labels", "--out", out); code != 1 || !strings.Contains(stderr, "--csv") {
+		t.Errorf("missing --csv: code=%d stderr=%q, want 1 naming the flag", code, stderr)
+	}
+	badSheet := "../../internal/eval/testdata/labels_sheet_bad_label.csv"
+	badOut := filepath.Join(dir, "bad.jsonl")
+	if code, _, stderr := runCLI(t, "import-labels", "--csv", badSheet, "--out", badOut); code != 1 || !strings.Contains(stderr, "plausible") || !strings.Contains(stderr, "frozen") {
+		t.Errorf("unknown label: code=%d stderr=%q, want 1 naming the value and the frozen rubric", code, stderr)
+	}
+	if _, err := os.Stat(badOut); !os.IsNotExist(err) {
+		t.Errorf("rejected import still wrote %s (stat err = %v)", badOut, err)
 	}
 }
 
