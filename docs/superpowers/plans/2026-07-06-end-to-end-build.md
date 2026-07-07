@@ -195,7 +195,7 @@ replayed token-cadence **after** the safety screen passes.
   no deps); WAL on open; `DB_PATH` from config. TDD: open→migrate→user_version=N;
   dish/version round-trip; version chain via parent pointers; events monotonic seq
   per dish; re-open keeps data. Commit.
-- [ ] **1.2 draft** — Create `internal/draft/{draft.go,apply.go}` + tests. Types per
+- [x] **1.2 draft** — Create `internal/draft/{draft.go,apply.go}` + tests. Types per
   contract; `Apply(ops)` returns new Draft (immutably), errors on bad pointer/op.
   TDD: apply add/remove/replace on ingredients + steps + scalar fields; bad path →
   error, draft unchanged. Commit.
