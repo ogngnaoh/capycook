@@ -117,9 +117,23 @@ test('two pending proposals render as a card picker; choosing one targets it', a
   })
 })
 
-test('an empty draft with a proposal pending invites review, not proposing', async () => {
-  // The empty-state line must not invite an action the gate has locked:
-  // while a proposal is pending, the act to take is reviewing it.
+test('a single proposal takes over the canvas as the would-be recipe', async () => {
+  detail = dishDetail({
+    state: 'awaiting_gate',
+    pendingProposal: sampleProposal(),
+    pendingProposals: [sampleProposal()],
+  })
+  await mount()
+  // The decision object owns the fold: the canvas IS the would-be draft.
+  expect(screen.getByTestId('proposed-draft')).toBeInTheDocument()
+  expect(screen.queryByTestId('draft-pane')).not.toBeInTheDocument()
+  // The wire-level card stays one disclosure away.
+  expect(screen.queryByTestId('proposal-card')).not.toBeInTheDocument()
+})
+
+test('an empty draft with a proposal pending shows the would-be recipe, not an empty note', async () => {
+  // The old empty-state invitation is obsolete here: with the proposal
+  // rendered as the canvas, the review surface is the canvas itself.
   detail = dishDetail({
     state: 'awaiting_gate',
     draft: sampleDraft({ title: '', concept: '', ingredients: [], steps: [], flavor_rationale: [] }),
@@ -127,8 +141,8 @@ test('an empty draft with a proposal pending invites review, not proposing', asy
     pendingProposals: [sampleProposal()],
   })
   render(<Workbench dishId="d1" onNavigate={() => {}} />)
-  await screen.findByTestId('proposal-card')
-  expect(screen.getByText(/empty draft — review the proposal below/i)).toBeInTheDocument()
+  await screen.findByTestId('proposed-draft')
+  expect(screen.queryByText(/empty draft/i)).not.toBeInTheDocument()
   expect(screen.queryByText(/propose the first move/i)).not.toBeInTheDocument()
 })
 

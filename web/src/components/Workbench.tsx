@@ -12,6 +12,7 @@ import DraftPane from './DraftPane'
 import SteeringPane, { type ThreadEntry } from './SteeringPane'
 import GateBar from './GateBar'
 import ProposalCard from './ProposalCard'
+import ProposedDraftView from './ProposedDraftView'
 import SafetyBlock from './SafetyBlock'
 import DialToggle from './DialToggle'
 import ThemeToggle from './ThemeToggle'
@@ -302,6 +303,30 @@ export default function Workbench({ dishId, onNavigate }: {
   }
   if (!detail) return <div className="p-4 text-muted">Loading the dish…</div>
 
+  // The verb panels ride whichever canvas is up — the plain draft or the
+  // proposed-draft view — so gate flows survive the canvas takeover.
+  const verbPanels = (
+    <>
+      {panel?.kind === 'edit' && (
+        <EditForm proposal={panel.proposal} onCancel={() => setPanel(null)}
+          onSubmit={(ops) => void runGate({ proposalId: panel.proposal.id, verb: 'edit', edit: { ops } })} />
+      )}
+      {panel?.kind === 'take_over' && (
+        <TakeOverForm draft={detail.draft} onCancel={() => setPanel(null)}
+          onSubmit={(d) => void runGate({ proposalId: panel.target, verb: 'take_over', edit: { draft: d } })} />
+      )}
+      {panel?.kind === 'redirect' && (
+        <RedirectForm onCancel={() => setPanel(null)}
+          onSubmit={(steer) => void runGate({ proposalId: panel.target, verb: 'redirect', edit: { steer } })} />
+      )}
+      {panel?.kind === 'override' && (
+        <OverridePrompt message={panel.message}
+          onCancel={() => closeOverride(panel.resend.verb)}
+          onConfirm={() => void runGate(panel.resend)} />
+      )}
+    </>
+  )
+
   return (
     <div className="flex flex-col h-screen bg-page text-ink">
       <header className="h-header shrink-0 px-3 border-b border-hairline bg-page flex items-center gap-2">
@@ -387,37 +412,25 @@ export default function Workbench({ dishId, onNavigate }: {
                 </div>
                 <DraftPane draft={snapshot.draft} heading="Snapshot" />
               </div>
+            ) : pending.length === 1 ? (
+              // The decision object owns the fold: one pending proposal
+              // renders as the would-be recipe on the canvas.
+              <ProposedDraftView base={detail.draft} proposal={pending[0]}>
+                {verbPanels}
+              </ProposedDraftView>
             ) : (
               <DraftPane draft={detail.draft} emptyNote={emptyNoteFor(detail.state, pending.length)}>
-                {pending.length > 0 && (
+                {pending.length > 1 && (
                   <div className="space-y-2">
-                    <h3 className="uppercase text-muted">
-                      {pending.length > 1 ? 'Proposals — pick a card' : 'Proposal'}
-                    </h3>
+                    <h3 className="uppercase text-muted">Proposals — pick a card</h3>
                     {pending.map((p) => (
                       <ProposalCard key={p.id} proposal={p}
-                        selected={pending.length > 1 ? p.id === selected?.id : undefined}
-                        onSelect={pending.length > 1 ? () => setSelectedProposalId(p.id) : undefined} />
+                        selected={p.id === selected?.id}
+                        onSelect={() => setSelectedProposalId(p.id)} />
                     ))}
                   </div>
                 )}
-                {panel?.kind === 'edit' && (
-                  <EditForm proposal={panel.proposal} onCancel={() => setPanel(null)}
-                    onSubmit={(ops) => void runGate({ proposalId: panel.proposal.id, verb: 'edit', edit: { ops } })} />
-                )}
-                {panel?.kind === 'take_over' && (
-                  <TakeOverForm draft={detail.draft} onCancel={() => setPanel(null)}
-                    onSubmit={(d) => void runGate({ proposalId: panel.target, verb: 'take_over', edit: { draft: d } })} />
-                )}
-                {panel?.kind === 'redirect' && (
-                  <RedirectForm onCancel={() => setPanel(null)}
-                    onSubmit={(steer) => void runGate({ proposalId: panel.target, verb: 'redirect', edit: { steer } })} />
-                )}
-                {panel?.kind === 'override' && (
-                  <OverridePrompt message={panel.message}
-                    onCancel={() => closeOverride(panel.resend.verb)}
-                    onConfirm={() => void runGate(panel.resend)} />
-                )}
+                {verbPanels}
               </DraftPane>
             )}
           </div>
@@ -487,9 +500,10 @@ function errMessage(err: unknown): string {
 // actually available: reviewing the pending card, resolving the block, or
 // waiting out the in-flight move — proposing only when the dish is idle.
 function emptyNoteFor(state: string, pendingCount: number): string | undefined {
-  if (pendingCount > 0) {
-    return `Empty draft — review the proposal${pendingCount > 1 ? 's' : ''} below.`
-  }
+  // A single pending proposal never reaches here — it takes over the
+  // canvas as ProposedDraftView; only the alternatives picker keeps the
+  // plain canvas underneath.
+  if (pendingCount > 1) return 'Empty draft — review the proposals below.'
   if (state === 'blocked') return 'Empty draft — resolve the blocked move below.'
   if (state === 'proposing') return 'Empty draft — a move is being proposed.'
   return undefined // idle: the default "propose the first move" invitation

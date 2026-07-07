@@ -6,7 +6,7 @@ import { Chip, CitationChip, ConfidenceChip, UnverifiedChip } from './Chips'
 // compact `key: value` pairs (· separated, null/absent fields skipped),
 // arrays as comma-separated items — never a raw JSON wall. Nested values
 // wrap in ()/[] so one line stays parseable by eye.
-function formatValue(v: unknown, nested = false): string {
+export function formatValue(v: unknown, nested = false): string {
   if (v === undefined) return ''
   if (typeof v === 'string') return v
   if (v === null) return 'null'
