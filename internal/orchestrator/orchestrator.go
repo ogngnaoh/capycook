@@ -81,6 +81,13 @@ type Deps struct {
 	Nutrition services.Nutrition
 	Cost      services.Cost
 	Grounding grounding.Grounding
+	// Arm is the grounding-toggle arm (spec §4 enum): it stamps every
+	// appended event and drives per-move evidence assembly
+	// (llm.BuildEvidence, spec §7 matrix). Empty defaults to "none" —
+	// normal operator use, which runs the full grounded path with "none"
+	// recorded on events (the toggle is an eval construct; the Phase-4
+	// harness sets the explicit eval arms).
+	Arm string
 	// CostCitation and NutritionCitation are the deterministic-citation
 	// provenance for cost/nutrition recompute proposals (task 2.8): wiring
 	// fills them from the committed data assets' PROVENANCE files. Zero
@@ -130,7 +137,8 @@ type Orchestrator struct {
 	nutritionCite proposal.Citation
 	notify        func(Outcome)
 
-	// arm/runKind stamp every appended event: operator defaults per spec §4.
+	// arm/runKind stamp every appended event (operator defaults per spec
+	// §4); arm also selects the per-move evidence assembly (spec §7 matrix).
 	// The phase-4 harness runner constructs its own values.
 	arm     string
 	runKind string
@@ -179,6 +187,10 @@ type blockedMove struct {
 
 // New wires an Orchestrator over its edges.
 func New(d Deps) *Orchestrator {
+	arm := d.Arm
+	if arm == "" {
+		arm = llm.ArmNone
+	}
 	return &Orchestrator{
 		store:         d.Store,
 		log:           d.Log,
@@ -190,7 +202,7 @@ func New(d Deps) *Orchestrator {
 		costCite:      d.CostCitation,
 		nutritionCite: d.NutritionCitation,
 		notify:        d.Notify,
-		arm:           "none",
+		arm:           arm,
 		runKind:       "operator",
 		dishes:        make(map[string]*dishState),
 	}
@@ -361,7 +373,7 @@ func (o *Orchestrator) generate(genCtx context.Context, k moveKickoff, cur draft
 		MoveType: k.moveType,
 		Steer:    k.steer,
 		Thread:   thread,
-		Evidence: o.evidence(cur),
+		Evidence: llm.BuildEvidence(o.arm, cur, o.grounding),
 	}
 	var props []proposal.Proposal
 	var genErr error
@@ -695,17 +707,6 @@ func (o *Orchestrator) thread(ctx context.Context, dishID string) ([]llm.ThreadT
 		turns = turns[len(turns)-50:]
 	}
 	return turns, nil
-}
-
-// evidence builds the Phase-1 stub Evidence block: FlavorGraph pairings for
-// the current ingredients. Resolutions stay empty until the real per-arm
-// evidence assembly lands in phase 3 (spec §7 matrix).
-func (o *Orchestrator) evidence(cur draft.Draft) llm.Evidence {
-	names := make([]string, len(cur.Ingredients))
-	for i, ing := range cur.Ingredients {
-		names[i] = ing.Name
-	}
-	return llm.Evidence{Pairings: o.grounding.Suggest(names)}
 }
 
 // resolveDraft returns d with the grounding resolver's ids filled onto

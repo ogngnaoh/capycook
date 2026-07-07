@@ -73,6 +73,13 @@ type env struct {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
+	return newEnvArm(t, "")
+}
+
+// newEnvArm is newEnv with an explicit eval arm ("" = operator default
+// "none").
+func newEnvArm(t *testing.T, arm string) *env {
+	t.Helper()
 	st, err := store.Open(filepath.Join(t.TempDir(), "orch.db"))
 	if err != nil {
 		t.Fatalf("store.Open: %v", err)
@@ -80,6 +87,7 @@ func newEnv(t *testing.T) *env {
 	t.Cleanup(func() { st.Close() })
 	e := &env{st: st, log: eventlog.New(st), llm: &fakeLLM{}, outcomes: make(chan Outcome, 32)}
 	e.orch = New(Deps{
+		Arm:               arm,
 		Store:             st,
 		Log:               e.log,
 		LLM:               e.llm,

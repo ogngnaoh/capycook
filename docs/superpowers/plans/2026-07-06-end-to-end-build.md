@@ -341,7 +341,7 @@ replayed token-cadence **after** the safety screen passes.
   Record-replay: `internal/llm/testdata/recorded/*.json` fixtures; live recording +
   one smoke test behind `CAPYCOOK_LIVE_TEST=1`. No-key runtime → stub LLM + UI banner
   "stub mode — no model key". Tests run entirely on fixtures. Commit.
-- [ ] **3.4 evidence assembly (arm matrix)** — Create `internal/llm/evidence.go` +
+- [x] **3.4 evidence assembly (arm matrix)** — Create `internal/llm/evidence.go` +
   tests: builds Evidence per arm exactly per spec §7 matrix (ungrounded: empty;
   flavorgraph: pairings only; grounded: pairings + resolutions for citation-grounding).
   Arm comes from dish/run config; `none` for normal use = grounded behavior?  **No:**
