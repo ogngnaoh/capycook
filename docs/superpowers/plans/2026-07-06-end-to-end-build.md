@@ -435,17 +435,21 @@ replayed token-cadence **after** the safety screen passes.
   notes: assert `aria-disabled` via `toHaveAttribute` (jest-dom `toBeDisabled()` is
   blind to it) and keep behavioral "fires nothing" guards; tests import `vocab.ts`
   instead of raw strings.
-  - [ ] **W1 foundations** (disjoint files): T12 contrast pair → T9 `vocab.ts`
+  - [x] **W1 foundations** (disjoint files): T12 contrast pair → T9 `vocab.ts`
     module (+ leaf applications) → in parallel: T6-server blocked-ops payload
     (additive; `ops` only, NEVER a `proposal` key — hub_test invariant; rule→line
     anchoring stays client-side; log.md amendment line like baseVersion precedent) ·
-    T10 fiche-technique canvas · T15 override `<dialog>`.
-  - [ ] **W2 IA restructure** (serial through Workbench): T1 ProposedDraftView
+    T10 fiche-technique canvas · T15 override `<dialog>`. Also landed as W2
+    groundwork: `applyOps`, `DiffMark` (T8 grammar), `pathLabels`, `deltaSummary`.
+    Note: dashboard ~MIN segment omitted — no total-time in the data model.
+  - [x] **W2 IA restructure** (serial through Workbench): T1 ProposedDraftView
     (+ `applyOps.ts`, `DiffMark.tsx`; riskiest) → T3 gate-bar two-level ∥ T7
     TrialStrip → T5 alternatives radio group · T6-client safety hold w/ evidence.
-  - [ ] **→ USER CHECKPOINT** — ~10 screenshots of new canvas / gate bar / trial
-    strip; IA-direction check before annotation waves (user-requested hedge
-    against a second redirect).
+    T2 (live region + focus protocol) pulled forward from W3 — visually inert.
+  - [ ] **→ USER CHECKPOINT** — 8 states × 2 themes captured + artifact gallery
+    presented 2026-07-07; punch list: safety-hold evidence in dish notation not
+    wire tuples · hold pinned to canvas top · idle footer voice · mono qty inside
+    change marks. AWAITING VERDICT before W3/W4.
   - [ ] **W3 a11y annotation** (settled tree): T2 lifecycle live region + 4-rule
     focus protocol · T4 APG toolbar + scoped remappable shortcuts · T8 aural diff
     grammar · T13 structure pass (h1/landmarks/title/skip links/GOV.UK errors) ·
