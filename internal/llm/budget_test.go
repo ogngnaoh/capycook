@@ -15,9 +15,9 @@ func almostEqual(a, b float64) bool { return math.Abs(a-b) < 1e-12 }
 // $0.003625/M cache hit, output $0.87/M.
 func TestCostUSDArithmetic(t *testing.T) {
 	cases := []struct {
-		name                      string
+		name                       string
 		prompt, cached, completion int
-		want                      float64
+		want                       float64
 	}{
 		{
 			// hit/miss split: 60k miss + 40k hit + 20k out
