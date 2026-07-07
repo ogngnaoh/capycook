@@ -392,7 +392,7 @@ replayed token-cadence **after** the safety screen passes.
   export/import via `cmd/eval export-labels|import-labels`, seeded stratified 15–20%
   double-label sampler. Hygiene rule stated in README (no synthetic data here, ever).
   Tests on synthetic files in `internal/eval/testdata/`. Commit.
-- [ ] **4.7 README methodology + T1 draft** — Modify `README.md`: methodology section
+- [x] **4.7 README methodology + T1 draft** — Modify `README.md`: methodology section
   (from PREREG, linked not restated), **empty results table** (structure only, "no
   data yet" banner), fork/setup quickstart. Create
   `docs/01-end-to-end/T1-amendment-draft.md`: the dated §9 entry text pinning
