@@ -21,9 +21,9 @@ export default function VersionHistory({ data, selectedId, onSelect, onPromote }
     childCount.set(key, (childCount.get(key) ?? 0) + 1)
   }
   return (
-    <section data-testid="version-history"
+    <section data-testid="version-history" aria-labelledby="version-history-heading"
       className="border-t border-hairline p-3 space-y-2 bg-page">
-      <h2 className="uppercase text-muted">{TRIALS_HEADING}</h2>
+      <h2 id="version-history-heading" className="uppercase text-muted">{TRIALS_HEADING}</h2>
       {versions.length === 0 && (
         <p className="text-muted">No trials yet — accept a proposal to start the record.</p>
       )}

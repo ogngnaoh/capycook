@@ -48,11 +48,18 @@ type VerbPanel =
 // persistent EventSource, and drives moves and all six gate verbs against
 // the real API. All gate state is server-owned; SSE events update the local
 // view and every reconnect re-syncs via GET.
-export default function Workbench({ dishId, onNavigate }: {
+export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   dishId: string
   onNavigate: (to: string) => void
+  // Bumped by App on every route change so the dish title takes focus when
+  // the cook navigated here, never on a cold load (audit #9).
+  routeNonce?: number
 }) {
   const [detail, setDetail] = useState<DishDetail | null>(null)
+  // The page h1 (dish title): the route-change focus target and, once loaded,
+  // the source of document.title.
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const routeFocused = useRef(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [thread, setThread] = useState<ThreadEntry[]>([])
   const [moveFailed, setMoveFailed] = useState<{ moveId: string; reason: string } | null>(null)
@@ -176,6 +183,22 @@ export default function Workbench({ dishId, onNavigate }: {
   // The trial strip is persistent (no toggle), so the record loads with
   // the dish and refreshes after every version-changing action.
   useEffect(() => { void refreshVersions() }, [dishId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The workbench owns the per-dish document title; it re-reads when the draft
+  // title changes (accept/edit) and only after the dish has loaded (audit #9).
+  useEffect(() => {
+    if (detail) document.title = `${detail.draft.title || detail.seed} — CapyCook`
+  }, [detail?.draft.title, detail?.seed])
+
+  // Route-change focus: land on the dish title once the dish has loaded, but
+  // only when the cook navigated here (routeNonce > 0) — and only once, so a
+  // later SSE re-render never steals focus back.
+  useEffect(() => {
+    if (routeNonce > 0 && detail && !routeFocused.current) {
+      routeFocused.current = true
+      headingRef.current?.focus()
+    }
+  }, [routeNonce, detail])
 
   // propose starts a move; with baseVersion it is the post-cook flow — the
   // feedback rides as steer and the move runs against the cooked version.
@@ -312,6 +335,20 @@ export default function Workbench({ dishId, onNavigate }: {
     focusGateBar(verb)
   }
 
+  // Skip links (audit #10): the keyboard path to the gate crosses the header,
+  // the trial strip, and the whole draft — these jump straight there. Gate
+  // lands on the first live verb (its footer anchor when idle, no verbs up).
+  function skipToGate(e: React.MouseEvent) {
+    e.preventDefault()
+    const btn = document.querySelector<HTMLElement>('[data-testid="gate-bar"] button')
+    if (btn) btn.focus()
+    else document.getElementById('gate-bar-anchor')?.focus()
+  }
+  function skipToSteering(e: React.MouseEvent) {
+    e.preventDefault()
+    document.getElementById('steering-anchor')?.focus()
+  }
+
   async function toggleDial(next: boolean) {
     try {
       const res = await setAutonomyDial(dishId, next)
@@ -387,12 +424,23 @@ export default function Workbench({ dishId, onNavigate }: {
       <div data-testid="gate-live-region" role="status" aria-live="polite" className="sr-only">
         {liveMessage}
       </div>
+      {/* First tabbable elements: keyboard jumps past header + trial strip +
+          draft straight to the two hot zones (audit #10). Off-screen until
+          focused via the .skip-link rule in index.css. */}
+      <a href="#gate-bar-anchor" onClick={skipToGate}
+        className="skip-link px-2 py-1 uppercase border border-hairline bg-page text-ink">
+        Skip to gate bar
+      </a>
+      <a href="#steering-anchor" onClick={skipToSteering}
+        className="skip-link px-2 py-1 uppercase border border-hairline bg-page text-ink">
+        Skip to steering
+      </a>
       <header className="h-header shrink-0 px-3 border-b border-hairline bg-page flex items-center gap-2">
         <button onClick={() => onNavigate('/')}
           className="shrink-0 px-2 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page">
           Dishes
         </button>
-        <span className="font-medium text-sm truncate">{detail.draft.title || detail.seed}</span>
+        <h1 ref={headingRef} tabIndex={-1} className="font-medium text-sm truncate focus:outline-none">{detail.draft.title || detail.seed}</h1>
         {headerDatum && (
           <span className="shrink-0 font-mono text-2xs text-muted uppercase">{headerDatum}</span>
         )}
@@ -452,7 +500,7 @@ export default function Workbench({ dishId, onNavigate }: {
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
           <TrialStrip
             data={versions ?? { currentVersionId: detail.currentVersionId, versions: [] }}
             selectedId={snapshot?.id ?? null}
@@ -502,7 +550,7 @@ export default function Workbench({ dishId, onNavigate }: {
             )}
           </div>
 
-          <div className="p-3 border-t border-hairline bg-page">
+          <div id="gate-bar-anchor" tabIndex={-1} className="p-3 border-t border-hairline bg-page focus:outline-none">
             {detail.state === 'awaiting_gate' && <GateBar onVerb={onVerb} />}
             {detail.state === 'proposing' && <GateBar state="proposing" onCancel={cancelMove} />}
             {detail.state === 'blocked' && detail.blocked && (
@@ -512,7 +560,7 @@ export default function Workbench({ dishId, onNavigate }: {
               <p className="text-muted">The bench is ready — propose a move from the steering rail.</p>
             )}
           </div>
-        </div>
+        </main>
 
         <SteeringPane thread={thread} suggestedNext={suggestedNext}
           canPropose={detail.state === 'idle'}
@@ -653,6 +701,7 @@ function TakeOverForm({ draft, onSubmit, onCancel }: {
   useFocusFirstField(formRef)
   const [text, setText] = useState(() => JSON.stringify(draft, null, 2))
   const [parseError, setParseError] = useState<string | null>(null)
+  const errorRef = useRef<HTMLParagraphElement>(null)
   function submit(e: FormEvent) {
     e.preventDefault()
     try {
@@ -661,14 +710,24 @@ function TakeOverForm({ draft, onSubmit, onCancel }: {
       setParseError('The draft is not valid JSON — fix the highlighted text and save again.')
     }
   }
+  // GOV.UK error message (part of #15): a parse failure moves focus to the
+  // message so it is announced and reachable; the textarea points back at it
+  // via aria-describedby (set below).
+  useEffect(() => { if (parseError) errorRef.current?.focus() }, [parseError])
   return (
     <form ref={formRef} onSubmit={submit} data-testid="take-over-form"
       className="border border-hairline bg-page p-3 space-y-2">
       <h3 className="uppercase text-muted">Take over — edit the draft directly</h3>
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={16}
         aria-label="Draft JSON"
+        aria-invalid={parseError ? true : undefined}
+        aria-describedby={parseError ? 'take-over-error' : undefined}
         className="w-full border border-hairline-strong bg-page p-2 font-mono text-2xs text-ink" />
-      {parseError && <p role="alert" className="text-critical">{parseError}</p>}
+      {parseError && (
+        <p id="take-over-error" role="alert" tabIndex={-1} ref={errorRef} className="text-critical focus:outline-none">
+          <span className="sr-only">Error: </span>{parseError}
+        </p>
+      )}
       <div className="flex gap-1">
         <button type="submit" className={panelPrimary}>Save draft</button>
         <button type="button" onClick={onCancel} className={panelGhost}>Cancel</button>

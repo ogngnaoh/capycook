@@ -45,9 +45,10 @@ export default function SteeringPane({ thread, suggestedNext, canPropose, onProp
   }
 
   return (
-    <section data-testid="steering-pane"
-      className="w-steering shrink-0 border-l border-hairline bg-page p-3 flex flex-col gap-3 overflow-y-auto">
-      <h2 className="uppercase text-muted">Steering</h2>
+    <section data-testid="steering-pane" id="steering-anchor" tabIndex={-1}
+      aria-labelledby="steering-heading"
+      className="w-steering shrink-0 border-l border-hairline bg-page p-3 flex flex-col gap-3 overflow-y-auto focus:outline-none">
+      <h2 id="steering-heading" className="uppercase text-muted">Steering</h2>
 
       <div data-testid="steering-thread" ref={threadBox} onScroll={onThreadScroll}
         className="flex-1 space-y-2 overflow-y-auto">

@@ -39,8 +39,8 @@ export default function DraftPane({ draft, heading = 'Draft', emptyNote, childre
   const segments = dashboardSegments(draft, mass)
   const empty = draft.title === '' && ingredients.length === 0 && steps.length === 0
   return (
-    <section data-testid="draft-pane" className="flex-1 min-w-0 p-3 space-y-3">
-      <h2 className="uppercase text-muted">{heading}</h2>
+    <section data-testid="draft-pane" aria-labelledby="draft-pane-heading" className="flex-1 min-w-0 p-3 space-y-3">
+      <h2 id="draft-pane-heading" className="uppercase text-muted">{heading}</h2>
       {empty ? (
         <div className="p-3 border border-hairline bg-page text-muted">
           {emptyNote ?? EMPTY_DRAFT}

@@ -34,7 +34,9 @@ export default function AlternativesPicker({ base, proposals, selectedId, onSele
 
   return (
     <div className="flex-1 min-w-0 p-3 space-y-2">
-      <h3 id="proposal-heading" tabIndex={-1} className="uppercase text-muted">{ALTERNATIVES_HEADER}</h3>
+      {/* h2 (not h3) so the alternatives view nests under the dish h1 without a
+          skipped level; the nested ProposedDraftView 'Proposal' is a sibling h2. */}
+      <h2 id="proposal-heading" tabIndex={-1} className="uppercase text-muted">{ALTERNATIVES_HEADER}</h2>
       <div role="radiogroup" aria-labelledby="proposal-heading"
         className="border border-hairline divide-y divide-hairline bg-page">
         {proposals.map((p, i) => {

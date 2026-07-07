@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DishSummary } from './types'
 import { listDishes } from './api'
 import SeedSetup from './screens/SeedSetup'
@@ -8,9 +8,13 @@ import Workbench from './components/Workbench'
 // '/' is the seed screen + recent dishes, '/dishes/:id' the workbench.
 export default function App() {
   const [path, setPath] = useState(window.location.pathname)
+  // routeNonce bumps on every route change (programmatic navigate + Back/
+  // Forward) so the destination screen focuses its <h1> on a route change but
+  // never on a cold load — SPA client-side-routing focus management (audit #9).
+  const [routeNonce, setRouteNonce] = useState(0)
 
   useEffect(() => {
-    const onPop = () => setPath(window.location.pathname)
+    const onPop = () => { setPath(window.location.pathname); setRouteNonce((n) => n + 1) }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -18,56 +22,73 @@ export default function App() {
   function navigate(to: string) {
     window.history.pushState({}, '', to)
     setPath(to)
+    setRouteNonce((n) => n + 1)
   }
 
   const dish = path.match(/^\/dishes\/([^/]+)$/)
+  // Not a landmark itself — each screen owns its own <header>/<main>, so the
+  // workbench header sits OUTSIDE <main> (audit #9), which a wrapping <main>
+  // here would violate.
   return (
-    <main data-testid="app-root" className="min-h-screen bg-page text-ink">
+    <div data-testid="app-root" className="min-h-screen bg-page text-ink">
       {dish
-        ? <Workbench key={dish[1]} dishId={dish[1]} onNavigate={navigate} />
-        : <Home onNavigate={navigate} />}
-    </main>
+        ? <Workbench key={dish[1]} dishId={dish[1]} onNavigate={navigate} routeNonce={routeNonce} />
+        : <Home onNavigate={navigate} routeNonce={routeNonce} />}
+    </div>
   )
 }
 
-function Home({ onNavigate }: { onNavigate: (to: string) => void }) {
+function Home({ onNavigate, routeNonce }: { onNavigate: (to: string) => void; routeNonce: number }) {
   const [dishes, setDishes] = useState<DishSummary[]>([])
   const [loadError, setLoadError] = useState(false)
+  const headingRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
     listDishes().then(setDishes).catch(() => setLoadError(true))
   }, [])
 
+  // The home screen owns the plain document title; the workbench owns the
+  // per-dish title.
+  useEffect(() => { document.title = 'CapyCook' }, [])
+
+  // Route-change focus: land on the screen's h1 when the cook navigated here,
+  // never on a cold load (routeNonce === 0).
+  useEffect(() => {
+    if (routeNonce > 0) headingRef.current?.focus()
+  }, [routeNonce])
+
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-5">
       <header className="h-header flex items-center border-b border-hairline">
-        <h1 className="uppercase font-medium text-sm">
+        <h1 ref={headingRef} tabIndex={-1} className="uppercase font-medium text-sm focus:outline-none">
           CapyCook <span className="text-muted font-regular">— dish development workbench</span>
         </h1>
       </header>
-      <SeedSetup onCreated={(d) => onNavigate(`/dishes/${d.id}`)} />
-      <section className="space-y-2">
-        <h2 className="uppercase text-muted">Recent dishes</h2>
-        {loadError && (
-          <p className="text-muted">The dish list did not load — check the server and refresh.</p>
-        )}
-        {!loadError && dishes.length === 0 && (
-          <p className="text-muted">No dishes yet — start one above.</p>
-        )}
-        {dishes.length > 0 && (
-          <ul className="border-t border-hairline">
-            {dishes.map((d) => (
-              <li key={d.id}>
-                <button onClick={() => onNavigate(`/dishes/${d.id}`)}
-                  className="w-full text-left px-2 py-2 border-b border-x border-hairline bg-page transition hover:bg-surface flex justify-between gap-2">
-                  <span className="truncate text-ink">{d.title}</span>
-                  <span className="font-mono text-2xs text-muted shrink-0">{new Date(d.updated_at).toLocaleString()}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <main className="space-y-5">
+        <SeedSetup onCreated={(d) => onNavigate(`/dishes/${d.id}`)} />
+        <section aria-labelledby="recent-dishes-heading" className="space-y-2">
+          <h2 id="recent-dishes-heading" className="uppercase text-muted">Recent dishes</h2>
+          {loadError && (
+            <p className="text-muted">The dish list did not load — check the server and refresh.</p>
+          )}
+          {!loadError && dishes.length === 0 && (
+            <p className="text-muted">No dishes yet — start one above.</p>
+          )}
+          {dishes.length > 0 && (
+            <ul className="border-t border-hairline">
+              {dishes.map((d) => (
+                <li key={d.id}>
+                  <button onClick={() => onNavigate(`/dishes/${d.id}`)}
+                    className="w-full text-left px-2 py-2 border-b border-x border-hairline bg-page transition hover:bg-surface flex justify-between gap-2">
+                    <span className="truncate text-ink">{d.title}</span>
+                    <span className="font-mono text-2xs text-muted shrink-0">{new Date(d.updated_at).toLocaleString()}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </main>
     </div>
   )
 }

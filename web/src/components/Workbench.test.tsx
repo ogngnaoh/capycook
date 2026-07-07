@@ -443,3 +443,82 @@ test('the header speaks kitchen states with a plain gloss and a functional dial 
   // The dial's accessible name contains its visible label (2.5.3).
   expect(screen.getByRole('switch', { name: /auto-apply safe steps/i })).toBeInTheDocument()
 })
+
+test('the dish title is the page h1, and the header sits outside <main> (audit #9)', async () => {
+  await mount()
+  const h1 = screen.getByRole('heading', { level: 1 })
+  expect(h1).toHaveTextContent('Seared Chicken Thighs')
+  const main = document.querySelector('main')!
+  const header = document.querySelector('header')!
+  expect(main).toBeInTheDocument()
+  // Header is a sibling of main, not nested inside it.
+  expect(main.contains(header)).toBe(false)
+  // The canvas column (trial strip + draft + gate footer) lives in <main>.
+  expect(main.contains(screen.getByTestId('trial-strip'))).toBe(true)
+})
+
+test('the workbench sets a per-dish document.title', async () => {
+  await mount()
+  await waitFor(() => expect(document.title).toBe('Seared Chicken Thighs — CapyCook'))
+})
+
+test('a route change (routeNonce) focuses the dish title once the dish has loaded', async () => {
+  render(<Workbench dishId="d1" onNavigate={() => {}} routeNonce={1} />)
+  await screen.findAllByText('Seared Chicken Thighs')
+  const h1 = screen.getByRole('heading', { level: 1 })
+  await waitFor(() => expect(h1).toHaveFocus())
+})
+
+test('two skip links precede the header and jump to the gate bar and the steering rail (audit #10)', async () => {
+  detail = dishDetail({
+    state: 'awaiting_gate',
+    pendingProposal: sampleProposal(),
+    pendingProposals: [sampleProposal()],
+  })
+  await mount()
+  const gateSkip = screen.getByRole('link', { name: /skip to gate bar/i })
+  const steerSkip = screen.getByRole('link', { name: /skip to steering/i })
+  // Both precede the header's first control in DOM order (first tabbables).
+  const dishesBtn = screen.getByRole('button', { name: 'Dishes' })
+  expect(gateSkip.compareDocumentPosition(dishesBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(steerSkip.compareDocumentPosition(dishesBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  // Activating each moves focus to its zone.
+  fireEvent.click(gateSkip)
+  expect(screen.getByTestId('gate-bar').contains(document.activeElement)).toBe(true)
+  fireEvent.click(steerSkip)
+  expect(screen.getByTestId('steering-pane')).toHaveFocus()
+})
+
+test('every workbench <section> carries an accessible name', async () => {
+  detail = dishDetail({
+    state: 'awaiting_gate',
+    pendingProposal: sampleProposal(),
+    pendingProposals: [sampleProposal()],
+  })
+  await mount()
+  const sections = Array.from(document.querySelectorAll('section'))
+  expect(sections.length).toBeGreaterThan(0)
+  for (const s of sections) {
+    expect(s.getAttribute('aria-label') || s.getAttribute('aria-labelledby')).toBeTruthy()
+  }
+})
+
+test('take over: invalid JSON shows a focused error linked back to the textarea (GOV.UK)', async () => {
+  detail = dishDetail({
+    state: 'awaiting_gate',
+    pendingProposal: sampleProposal(),
+    pendingProposals: [sampleProposal()],
+  })
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: 'More' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Take over' }))
+  const textarea = screen.getByLabelText('Draft JSON')
+  fireEvent.change(textarea, { target: { value: '{ not valid json' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+  const error = await screen.findByRole('alert')
+  expect(error).toHaveTextContent(/not valid json/i)
+  expect(error).toHaveAttribute('id', 'take-over-error')
+  await waitFor(() => expect(error).toHaveFocus())
+  expect(textarea).toHaveAttribute('aria-describedby', 'take-over-error')
+  expect(textarea).toHaveAttribute('aria-invalid', 'true')
+})

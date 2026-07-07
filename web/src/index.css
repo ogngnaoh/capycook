@@ -44,4 +44,18 @@
     letter-spacing: var(--tracking-tight);
     text-transform: none;
   }
+
+  /* Skip links: off-screen until keyboard focus, then a hairline chip pinned
+     top-left. Kept out of the sr-only/not-sr-only utility chain so the reveal
+     is robust regardless of Tailwind utility ordering (audit #10). Visual
+     chrome (border, bg, uppercase) rides Tailwind classes on the element. */
+  .skip-link {
+    position: absolute;
+    top: 0.5rem;
+    left: -9999px;
+    z-index: 50;
+  }
+  .skip-link:focus {
+    left: 0.5rem;
+  }
 }

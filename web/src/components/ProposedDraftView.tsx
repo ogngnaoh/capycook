@@ -33,7 +33,7 @@ export default function ProposedDraftView({ base, proposal, children }: {
   }
 
   return (
-    <section data-testid="proposed-draft" className="flex-1 min-w-0 p-3 space-y-3">
+    <section data-testid="proposed-draft" aria-labelledby="proposal-heading" className="flex-1 min-w-0 p-3 space-y-3">
       <div className="flex items-baseline gap-2 flex-wrap">
         {/* Focus target for proposal arrival (P1); outline stays on the
             focus ring's terms via :focus-visible only. */}
