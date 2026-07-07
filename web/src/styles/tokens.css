@@ -121,8 +121,9 @@
 
   /* Semantic status set — Acne values kept verbatim. Surfaces only
      behind alerts/badges/chips; color never the only signal.
-     (Known caveat: warning-on-surface is 3.9:1 — AA-large/UI only;
-     pair warning text with an icon or keep it ≥ 16px/bold.) */
+     (Caveat: warning-on-surface is 3.9:1 — never normal-size text.
+     Chips use ink-on-warning-surface + warning border; reserve
+     text-warning for ≥ 16px/bold.) */
   --color-info:             #0018A8;
   --color-info-surface:     #EAEDFB;
   --color-success:          #007701;
@@ -140,7 +141,10 @@
   --bg-subtle:       var(--color-surface);
   --border-default:  var(--color-border);
   --border-control:  var(--color-border-strong);
-  --focus-ring:      var(--color-accent);
+  /* Focus ring uses the AA terracotta: --color-accent is only 2.7–2.9:1
+     against oat/warning/critical surfaces — fails 1.4.11 exactly where
+     safety actions live. accent-text clears 3:1 on every surface. */
+  --focus-ring:      var(--color-accent-text);
 }
 
 /* Dark palette — warm near-black. Applies when the OS prefers dark and

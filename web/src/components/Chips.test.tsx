@@ -8,9 +8,14 @@ test('citation chip renders source and ref in mono on the info surface', () => {
   expect(chip.className).toMatch(/font-mono/)
 })
 
-test('unverified chip keeps its text label on the warning surface', () => {
+test('unverified chip keeps its text label on the warning surface in AA ink', () => {
   render(<UnverifiedChip label="resting time" />)
-  expect(screen.getByText('[unverified] resting time').className).toMatch(/bg-warning-surface/)
+  const chip = screen.getByText('[unverified] resting time')
+  expect(chip.className).toMatch(/bg-warning-surface/)
+  // 11px text on warning-surface must be ink (AA); warning color is border-only.
+  expect(chip.className).toMatch(/text-ink/)
+  expect(chip.className).toMatch(/border-warning/)
+  expect(chip.className).not.toMatch(/text-warning/)
 })
 
 test('bare unverified chip renders the [unverified] marker alone', () => {
@@ -31,7 +36,10 @@ test('deterministic confidence 1.0 renders a deterministic chip on the info surf
   expect(screen.queryByText(/conf 1/)).not.toBeInTheDocument()
 })
 
-test('approximate cost chip renders on the warning surface', () => {
+test('approximate cost chip renders on the warning surface in AA ink', () => {
   render(<ApproximateChip />)
-  expect(screen.getByText('[approximate]').className).toMatch(/bg-warning-surface/)
+  const chip = screen.getByText('[approximate]')
+  expect(chip.className).toMatch(/bg-warning-surface/)
+  expect(chip.className).toMatch(/text-ink/)
+  expect(chip.className).not.toMatch(/text-warning/)
 })

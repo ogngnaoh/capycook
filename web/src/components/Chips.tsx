@@ -8,7 +8,7 @@ import type { Citation } from '../types'
 const VARIANTS = {
   info: 'bg-info-surface text-info',
   success: 'bg-success-surface text-success',
-  warning: 'bg-warning-surface text-warning',
+  warning: 'bg-warning-surface text-ink border border-warning',
   critical: 'bg-critical-surface text-critical',
   neutral: 'border border-hairline-strong text-muted',
 } as const
