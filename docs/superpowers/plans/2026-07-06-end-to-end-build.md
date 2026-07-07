@@ -378,7 +378,7 @@ replayed token-cadence **after** the safety screen passes.
   `eval/out/claims_<arm>.jsonl` (gitignored). Test: 3-arm dry run on stub emits
   structurally-complete claims + a results table with all-zero rates (**re-homed
   "empty baseline" criterion**). Commit.
-- [ ] **4.4 cmd/eval CLI** — Create `cmd/eval/main.go`; Makefile `eval-*` targets.
+- [x] **4.4 cmd/eval CLI** — Create `cmd/eval/main.go`; Makefile `eval-*` targets.
   Subcommands: `run --arm=all|<arm> --live`, `replay`, `rates`, `kappa`,
   `report` (JSON + paste-ready markdown table incl. explicit Ns and the frozen-five
   derivation note). httptest-free CLI tests via package funcs. Commit.
