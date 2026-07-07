@@ -9,11 +9,11 @@ const ing = (name: string, qty: number, unit: string, over: Partial<Ingredient> 
 })
 
 // Real (task 2.8) analysis values arrive as unrounded floats from the
-// USDA/cost services; the graybox panel rounds them for display and keeps
-// the [approximate] / [unverified] chips and the never-$0 footnote. The
-// panel now lives one disclosure below the dashboard line, but the rounded
-// numbers stay in the DOM (collapsed, not removed).
-test('renders real analysis numbers rounded, with chips and footnote', () => {
+// USDA/cost services; the graybox panel rounds them for display. The
+// [approximate] / per-nutrient [unverified] chip pile that used to hang off
+// the panel is gone — one uncertainty ledger line states it once (task 11) —
+// but the rounded numbers stay in the DOM (collapsed, not removed).
+test('renders real analysis numbers rounded, with the uncertainty ledger, not a chip pile', () => {
   const draft = sampleDraft()
   draft.analysis.nutrition = {
     calories: 483.39592,
@@ -38,9 +38,24 @@ test('renders real analysis numbers rounded, with chips and footnote', () => {
   expect(screen.getByText('3 g')).toBeInTheDocument()
   expect(screen.getByText('610.4 mg')).toBeInTheDocument()
   expect(screen.getByText(/\$0\.61 total · \$0\.31 \/ serving/)).toBeInTheDocument()
-  expect(screen.getByText('[approximate]')).toBeInTheDocument()
-  expect(screen.getByText('[unverified] sodium_mg')).toBeInTheDocument()
-  expect(screen.getByText(/unpriced \(excluded\): flat-leaf parsley/)).toBeInTheDocument()
+  // the chip pile is gone: no [approximate], no per-nutrient [unverified] chip
+  expect(screen.queryByText('[approximate]')).toBeNull()
+  expect(screen.queryByText('[unverified] sodium_mg')).toBeNull()
+  // one ledger line states cost + nutrition uncertainty; its detail carries
+  // the per-item names the chips used to
+  expect(screen.getByTestId('uncertainty-ledger'))
+    .toHaveTextContent('estimates — nutrition unverified (model claim) · cost approximate, 1 unpriced')
+  const detail = screen.getByTestId('uncertainty-detail')
+  expect(detail).toHaveTextContent('sodium_mg')
+  expect(detail).toHaveTextContent('flat-leaf parsley')
+})
+
+// The [unverified] chips OUTSIDE the analysis panel (flavor-rationale claims
+// the deterministic layer could not ground) are not this task's concern and
+// must survive untouched.
+test('flavor-rationale [unverified] chip is left untouched by the ledger', () => {
+  render(<DraftPane draft={sampleDraft()} />) // flavor_rationale claim has provenance:null
+  expect(screen.getByText('[unverified]')).toBeInTheDocument()
 })
 
 // --- notation rule 1: dashboard line ---

@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import type { Constraints, Draft, Ingredient } from '../types'
 import { list } from '../types'
 import { EMPTY_DRAFT, STATION_CARD } from '../vocab'
-import { ApproximateChip, Chip, UnverifiedChip } from './Chips'
+import { Chip, UnverifiedChip } from './Chips'
+import UncertaintyLedger from './UncertaintyLedger'
 
 // U+2009 thin space — the house quantity signature (30 ml, 10 g). Reserved
 // for the aligned ingredient column; the dashboard line keeps plain spaces
@@ -230,34 +231,28 @@ function AnalysisPanel({ draft }: { draft: Draft }) {
     ['sodium', `${fmt(nutrition.sodium_mg)} mg`],
   ]
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="border border-hairline p-2 space-y-1">
-        <h3 className="uppercase text-muted">
-          Cost {cost.approximate && <ApproximateChip />}
-        </h3>
-        <div className="font-mono text-2xs text-ink">
-          ${cost.total_usd.toFixed(2)} total · ${cost.per_serving_usd.toFixed(2)} / serving
-        </div>
-        {list(cost.missing).length > 0 && (
-          <div className="text-2xs text-muted">unpriced (excluded): {list(cost.missing).join(', ')}</div>
-        )}
-      </div>
-      <div className="border border-hairline p-2 space-y-1">
-        <h3 className="uppercase text-muted">Nutrition / serving</h3>
-        <dl className="grid grid-cols-2 gap-x-2 font-mono text-2xs">
-          {nutritionRows.map(([k, v]) => (
-            <div key={k} className="flex justify-between gap-1">
-              <dt className="text-muted font-sans">{k}</dt>
-              <dd className="text-ink">{v}</dd>
-            </div>
-          ))}
-        </dl>
-        {list(nutrition.unverified).length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {list(nutrition.unverified).map((u) => <UnverifiedChip key={u} label={u} />)}
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="border border-hairline p-2 space-y-1">
+          <h3 className="uppercase text-muted">Cost</h3>
+          <div className="font-mono text-2xs text-ink">
+            ${cost.total_usd.toFixed(2)} total · ${cost.per_serving_usd.toFixed(2)} / serving
           </div>
-        )}
+        </div>
+        <div className="border border-hairline p-2 space-y-1">
+          <h3 className="uppercase text-muted">Nutrition / serving</h3>
+          <dl className="grid grid-cols-2 gap-x-2 font-mono text-2xs">
+            {nutritionRows.map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-1">
+                <dt className="text-muted font-sans">{k}</dt>
+                <dd className="text-ink">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </div>
+      {/* uncertainty stated once, precisely — never a chip per datum (task 11) */}
+      <UncertaintyLedger cost={cost} nutrition={nutrition} />
     </div>
   )
 }
