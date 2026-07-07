@@ -212,7 +212,7 @@ replayed token-cadence **after** the safety screen passes.
   exactly the seeded case, returns `Safety{Status:"blocked", RuleIDs:["anaerobic-garlic-oil"]}`),
   `internal/grounding/stub.go` (canned pairings), `internal/telemetry/noop.go`
   (Tracer iface + no-op). All behind the pinned interfaces + table tests. Commit.
-- [ ] **1.6 orchestrator** — Create `internal/orchestrator/{orchestrator.go,verbs.go}`
+- [x] **1.6 orchestrator** — Create `internal/orchestrator/{orchestrator.go,verbs.go}`
   + tests (stub edges, in-mem store). State machine: idle→proposing→awaiting_gate→
   (accepted|blocked|cancelled|failed); single-flight per dish (second move → ErrInFlight);
   ALL verbs idempotent on proposalId (dup = no-op, no event); per-verb semantics
