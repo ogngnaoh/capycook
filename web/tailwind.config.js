@@ -6,6 +6,17 @@
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
+    // Breakpoints mirror the --bp-* tokens in src/styles/tokens.css. Tailwind
+    // screens must be literal px (they can't read CSS custom properties), so
+    // these DUPLICATE the tokens — keep them in sync with tokens.css --bp-*.
+    // Replacing the default screens is safe: no responsive utilities predate
+    // the narrow-viewport collapse (audit finding I). `md` (1024px) is the
+    // desktop floor; the workbench collapses to bottom tabs below it (max-md:).
+    screens: {
+      sm: '640px',   // --bp-sm
+      md: '1024px',  // --bp-md
+      lg: '1440px',  // --bp-lg
+    },
     colors: {
       transparent: 'transparent',
       current: 'currentColor',

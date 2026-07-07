@@ -16,11 +16,15 @@ export type ThreadEntry =
 // SteeringPane is the right-hand column: the thread plus move initiation
 // (move-type select, optional steer, suggested_next chips). Cook turns sit
 // tinted and indented right; model turns sit plain on a hairline.
-export default function SteeringPane({ thread, suggestedNext, canPropose, onPropose }: {
+export default function SteeringPane({ thread, suggestedNext, canPropose, onPropose, panelClassName = '' }: {
   thread: ThreadEntry[]
   suggestedNext: string[]
   canPropose: boolean
   onPropose: (moveType: string, steer: string) => void
+  // Narrow-viewport panelization (task 14): Workbench appends the Develop-tab
+  // toggle classes here. Empty on desktop — the rail sits at its fixed width
+  // exactly as today, so the collapse is additive below --bp-md.
+  panelClassName?: string
 }) {
   const [moveType, setMoveType] = useState('')
   const [steer, setSteer] = useState('')
@@ -47,7 +51,7 @@ export default function SteeringPane({ thread, suggestedNext, canPropose, onProp
   return (
     <section data-testid="steering-pane" id="steering-anchor" tabIndex={-1}
       aria-labelledby="steering-heading"
-      className="w-steering shrink-0 border-l border-hairline bg-page p-3 flex flex-col gap-3 overflow-y-auto focus:outline-none">
+      className={`w-steering shrink-0 border-l border-hairline bg-page p-3 flex flex-col gap-3 overflow-y-auto focus:outline-none ${panelClassName}`}>
       <h2 id="steering-heading" className="uppercase text-muted">Steering</h2>
 
       <div data-testid="steering-thread" ref={threadBox} onScroll={onThreadScroll}
@@ -65,7 +69,7 @@ export default function SteeringPane({ thread, suggestedNext, canPropose, onProp
           <div className="flex flex-wrap gap-1">
             {suggestedNext.map((s) => (
               <button key={s} type="button" disabled={!canPropose} onClick={() => propose(s)}
-                className="px-1 text-2xs border border-hairline-strong bg-transparent text-muted transition enabled:hover:bg-ink enabled:hover:text-page disabled:opacity-40">
+                className="inline-flex items-center min-h-[24px] px-1 text-2xs border border-hairline-strong bg-transparent text-muted transition enabled:hover:bg-ink enabled:hover:text-page disabled:opacity-40">
                 {MOVE_LABEL[s as keyof typeof MOVE_LABEL] ?? s}{' '}
                 <span className="font-mono opacity-60">{s}</span>
               </button>

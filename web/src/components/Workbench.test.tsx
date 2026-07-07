@@ -503,6 +503,92 @@ test('every workbench <section> carries an accessible name', async () => {
   }
 })
 
+// ---- Narrow-viewport collapse: bottom tabs + fixed gate (task 14, §5b) ----
+
+test('the workbench renders the rail tabs, defaulting to Recipe', async () => {
+  await mount()
+  const tabs = screen.getAllByRole('tab')
+  expect(tabs.map((t) => t.textContent)).toEqual(['Recipe', 'Develop', 'History'])
+  expect(screen.getByRole('tab', { name: 'Recipe' })).toHaveAttribute('aria-selected', 'true')
+})
+
+test('desktop wiring survives: the tab bar is md:hidden and the rail keeps its fixed width', async () => {
+  await mount()
+  // The collapse is additive — the ≥md layout is expressed by classes that
+  // only take effect below the breakpoint, so desktop stays pixel-identical.
+  expect(screen.getByRole('tablist')).toHaveClass('md:hidden')
+  expect(screen.getByTestId('steering-pane')).toHaveClass('w-steering')
+  expect(document.getElementById('canvas-region')).toHaveClass('flex-1')
+})
+
+test('the active tab toggles which region collapses below --bp-md', async () => {
+  await mount()
+  const canvas = () => document.getElementById('canvas-region')!
+  const steering = () => screen.getByTestId('steering-pane')
+  const strip = () => screen.getByTestId('trial-strip')
+  // Recipe (default): the canvas owns the column; the rail and record collapse.
+  expect(canvas()).not.toHaveClass('max-md:hidden')
+  expect(steering()).toHaveClass('max-md:hidden')
+  expect(strip()).toHaveClass('max-md:hidden')
+  // Develop: the rail owns the column and grows to fill it.
+  fireEvent.click(screen.getByRole('tab', { name: 'Develop' }))
+  expect(steering()).not.toHaveClass('max-md:hidden')
+  expect(steering()).toHaveClass('max-md:flex-1')
+  expect(canvas()).toHaveClass('max-md:hidden')
+  // History: the trial record owns the column.
+  fireEvent.click(screen.getByRole('tab', { name: 'History' }))
+  expect(strip()).not.toHaveClass('max-md:hidden')
+  expect(strip()).toHaveClass('max-md:flex-1')
+  expect(canvas()).toHaveClass('max-md:hidden')
+  expect(steering()).toHaveClass('max-md:hidden')
+})
+
+test('a proposal arriving auto-switches the narrow tabs back to Recipe', async () => {
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
+  const es = await mount()
+  // The cook is reading the rail when the kitchen proposes.
+  fireEvent.click(screen.getByRole('tab', { name: 'Develop' }))
+  expect(screen.getByRole('tab', { name: 'Develop' })).toHaveAttribute('aria-selected', 'true')
+  act(() => es.emit('proposal-ready', { moveId: 'mv_9', proposal: sampleProposal({ id: 'pr_9', move_id: 'mv_9' }) }))
+  // The decision surface must be visible — Recipe reclaims the column.
+  await waitFor(() => {
+    expect(screen.getByRole('tab', { name: 'Recipe' })).toHaveAttribute('aria-selected', 'true')
+  })
+  expect(document.getElementById('canvas-region')).not.toHaveClass('max-md:hidden')
+})
+
+test('a safety hold auto-switches the narrow tabs to Recipe (the hold lives on the canvas)', async () => {
+  const es = await mount()
+  fireEvent.click(screen.getByRole('tab', { name: 'History' }))
+  act(() => es.emit('proposal-blocked', {
+    moveId: 'mv_9', reason: 'anaerobic garlic-in-oil', ruleId: 'anaerobic-garlic-oil',
+  }))
+  await waitFor(() => {
+    expect(screen.getByRole('tab', { name: 'Recipe' })).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
+test('the gate bar rides every tab — it is the one control fixed at the bottom', async () => {
+  detail = dishDetail({
+    state: 'awaiting_gate',
+    pendingProposal: sampleProposal(),
+    pendingProposals: [sampleProposal()],
+  })
+  await mount()
+  for (const tab of ['Recipe', 'Develop', 'History']) {
+    fireEvent.click(screen.getByRole('tab', { name: tab }))
+    expect(screen.getByTestId('gate-bar')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument()
+  }
+})
+
+test('the rail tabs sit after the skip links in DOM, so they never steal the first tab stop', async () => {
+  await mount()
+  const steerSkip = screen.getByRole('link', { name: /skip to steering/i })
+  const tablist = screen.getByRole('tablist')
+  expect(steerSkip.compareDocumentPosition(tablist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
+
 test('take over: invalid JSON shows a focused error linked back to the textarea (GOV.UK)', async () => {
   detail = dishDetail({
     state: 'awaiting_gate',

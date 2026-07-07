@@ -149,12 +149,18 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
         <div className="flex flex-wrap gap-1">
           {BIG9_ALLERGENS.map((a) => {
             const on = values.allergens.includes(a)
+            // Target-size floor (task 14 / P8): the 10px square stays the visual
+            // signal, but the real checkbox is stretched invisibly over the whole
+            // chip so its hit area clears 24px — zero visual change at rest. The
+            // decorative square carries the checked color the input used to.
             return (
               <label key={a}
-                className={`flex items-center gap-1 px-2 py-1 border cursor-pointer uppercase transition ${
+                className={`relative flex items-center gap-1 px-2 py-1 border cursor-pointer uppercase transition ${
                   on ? 'border-hairline-strong bg-surface text-ink' : 'border-hairline text-muted hover:border-hairline-strong'}`}>
                 <input type="checkbox" checked={on} onChange={() => toggleAllergen(a)}
-                  className="appearance-none w-2 h-2 border border-hairline-strong bg-page checked:bg-accent checked:border-accent" />
+                  className="absolute inset-0 m-0 h-full w-full cursor-pointer appearance-none opacity-0" />
+                <span aria-hidden="true"
+                  className={`w-2 h-2 border ${on ? 'bg-accent border-accent' : 'bg-page border-hairline-strong'}`} />
                 {a}
               </label>
             )

@@ -17,6 +17,7 @@ import SafetyBlock from './SafetyBlock'
 import DialToggle from './DialToggle'
 import ThemeToggle from './ThemeToggle'
 import TrialStrip from './TrialStrip'
+import RailTabs, { type RailTab } from './RailTabs'
 
 import {
   ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED, ANNOUNCE_PROPOSING,
@@ -95,6 +96,12 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   // arriving alternative without re-subscribing on every detail change.
   const pendingCountRef = useRef(0)
 
+  // Which region owns the screen below --bp-md (task 14). Inert on desktop —
+  // the CSS toggles only fire under max-md, so every value leaves the ≥md
+  // layout pixel-identical. Defaults to the canvas (the recipe is the spine).
+  const [activeTab, setActiveTab] = useState<RailTab>('recipe')
+  const prevPendingRef = useRef(0)
+
   // The stub-mode banner (task 3.3): GET /api/status reports which model
   // edge is wired. Advisory only — a failed fetch leaves the banner off.
   useEffect(() => {
@@ -170,7 +177,21 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     : []
   const selected = pending.find((p) => p.id === selectedProposalId) ?? pending[0] ?? null
 
-  useEffect(() => { pendingCountRef.current = pending.length }, [pending.length])
+  // A proposal arriving is the decision moment: below --bp-md the tabs auto-
+  // switch to Recipe so the gate surface (the would-be recipe on the canvas)
+  // is what the cook sees, not whatever tab they left open (task 14 §5b). Fires
+  // only on the 0→pending edge, so it never fights a deliberate tab switch made
+  // while the gate is already up.
+  useEffect(() => {
+    if (pending.length > 0 && prevPendingRef.current === 0) setActiveTab('recipe')
+    prevPendingRef.current = pending.length
+    pendingCountRef.current = pending.length
+  }, [pending.length])
+
+  // A safety hold is likewise a canvas-owned decision — surface it on Recipe.
+  useEffect(() => {
+    if (detail?.state === 'blocked') setActiveTab('recipe')
+  }, [detail?.state])
 
   async function refreshVersions() {
     try {
@@ -477,7 +498,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
                 const m = lastMove.current!
                 void propose(m.moveType, m.steer, m.baseVersion)
               }}
-                className="px-2 py-1 uppercase border border-hairline-strong bg-transparent text-ink transition hover:bg-ink hover:text-page">
+                className="min-h-[24px] px-2 py-1 uppercase border border-hairline-strong bg-transparent text-ink transition hover:bg-ink hover:text-page">
                 Try again
               </button>
             )}
@@ -493,22 +514,30 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
           className="px-3 py-1 bg-critical-surface text-critical border-b border-hairline flex items-center gap-2">
           <span className="truncate">{actionError}</span>
           <button onClick={() => setActionError(null)}
-            className="ml-auto shrink-0 uppercase text-2xs underline">
+            className="ml-auto shrink-0 inline-flex items-center min-h-[24px] uppercase text-2xs underline">
             Dismiss
           </button>
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
+      {/* Desktop is a two-column row (canvas + rail), untouched at ≥md. Below
+          --bp-md it stacks (max-md:flex-col) and the RailTabs pick which region
+          fills the column; the swaps ride max-md:* classes so the ≥md layout
+          stays pixel-identical (task 14). */}
+      <div className="flex flex-1 overflow-hidden max-md:flex-col">
+        {/* Under Develop the canvas column carries no in-flow content (the gate
+            bar is fixed), so it must not keep growing and starving the rail. */}
+        <main className={`flex-1 min-w-0 flex flex-col overflow-hidden ${activeTab === 'develop' ? 'max-md:flex-none' : ''}`}>
           <TrialStrip
             data={versions ?? { currentVersionId: detail.currentVersionId, versions: [] }}
             selectedId={snapshot?.id ?? null}
             onSelect={setSnapshot}
             onPromote={(id) => void promote(id)}
             onCook={(versionId, feedback) => void propose('iterate_feedback', feedback, versionId)}
-            canCook={detail.state === 'idle'} />
-          <div className="flex-1 overflow-y-auto">
+            canCook={detail.state === 'idle'}
+            panelClassName={activeTab === 'history' ? 'max-md:flex-1 max-md:overflow-y-auto max-md:pb-[150px]' : 'max-md:hidden'} />
+          <div id="canvas-region"
+            className={`flex-1 overflow-y-auto max-md:pb-[150px] ${activeTab === 'recipe' ? '' : 'max-md:hidden'}`}>
             {/* The hold owns the top of the canvas: the stopped change is
                 the news, shown grayed right where it would have landed. */}
             {detail.state === 'blocked' && detail.blocked && !snapshot && (
@@ -550,21 +579,30 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
             )}
           </div>
 
-          <div id="gate-bar-anchor" tabIndex={-1} className="p-3 border-t border-hairline bg-page focus:outline-none">
-            {detail.state === 'awaiting_gate' && <GateBar onVerb={onVerb} />}
-            {detail.state === 'proposing' && <GateBar state="proposing" onCancel={cancelMove} />}
-            {detail.state === 'blocked' && detail.blocked && (
-              <GateBar state="blocked" onVerb={onVerb} />
-            )}
-            {detail.state === 'idle' && (
-              <p className="text-muted">The bench is ready — propose a move from the steering rail.</p>
-            )}
+          {/* The gate bar is the one non-negotiable control (brief §5b): below
+              --bp-md this stack detaches to the bottom of the viewport so it is
+              reachable from every tab, with the tab bar as the bottom-most row.
+              On desktop the wrapper is inert chrome and the footer sits at the
+              foot of the canvas column exactly as before (max-md:* only). */}
+          <div className="max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-sticky max-md:bg-page">
+            <div id="gate-bar-anchor" tabIndex={-1} className="p-3 border-t border-hairline bg-page focus:outline-none">
+              {detail.state === 'awaiting_gate' && <GateBar onVerb={onVerb} />}
+              {detail.state === 'proposing' && <GateBar state="proposing" onCancel={cancelMove} />}
+              {detail.state === 'blocked' && detail.blocked && (
+                <GateBar state="blocked" onVerb={onVerb} />
+              )}
+              {detail.state === 'idle' && (
+                <p className="text-muted">The bench is ready — propose a move from the steering rail.</p>
+              )}
+            </div>
+            <RailTabs active={activeTab} onChange={setActiveTab} />
           </div>
         </main>
 
         <SteeringPane thread={thread} suggestedNext={suggestedNext}
           canPropose={detail.state === 'idle'}
-          onPropose={(mt, steer) => void propose(mt, steer)} />
+          onPropose={(mt, steer) => void propose(mt, steer)}
+          panelClassName={activeTab === 'develop' ? 'max-md:w-full max-md:flex-1 max-md:pb-[150px]' : 'max-md:hidden'} />
 
       </div>
     </div>

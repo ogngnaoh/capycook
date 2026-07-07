@@ -13,7 +13,7 @@ import VersionHistory from './VersionHistory'
 // ask for one rework proposal. "Trials" expands the strip downward into the
 // full version history (the reworked VersionHistory), replacing the old
 // header Versions toggle.
-export default function TrialStrip({ data, selectedId, onSelect, onPromote, onCook, canCook, summaryOf }: {
+export default function TrialStrip({ data, selectedId, onSelect, onPromote, onCook, canCook, summaryOf, panelClassName = '' }: {
   data: VersionsResponse
   selectedId: string | null
   onSelect: (v: VersionItem) => void
@@ -25,6 +25,10 @@ export default function TrialStrip({ data, selectedId, onSelect, onPromote, onCo
   // parent→child diff) to light up the "what changed" line without touching
   // TrialStrip.
   summaryOf?: (v: VersionItem) => string | undefined
+  // Narrow-viewport panelization (task 14): Workbench appends the History-tab
+  // toggle classes here. Empty on desktop — the record strip pins atop the
+  // canvas exactly as today.
+  panelClassName?: string
 }) {
   const [expanded, setExpanded] = useState(false)
   const [cooking, setCooking] = useState(false)
@@ -43,8 +47,8 @@ export default function TrialStrip({ data, selectedId, onSelect, onPromote, onCo
   const cta = 'min-h-[24px] px-2 py-0 uppercase border border-hairline bg-transparent text-ink transition enabled:hover:bg-ink enabled:hover:text-page disabled:opacity-40'
 
   return (
-    <section data-testid="trial-strip" aria-label="Trial record"
-      className="shrink-0 border-b border-hairline bg-page">
+    <section data-testid="trial-strip" id="trial-strip-region" aria-label="Trial record"
+      className={`shrink-0 border-b border-hairline bg-page ${panelClassName}`}>
       <div className="flex flex-wrap items-center gap-2 p-2">
         <button type="button" onClick={() => setExpanded((e) => !e)}
           aria-expanded={expanded} aria-controls="trial-expansion"
