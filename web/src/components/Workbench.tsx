@@ -19,6 +19,7 @@ import ThemeToggle from './ThemeToggle'
 import VersionHistory from './VersionHistory'
 
 import { STATE_GLOSS, STATE_LABEL, VERB_LABEL } from '../vocab'
+import { opLineLabel } from '../lib/pathLabels'
 
 // LastMove is the most recent move this view dispatched — the retry target
 // for the move-failed banner.
@@ -555,7 +556,8 @@ function EditForm({ proposal, onSubmit, onCancel }: {
       <h3 className="uppercase text-muted">Edit proposed values</h3>
       {ops.map((op, i) => (
         <label key={i} className="block text-muted">
-          <span className="font-mono text-2xs">{op.op} {op.path}</span>
+          <span className="uppercase text-2xs">{opLineLabel(op)}</span>
+          <span className="ml-1 font-mono text-2xs opacity-60">{op.path}</span>
           {op.op === 'remove' ? (
             <span className="block text-muted">(removal — nothing to edit)</span>
           ) : (
@@ -622,13 +624,13 @@ function RedirectForm({ onSubmit, onCancel }: {
   return (
     <form onSubmit={submit} data-testid="redirect-form"
       className="border border-hairline bg-page p-3 space-y-2">
-      <h3 className="uppercase text-muted">Redirect — steer the next attempt</h3>
+      <h3 className="uppercase text-muted">Ask for changes — direct the next attempt</h3>
       <textarea value={steer} onChange={(e) => setSteer(e.target.value)} rows={2}
-        aria-label="Redirect steer"
+        aria-label="Direction"
         className="w-full border border-hairline-strong bg-page p-1 text-ink" />
       <div className="flex gap-1">
         <button type="submit" disabled={steer.trim() === ''} className={panelPrimary}>
-          Send redirect
+          Send
         </button>
         <button type="button" onClick={onCancel} className={panelGhost}>Cancel</button>
       </div>

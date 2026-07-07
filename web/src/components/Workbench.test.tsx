@@ -49,7 +49,11 @@ test('proposal-ready lands the card at the gate with all six verbs', async () =>
   const es = await mount()
   act(() => es.emit('proposal-ready', { moveId: 'mv_9', proposal: sampleProposal({ id: 'pr_9', move_id: 'mv_9' }) }))
   expect(screen.getByText('A tighter concept.')).toBeInTheDocument()
-  for (const label of ['Accept', 'Edit', 'Regenerate', 'Alternatives', 'Redirect', 'Take over']) {
+  for (const label of ['Accept', 'Ask for changes', 'More']) {
+    expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'More' }))
+  for (const label of ['Edit', 'Regenerate', 'Alternatives', 'Take over']) {
     expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
   }
 })
@@ -155,8 +159,8 @@ test('proposal-blocked shows the safety block with only regenerate/redirect', as
   expect(block).toHaveTextContent('anaerobic garlic-in-oil')
   expect(block).toHaveTextContent('anaerobic-garlic-oil')
   expect(screen.getByRole('button', { name: 'Regenerate' })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Redirect' })).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: /accept|edit|alternatives|take over/i })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Ask for changes' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /accept|^edit$|alternatives|take over|more/i })).not.toBeInTheDocument()
 })
 
 test('redirect while blocked opens the steer form and targets the blocked move', async () => {
@@ -164,9 +168,9 @@ test('redirect while blocked opens the steer form and targets the blocked move',
   act(() => es.emit('proposal-blocked', {
     moveId: 'mv_9', reason: 'anaerobic garlic-in-oil', ruleId: 'anaerobic-garlic-oil',
   }))
-  fireEvent.click(screen.getByRole('button', { name: 'Redirect' }))
-  fireEvent.change(screen.getByLabelText(/redirect steer/i), { target: { value: 'use vinegar instead' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Send redirect' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Ask for changes' }))
+  fireEvent.change(screen.getByLabelText(/^direction$/i), { target: { value: 'use vinegar instead' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }))
   await waitFor(() => {
     const call = fetchMock.mock.calls.find(([u]) => String(u) === '/api/dishes/d1/gate')
     expect(call).toBeTruthy()
@@ -194,6 +198,7 @@ test('an unsafe human write warns-and-confirms with the reason, not the wire pre
   })
   vi.stubGlobal('fetch', fetchMock)
   await mount()
+  fireEvent.click(screen.getByRole('button', { name: 'More' }))
   fireEvent.click(screen.getByRole('button', { name: 'Take over' }))
   fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
   const prompt = await screen.findByTestId('override-prompt')
@@ -220,6 +225,7 @@ test('the override prompt is a modal alert dialog: named, described, Back-focuse
   })
   vi.stubGlobal('fetch', fetchMock)
   await mount()
+  fireEvent.click(screen.getByRole('button', { name: 'More' }))
   fireEvent.click(screen.getByRole('button', { name: 'Take over' }))
   fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
   const dialog = await screen.findByRole('alertdialog', { name: /safety warning/i })

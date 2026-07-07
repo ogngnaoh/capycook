@@ -1,11 +1,6 @@
 import { useState } from 'react'
 import type { GateVerb } from '../types'
-
-const VERBS: { verb: GateVerb; label: string }[] = [
-  { verb: 'accept', label: 'Accept' }, { verb: 'edit', label: 'Edit' },
-  { verb: 'regenerate', label: 'Regenerate' }, { verb: 'alternatives', label: 'Alternatives' },
-  { verb: 'redirect', label: 'Redirect' }, { verb: 'take_over', label: 'Take over' },
-]
+import { MORE_VERBS, VERB_LABEL } from '../vocab'
 
 // While the safety gate blocks, only these two verbs exist (spec §4).
 const BLOCKED_VERBS: ReadonlyArray<GateVerb> = ['regenerate', 'redirect']
@@ -27,11 +22,15 @@ function Spinner() {
   )
 }
 
-// GateBar is the workbench footer control: the six gate verbs while a
-// proposal awaits the gate, Cancel while a move is proposing, and only
-// Regenerate/Redirect while the safety gate blocks. A dispatch that returns
-// a promise locks the bar (disable + spinner on the clicked control) until
-// it settles — a double click cannot fire twice.
+// GateBar is the workbench footer control. At the pass it speaks two
+// altitudes: the decision pair up front — ACCEPT (the one filled primary)
+// and ASK FOR CHANGES (the redirect verb in plain words, slug demoted to
+// silent mono) — with the revision/mode-switch verbs (EDIT · REGENERATE ·
+// ALTERNATIVES · TAKE OVER, verbatim names) behind a More ▾ disclosure.
+// Cancel replaces the bar while proposing; only Regenerate/Ask for changes
+// exist while the safety gate holds. A dispatch that returns a promise
+// locks the bar (disable + spinner on the clicked control) until it
+// settles — a double click cannot fire twice.
 export default function GateBar({ state = 'awaiting_gate', onVerb, onCancel, disabled }: {
   state?: GateBarState
   onVerb?: (v: GateVerb) => void | Promise<void>
@@ -39,10 +38,12 @@ export default function GateBar({ state = 'awaiting_gate', onVerb, onCancel, dis
   disabled?: boolean
 }) {
   const [pending, setPending] = useState<string | null>(null)
+  const [moreOpen, setMoreOpen] = useState(false)
   const locked = Boolean(disabled) || pending !== null
 
   async function dispatch(key: string, run?: () => void | Promise<void>) {
     if (locked || !run) return
+    setMoreOpen(false)
     const result = run()
     if (result instanceof Promise) {
       setPending(key)
@@ -52,6 +53,16 @@ export default function GateBar({ state = 'awaiting_gate', onVerb, onCancel, dis
         setPending(null)
       }
     }
+  }
+
+  function verbButton(verb: GateVerb, extra?: React.ReactNode) {
+    return (
+      <button key={verb} type="button" disabled={locked}
+        onClick={() => void dispatch(verb, onVerb && (() => onVerb(verb)))}
+        className={verb === 'accept' ? primary : ghost}>
+        {pending === verb && <Spinner />}{VERB_LABEL[verb]}{extra}
+      </button>
+    )
   }
 
   if (state === 'proposing') {
@@ -66,19 +77,28 @@ export default function GateBar({ state = 'awaiting_gate', onVerb, onCancel, dis
     )
   }
 
-  const verbs = state === 'blocked'
-    ? VERBS.filter(({ verb }) => BLOCKED_VERBS.includes(verb))
-    : VERBS
+  if (state === 'blocked') {
+    return (
+      <div data-testid="gate-bar" role="group" aria-label="Gate"
+        className="inline-flex flex-wrap border border-hairline divide-x divide-hairline bg-page">
+        {BLOCKED_VERBS.map((v) => verbButton(v))}
+      </div>
+    )
+  }
+
   return (
     <div data-testid="gate-bar" role="group" aria-label="Gate"
       className="inline-flex flex-wrap border border-hairline divide-x divide-hairline bg-page">
-      {verbs.map(({ verb, label }) => (
-        <button key={verb} type="button" disabled={locked}
-          onClick={() => void dispatch(verb, onVerb && (() => onVerb(verb)))}
-          className={verb === 'accept' ? primary : ghost}>
-          {pending === verb && <Spinner />}{label}
-        </button>
+      {verbButton('accept')}
+      {verbButton('redirect', (
+        <span aria-hidden="true" className="ml-1 font-mono text-2xs normal-case opacity-60">redirect</span>
       ))}
+      <button type="button" disabled={locked} aria-expanded={moreOpen}
+        onClick={() => { if (!locked) setMoreOpen((o) => !o) }}
+        className={ghost}>
+        More<span aria-hidden="true"> ▾</span>
+      </button>
+      {moreOpen && MORE_VERBS.map((v) => verbButton(v))}
     </div>
   )
 }
