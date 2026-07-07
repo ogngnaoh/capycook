@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import Workbench from './Workbench'
 import { MockEventSource, dishDetail, jsonResponse, sampleDraft, sampleProposal } from '../fixtures'
+import { MOVE_LABEL, STATE_GLOSS, STATE_LABEL } from '../vocab'
 import type { DishDetail, LLMStatusResponse, VersionsResponse } from '../types'
 
 let detail: DishDetail
@@ -262,7 +263,7 @@ test('a dropped stream shows the quiet reconnecting banner until it reopens', as
 
 test('move-failed offers Try again, which re-posts the same move', async () => {
   const es = await mount()
-  fireEvent.change(screen.getByLabelText(/steer/i), { target: { value: 'brighter' } })
+  fireEvent.change(screen.getByLabelText(/direction \(optional\)/i), { target: { value: 'brighter' } })
   fireEvent.click(screen.getByRole('button', { name: 'Propose a move' }))
   await waitFor(() => {
     expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/dishes/d1/move')).toBe(true)
@@ -285,5 +286,14 @@ test('move_auto_advanced collapses into an auto-applied thread entry', async () 
   fireEvent.change(screen.getByLabelText(/move type/i), { target: { value: 'scale_servings' } })
   fireEvent.click(screen.getByRole('button', { name: /propose a move/i }))
   const entry = await screen.findByTestId('auto-advanced')
-  expect(entry).toHaveTextContent('auto-applied: scale_servings')
+  expect(entry).toHaveTextContent(`auto-applied: ${MOVE_LABEL.scale_servings}`)
+})
+
+test('the header speaks kitchen states with a plain gloss and a functional dial name', async () => {
+  detail = dishDetail({ state: 'awaiting_gate' })
+  await mount()
+  expect(screen.getByText(STATE_LABEL.awaiting_gate)).toBeInTheDocument()
+  expect(screen.getByText(new RegExp(STATE_GLOSS.awaiting_gate))).toBeInTheDocument()
+  // The dial's accessible name contains its visible label (2.5.3).
+  expect(screen.getByRole('switch', { name: /auto-apply safe steps/i })).toBeInTheDocument()
 })

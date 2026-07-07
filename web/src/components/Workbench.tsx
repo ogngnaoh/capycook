@@ -17,12 +17,7 @@ import DialToggle from './DialToggle'
 import ThemeToggle from './ThemeToggle'
 import VersionHistory from './VersionHistory'
 
-const STATE_LABEL: Record<string, string> = {
-  idle: 'Idle',
-  proposing: 'Proposing…',
-  awaiting_gate: 'Awaiting gate',
-  blocked: 'Blocked by safety gate',
-}
+import { STATE_GLOSS, STATE_LABEL } from '../vocab'
 
 // LastMove is the most recent move this view dispatched — the retry target
 // for the move-failed banner.
@@ -302,6 +297,9 @@ export default function Workbench({ dishId, onNavigate }: {
         </button>
         <span className="font-medium text-sm truncate">{detail.draft.title || detail.seed}</span>
         <span className="uppercase text-muted shrink-0">{STATE_LABEL[detail.state] ?? detail.state}</span>
+        {STATE_GLOSS[detail.state] && (
+          <span className="normal-case text-2xs text-muted shrink-0">— {STATE_GLOSS[detail.state]}</span>
+        )}
         {stubMode && (
           <span data-testid="stub-banner"
             className="shrink-0 px-1 font-mono text-2xs bg-info-surface text-info">

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { MOVE_TYPES } from '../types'
+import { DIRECTION_LABEL, EMPTY_THREAD, MOVE_LABEL } from '../vocab'
 
 // ThreadEntry is one row of the steering thread: the cook's steer turns,
 // the model's streamed rationale tokens, collapsed auto-applied
@@ -52,9 +53,7 @@ export default function SteeringPane({ thread, suggestedNext, canPropose, onProp
         className="flex-1 space-y-2 overflow-y-auto">
         {thread.length === 0 && (
           <p className="text-muted">
-            {canPropose
-              ? 'No moves yet — propose the first move below.'
-              : 'No moves in this session yet.'}
+            {canPropose ? EMPTY_THREAD : 'No moves in this session yet.'}
           </p>
         )}
         {thread.map((e, i) => <ThreadItem key={i} entry={e} />)}
@@ -65,8 +64,9 @@ export default function SteeringPane({ thread, suggestedNext, canPropose, onProp
           <div className="flex flex-wrap gap-1">
             {suggestedNext.map((s) => (
               <button key={s} type="button" disabled={!canPropose} onClick={() => propose(s)}
-                className="px-1 font-mono text-2xs border border-hairline-strong bg-transparent text-muted transition enabled:hover:bg-ink enabled:hover:text-page disabled:opacity-40">
-                {s}
+                className="px-1 text-2xs border border-hairline-strong bg-transparent text-muted transition enabled:hover:bg-ink enabled:hover:text-page disabled:opacity-40">
+                {MOVE_LABEL[s as keyof typeof MOVE_LABEL] ?? s}{' '}
+                <span className="font-mono opacity-60">{s}</span>
               </button>
             ))}
           </div>
@@ -75,12 +75,15 @@ export default function SteeringPane({ thread, suggestedNext, canPropose, onProp
           Move type
           <select value={moveType} onChange={(e) => setMoveType(e.target.value)}
             className="mt-1 w-full border border-hairline-strong bg-page p-1 text-ink normal-case">
-            <option value="">auto (expand seed / iterate)</option>
-            {MOVE_TYPES.map((m) => <option key={m} value={m}>{m}</option>)}
+            <option value="">auto (the kitchen picks the move)</option>
+            {MOVE_TYPES.map((m) => <option key={m} value={m}>{MOVE_LABEL[m]}</option>)}
           </select>
+          {moveType !== '' && (
+            <span className="mt-1 block font-mono text-2xs text-muted normal-case">{moveType}</span>
+          )}
         </label>
         <label className="block uppercase text-muted">
-          Steer (optional)
+          {DIRECTION_LABEL}
           <textarea value={steer} onChange={(e) => setSteer(e.target.value)} rows={2}
             className="mt-1 w-full border border-hairline-strong bg-page p-1 text-ink normal-case" />
         </label>
@@ -117,7 +120,10 @@ function ThreadItem({ entry }: { entry: ThreadEntry }) {
       return (
         <details data-testid="auto-advanced"
           className="p-2 border border-hairline bg-page text-2xs text-muted">
-          <summary className="cursor-pointer uppercase">auto-applied: {entry.moveType}</summary>
+          <summary className="cursor-pointer uppercase">
+            auto-applied: {MOVE_LABEL[entry.moveType as keyof typeof MOVE_LABEL] ?? entry.moveType}{' '}
+            <span className="font-mono normal-case opacity-60">{entry.moveType}</span>
+          </summary>
           <div className="mt-1">
             Deterministic move applied by the autonomy dial → version{' '}
             <span className="font-mono">{entry.versionId}</span>
