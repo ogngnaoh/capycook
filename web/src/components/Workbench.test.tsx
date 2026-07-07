@@ -106,14 +106,18 @@ test('accept posts the gate verb with the pending proposal id and session header
   })
 })
 
-test('two pending proposals render as a card picker; choosing one targets it', async () => {
+test('two pending proposals render as a comparison radio group; checking one targets it', async () => {
   const a = sampleProposal({ id: 'pr_a', rationale: 'Card A rationale.' })
   const b = sampleProposal({ id: 'pr_b', rationale: 'Card B rationale.' })
   detail = dishDetail({ state: 'awaiting_gate', pendingProposal: a, pendingProposals: [a, b] })
   await mount()
-  expect(screen.getByText('Card A rationale.')).toBeInTheDocument()
-  expect(screen.getByText('Card B rationale.')).toBeInTheDocument()
-  fireEvent.click(screen.getByText('Card B rationale.'))
+  const radios = screen.getAllByRole('radio')
+  expect(radios).toHaveLength(2)
+  expect(radios[0]).toHaveAttribute('aria-checked', 'true')
+  // The selected alternative is the recipe-diff canvas below the switcher.
+  expect(screen.getByTestId('proposed-draft')).toHaveTextContent('Card A rationale.')
+  fireEvent.click(radios[1])
+  expect(screen.getByTestId('proposed-draft')).toHaveTextContent('Card B rationale.')
   fireEvent.click(screen.getByRole('button', { name: 'Accept' }))
   await waitFor(() => {
     const call = fetchMock.mock.calls.find(([u]) => String(u) === '/api/dishes/d1/gate')

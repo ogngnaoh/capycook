@@ -52,24 +52,18 @@ function DiffLine({ op }: { op: Op }) {
   )
 }
 
-// ProposalCard renders one pending proposal: the per-field diff, rationale,
-// and the provenance chip row (citations, confidence, [unverified] flags).
-// With onSelect it acts as one card of the alternatives picker.
-export default function ProposalCard({ proposal, selected, onSelect }: {
+// ProposalCard renders one proposal at wire density: the per-op diff,
+// rationale, and the provenance chip row (citations, confidence,
+// [unverified] flags). Since the canvas took over the decision surface
+// (ProposedDraftView), this card lives behind the Technical view toggle.
+export default function ProposalCard({ proposal }: {
   proposal: Proposal
-  selected?: boolean
-  onSelect?: () => void
 }) {
   return (
-    <div data-testid="proposal-card" onClick={onSelect}
-      className={`border p-3 space-y-2 bg-page ${selected ? 'border-accent' : 'border-hairline'} ${onSelect ? 'cursor-pointer' : ''}`}>
+    <div data-testid="proposal-card"
+      className="border p-3 space-y-2 bg-page border-hairline">
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-2xs text-muted">{proposal.move_type}</span>
-        {onSelect && (
-          <span className={`uppercase text-2xs ${selected ? 'text-accent-text' : 'text-muted'}`}>
-            {selected ? 'Selected' : 'Click to select'}
-          </span>
-        )}
       </div>
       <div className="divide-y divide-hairline">
         {list(proposal.change).map((op, i) => <DiffLine key={i} op={op} />)}

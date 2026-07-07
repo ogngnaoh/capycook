@@ -11,8 +11,8 @@ import {
 import DraftPane from './DraftPane'
 import SteeringPane, { type ThreadEntry } from './SteeringPane'
 import GateBar from './GateBar'
-import ProposalCard from './ProposalCard'
 import ProposedDraftView from './ProposedDraftView'
+import AlternativesPicker from './AlternativesPicker'
 import SafetyBlock from './SafetyBlock'
 import DialToggle from './DialToggle'
 import ThemeToggle from './ThemeToggle'
@@ -419,18 +419,15 @@ export default function Workbench({ dishId, onNavigate }: {
               <ProposedDraftView base={detail.draft} proposal={pending[0]}>
                 {verbPanels}
               </ProposedDraftView>
+            ) : pending.length > 1 ? (
+              // Alternatives: a comparison radio group over what differs,
+              // the selected one rendered as the recipe diff.
+              <AlternativesPicker base={detail.draft} proposals={pending}
+                selectedId={selected?.id} onSelect={setSelectedProposalId}>
+                {verbPanels}
+              </AlternativesPicker>
             ) : (
               <DraftPane draft={detail.draft} emptyNote={emptyNoteFor(detail.state, pending.length)}>
-                {pending.length > 1 && (
-                  <div className="space-y-2">
-                    <h3 className="uppercase text-muted">Proposals — pick a card</h3>
-                    {pending.map((p) => (
-                      <ProposalCard key={p.id} proposal={p}
-                        selected={p.id === selected?.id}
-                        onSelect={() => setSelectedProposalId(p.id)} />
-                    ))}
-                  </div>
-                )}
                 {verbPanels}
               </DraftPane>
             )}

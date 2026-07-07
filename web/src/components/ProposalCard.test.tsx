@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import ProposalCard from './ProposalCard'
 import { sampleProposal } from '../fixtures'
 import type { Op } from '../types'
@@ -56,9 +56,3 @@ test('deterministic proposals (confidence 1.0) get a deterministic chip, not a n
   expect(screen.queryByText(/conf 1/)).not.toBeInTheDocument()
 })
 
-test('acts as a selectable card in a picker', () => {
-  const onSelect = vi.fn()
-  render(<ProposalCard proposal={sampleProposal()} selected={false} onSelect={onSelect} />)
-  fireEvent.click(screen.getByTestId('proposal-card'))
-  expect(onSelect).toHaveBeenCalled()
-})
