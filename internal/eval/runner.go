@@ -43,7 +43,7 @@ var Arms = []string{llm.ArmUngrounded, llm.ArmFlavorgraph, llm.ArmGrounded}
 const OnBlockedAbort = "abort"
 
 // Seed is one benchmark seed: a dish idea plus its typed constraints. The
-// real proposed seeds live in docs/01-end-to-end/proposed-benchmark-seeds.json
+// real proposed seeds live in docs/archive/01-end-to-end/proposed-benchmark-seeds.json
 // until Gate C ratification (plan 4.5); tests use synthetic seeds from
 // internal/eval/testdata.
 type Seed struct {

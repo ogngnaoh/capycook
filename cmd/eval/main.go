@@ -41,7 +41,7 @@ import (
 const (
 	defaultScriptPath = "eval/fixtures/move_script.json"
 	ratifiedSeeds     = "eval/fixtures/seeds.json"
-	proposedSeeds     = "docs/01-end-to-end/proposed-benchmark-seeds.json"
+	proposedSeeds     = "docs/archive/01-end-to-end/proposed-benchmark-seeds.json"
 	defaultOutDir     = "eval/out"
 )
 

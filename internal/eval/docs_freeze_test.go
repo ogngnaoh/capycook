@@ -17,7 +17,7 @@ import (
 
 const (
 	readmePath  = "../../README.md"
-	t1DraftPath = "../../docs/01-end-to-end/T1-amendment-draft.md"
+	t1DraftPath = "../../docs/archive/01-end-to-end/T1-amendment-draft.md"
 )
 
 // resultsSection extracts the README's "## Results" section (heading to the

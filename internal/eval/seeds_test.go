@@ -1,7 +1,7 @@
 package eval
 
 // Tests for the plan-4.5 PROPOSED benchmark-seed draft
-// (docs/01-end-to-end/proposed-benchmark-seeds.json). The draft is an
+// (docs/archive/01-end-to-end/proposed-benchmark-seeds.json). The draft is an
 // UNRATIFIED instrument until Gate C ratifies it into eval/fixtures/; these
 // tests pin its stated drafting procedure — 12–15 canonical Western seeds,
 // safety-gate protein-class coverage, vegetarian + vegan + allergen-
@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	proposedSeedsPath = "../../docs/01-end-to-end/proposed-benchmark-seeds.json"
+	proposedSeedsPath = "../../docs/archive/01-end-to-end/proposed-benchmark-seeds.json"
 	devSeedsPath      = "../../internal/llm/testdata/dev_seeds.json"
 )
 
