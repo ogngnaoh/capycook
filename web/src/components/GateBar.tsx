@@ -184,22 +184,31 @@ export default function GateBar({
     if (parseError) errorRef.current?.focus()
   }, [parseError])
 
+  // Escape is basic keyboard navigation, not a mnemonic — it must keep
+  // working (blur a focused field; fall a non-decide mode back to decide)
+  // even when getShortcuts().enabled is false. Kept in its own always-live
+  // effect so it never rides the same on/off switch as the letter verbs.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      const target = e.target as Element | null
+      if (isTypingTarget(target)) { (target as HTMLElement).blur(); return }
+      if (mode !== 'decide') backToDecide()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [mode, backToDecide])
+
   // Scoped single-key shortcuts (WCAG 2.1.4): the whole feature is
-  // disableable via getShortcuts().enabled. The listener is always live
-  // while the bar is mounted (Escape must work from any mode), but the
-  // letter verbs only fire in decide mode (port of design 908-921).
+  // disableable via getShortcuts().enabled — Escape above is unaffected;
+  // only these letter verbs disappear. They only fire in decide mode (port
+  // of design 908-921).
   useEffect(() => {
     if (!shortcuts.enabled) return
     function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') return // owned by the always-live effect above
       const target = e.target as Element | null
-      if (isTypingTarget(target)) {
-        if (e.key === 'Escape') (target as HTMLElement).blur()
-        return
-      }
-      if (e.key === 'Escape') {
-        if (mode !== 'decide') backToDecide()
-        return
-      }
+      if (isTypingTarget(target)) return
       if (e.ctrlKey || e.metaKey || e.altKey) return
       if (mode !== 'decide') return
       const key = e.key.toLowerCase()
@@ -212,7 +221,7 @@ export default function GateBar({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [shortcuts, mode, dispatch, openMode, backToDecide, onAccept, onRegenerate, onAlternatives])
+  }, [shortcuts, mode, dispatch, openMode, onAccept, onRegenerate, onAlternatives])
 
   // Roving tabindex over the current button row (decide: 3 controls,
   // another: 5). Arrow keys only — Tab still moves to the one active stop.

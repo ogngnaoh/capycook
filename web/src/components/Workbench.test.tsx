@@ -3,8 +3,8 @@ import Workbench from './Workbench'
 import { MockEventSource, dishDetail, jsonResponse, sampleDraft, sampleProposal } from '../fixtures'
 import {
   ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED, ANNOUNCE_PROPOSING,
-  BLOCKED_REDIRECT, BLOCKED_REGEN, GATE_ANNOUNCE, MOVE_LABEL, STATE_LABEL,
-  VERB_LABEL, announceProposalReady,
+  BLOCKED_REDIRECT, BLOCKED_REGEN, GATE_ANNOUNCE, GATE_ANOTHER_LABEL,
+  MOVE_LABEL, STATE_LABEL, VERB_LABEL, announceProposalReady,
 } from '../vocab'
 import type { DishDetail, LLMStatusResponse, VersionsResponse } from '../types'
 
@@ -192,6 +192,83 @@ test('two sequential proposal-ready events accumulate into the picker; picking o
   })
 })
 
+// --- all six verbs wired through the real GateBar --------------------------
+
+test('regenerate dispatches through the gate bar with the pending proposal id and the right verb', async () => {
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal({ id: 'pr_7' }), pendingProposals: [sampleProposal({ id: 'pr_7' })] })
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ verb: 'regenerate', proposalId: 'pr_7' })
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: GATE_ANOTHER_LABEL }))
+  fireEvent.click(within(bar).getByRole('button', { name: VERB_LABEL.regenerate }))
+  await waitFor(() => {
+    const call = fetchMock.mock.calls.find(([u]) => String(u) === '/api/dishes/d1/gate')
+    expect(call).toBeTruthy()
+    expect(JSON.parse((call![1] as RequestInit).body as string)).toMatchObject({ proposalId: 'pr_7', verb: 'regenerate' })
+  })
+  await flush()
+})
+
+test('alternatives dispatches through the gate bar with the pending proposal id and the right verb', async () => {
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal({ id: 'pr_8' }), pendingProposals: [sampleProposal({ id: 'pr_8' })] })
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ verb: 'alternatives', proposalId: 'pr_8' })
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: GATE_ANOTHER_LABEL }))
+  fireEvent.click(within(bar).getByRole('button', { name: VERB_LABEL.alternatives }))
+  await waitFor(() => {
+    const call = fetchMock.mock.calls.find(([u]) => String(u) === '/api/dishes/d1/gate')
+    expect(call).toBeTruthy()
+    expect(JSON.parse((call![1] as RequestInit).body as string)).toMatchObject({ proposalId: 'pr_8', verb: 'alternatives' })
+  })
+  await flush()
+})
+
+test('edit dispatches through the gate bar: opening Tweak, changing one op value, and submitting carries edit.ops', async () => {
+  const proposal = sampleProposal({
+    id: 'pr_9', change: [{ op: 'replace', path: '/title', from: 'Old Title', value: 'New Title' }],
+  })
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: proposal, pendingProposals: [proposal] })
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ verb: 'edit', proposalId: 'pr_9', newVersionId: 'ver_2' })
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: VERB_LABEL.edit }))
+  const form = await screen.findByTestId('tweak-form')
+  fireEvent.change(form.querySelector('input')!, { target: { value: 'Edited Title' } })
+  fireEvent.click(screen.getByRole('button', { name: /keep with edit/i }))
+  await waitFor(() => {
+    const call = fetchMock.mock.calls.find(([u]) => String(u) === '/api/dishes/d1/gate')
+    expect(call).toBeTruthy()
+    const body = JSON.parse((call![1] as RequestInit).body as string)
+    expect(body).toMatchObject({ proposalId: 'pr_9', verb: 'edit' })
+    expect(body.edit.ops).toEqual([{ op: 'replace', path: '/title', from: 'Old Title', value: 'Edited Title' }])
+  })
+})
+
 // --- safety hold -----------------------------------------------------------
 
 test('proposal-blocked shows the safety hold, focused, with exactly two verbs and the dish still visible', async () => {
@@ -276,6 +353,47 @@ test('an unsafe take-over warns-and-confirms with the reason, then resends with 
     const last = fetchMock.mock.calls.filter(([u]) => String(u) === '/api/dishes/d1/gate').pop()
     expect(JSON.parse((last![1] as RequestInit).body as string)).toMatchObject({
       verb: 'take_over', confirmOverride: true,
+    })
+  })
+  expect(gateCalls).toBe(2)
+})
+
+test('an unsafe edit warns-and-confirms with the reason, then resends with confirmOverride (edit-verb 409 path)', async () => {
+  const proposal = sampleProposal({ id: 'pr_1' })
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: proposal, pendingProposals: [proposal] })
+  const reason = 'Room-temperature garlic-in-oil supports Clostridium botulinum growth.'
+  let gateCalls = 0
+  fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') {
+      gateCalls += 1
+      const body = JSON.parse((init!.body as string))
+      if (!body.confirmOverride) {
+        return jsonResponse({ error: `orchestrator: safety warning requires confirm override: ${reason}` }, 409)
+      }
+      return jsonResponse({ verb: 'edit', proposalId: 'pr_1', newVersionId: 'ver_2', overridden: true })
+    }
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: VERB_LABEL.edit }))
+  const form = await screen.findByTestId('tweak-form')
+  fireEvent.change(form.querySelector('input')!, { target: { value: 'Garlicky Oil, Room Temperature' } })
+  fireEvent.click(screen.getByRole('button', { name: /keep with edit/i }))
+  const prompt = await screen.findByTestId('override-prompt')
+  expect(prompt).toHaveTextContent(reason)
+  expect(prompt).not.toHaveTextContent(/orchestrator:/)
+  // Confirming resends the identical edit gate call with confirmOverride:true.
+  fireEvent.click(within(prompt).getByRole('button', { name: /use it anyway/i }))
+  await waitFor(() => {
+    const last = fetchMock.mock.calls.filter(([u]) => String(u) === '/api/dishes/d1/gate').pop()
+    expect(JSON.parse((last![1] as RequestInit).body as string)).toMatchObject({
+      verb: 'edit', confirmOverride: true,
     })
   })
   expect(gateCalls).toBe(2)
@@ -430,6 +548,23 @@ test('the cook flow dispatches iterate_feedback against the current version', as
       steer: 'too salty — cut the feta by half',
       baseVersion: 'ver_1',
     })
+  })
+})
+
+test('a cook-note round-trip renders in the timeline node for that version', async () => {
+  versionsData = {
+    currentVersionId: 'ver_1',
+    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() }],
+  }
+  detail = dishDetail({ currentVersionId: 'ver_1' })
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: /i cooked this/i }))
+  fireEvent.change(screen.getByLabelText(/tasting notes/i), { target: { value: 'too salty — cut the feta by half' } })
+  fireEvent.click(screen.getByRole('button', { name: /rework from these notes/i }))
+  await waitFor(() => {
+    const timeline = screen.getByLabelText('Development timeline')
+    expect(timeline).toHaveTextContent('You cooked it —')
+    expect(timeline).toHaveTextContent('too salty — cut the feta by half')
   })
 })
 

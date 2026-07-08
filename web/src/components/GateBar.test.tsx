@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import GateBar from './GateBar'
 import { sampleDraft, sampleProposal } from '../fixtures'
 import { GATE_ANOTHER_LABEL, GATE_PROMPT, VERB_LABEL } from '../vocab'
+import { DEFAULT_SHORTCUTS, setShortcuts } from '../lib/shortcuts'
 import type { Op } from '../types'
 
 beforeEach(() => {
@@ -220,6 +221,19 @@ test('the "a" shortcut fires onAccept in decide mode but not while a text field 
 
 test('Escape in "another" mode returns to decide', () => {
   renderBar()
+  openAnother()
+  expect(screen.getByRole('button', { name: VERB_LABEL.regenerate })).toBeInTheDocument()
+  fireEvent.keyDown(document.body, { key: 'Escape' })
+  expect(screen.getByRole('button', { name: VERB_LABEL.accept })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: VERB_LABEL.regenerate })).not.toBeInTheDocument()
+})
+
+test('shortcuts disabled: the "a" mnemonic does not fire accept, but Escape still returns "another" to decide', () => {
+  setShortcuts({ enabled: false, map: DEFAULT_SHORTCUTS.map })
+  const onAccept = vi.fn()
+  renderBar({ onAccept })
+  fireEvent.keyDown(document.body, { key: 'a' })
+  expect(onAccept).not.toHaveBeenCalled()
   openAnother()
   expect(screen.getByRole('button', { name: VERB_LABEL.regenerate })).toBeInTheDocument()
   fireEvent.keyDown(document.body, { key: 'Escape' })
