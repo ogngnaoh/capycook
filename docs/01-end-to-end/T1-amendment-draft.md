@@ -8,14 +8,14 @@
 ## Refresh checklist (the user, before logging)
 
 The SHA below is `git rev-parse HEAD` at the time this draft was committed
-(Phase 4, task 4.7): `dca6df4bde291f8096a0763ec4576bf80d4eaa9a`. It predates
+(Phase 4, task 4.7): `0a92e5541e9d22f2f7e54e93f91ed237546cb0d6`. It predates
 Gate C, so `eval/fixtures/seeds.json` does not exist at it yet. **The SHA MUST
 be refreshed to the ratified-seed commit at milestone-02 start** — the commit
 in which the Gate-C-ratified `eval/fixtures/seeds.json` (+ its CHANGELOG
 entry) landed. Before appending the rows to §9:
 
 1. Fill both Date cells with the actual T1 date (milestone-02 start).
-2. Replace `dca6df4bde291f8096a0763ec4576bf80d4eaa9a` in the Change cell with
+2. Replace `0a92e5541e9d22f2f7e54e93f91ed237546cb0d6` in the Change cell with
    `git rev-parse HEAD` at the ratified-seed commit, and verify
    `eval/fixtures/seeds.json` exists at that commit.
 3. Verify every pinned path is unchanged between that commit and the first
@@ -29,7 +29,7 @@ entry) landed. Before appending the rows to §9:
 
 | Date | Change | Reason |
 |---|---|---|
-| (T1 date — fill at milestone-02 start) | **T1 instrument freeze.** All eval instruments pinned at commit `dca6df4bde291f8096a0763ec4576bf80d4eaa9a` (refresh per draft checklist): prompts `internal/llm/prompts/` · benchmark seeds `eval/fixtures/seeds.json` (ratified at Gate C) · claim-extraction code `internal/eval/runner.go` · safety rules `data/safety/` · arm driver `eval/fixtures/move_script.json` · grounding-toggle component matrix `internal/llm/evidence.go` · verb→frozen-category mapping `internal/eval/mapping.go`. | Freeze the instruments by SHA **before any counted run** (build spec §1.9) so no prompt, seed, extractor, safety rule, driver, toggle, or mapping can drift after data exists. Dev prompt iteration used only `internal/llm/testdata/dev_seeds.json`, disjoint from the benchmark set. |
+| (T1 date — fill at milestone-02 start) | **T1 instrument freeze.** All eval instruments pinned at commit `0a92e5541e9d22f2f7e54e93f91ed237546cb0d6` (refresh per draft checklist): prompts `internal/llm/prompts/` · benchmark seeds `eval/fixtures/seeds.json` (ratified at Gate C) · claim-extraction code `internal/eval/runner.go` · safety rules `data/safety/` · arm driver `eval/fixtures/move_script.json` · grounding-toggle component matrix `internal/llm/evidence.go` · verb→frozen-category mapping `internal/eval/mapping.go`. | Freeze the instruments by SHA **before any counted run** (build spec §1.9) so no prompt, seed, extractor, safety rule, driver, toggle, or mapping can drift after data exists. Dev prompt iteration used only `internal/llm/testdata/dev_seeds.json`, disjoint from the benchmark set. |
 | (T1 date — fill at milestone-02 start) | **FoodPuzzle-proxy deferral.** The §5 "borrowed proxy" outcome (FoodPuzzle molecular-flavor accuracy) is deferred to P1 and not measured in v0. | FlavorDB-derivation license check and LLM-judge machinery are out of v0 scope (build spec §1.10); the deferral is logged as a dated amendment rather than silently dropped. |
 
 ## Rationale (short)

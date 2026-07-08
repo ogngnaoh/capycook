@@ -165,3 +165,8 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   header overflow). Seed ratification asked as its own explicit decision —
   PREREGISTRATION discipline: a casual approval must not silently lock the
   benchmark set.
+- **2026-07-07 · Gate C CLEARED (both decisions).** Visuals converged + all 13
+  benchmark seeds ratified (bench-12 tree-nut stress seed explicitly
+  confirmed via structured prompt). seeds.json committed at 0a92e5541e9d22f2f7e54e93f91ed237546cb0d6; T1
+  amendment draft SHA refreshed to that commit (seeds.json exists at it, per
+  the draft's own checklist). Next: 5.5 demo GIFs + README, tag phase-5-ui.
