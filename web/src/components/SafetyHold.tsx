@@ -40,7 +40,7 @@ export default function SafetyHold({
       </span>
       <p className="mt-3 text-[15px] leading-[1.6] text-ink">{reason}</p>
       {held.length > 0 && (
-        <div className="mt-[14px] pt-3 border-t border-critical">
+        <div className="mt-[14px] pt-[12px] border-t border-critical">
           <div className="text-2xs tracking-[0.08em] uppercase text-critical mb-2">
             What it would have added
           </div>

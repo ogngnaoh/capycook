@@ -11,14 +11,18 @@ const CHANGE_LINE_CAP = 4
 // per-line text rides deltaSummary's own naming (a named ingredient/title
 // move where one exists, the section-grouped phrase otherwise), so it
 // speaks the same controlled vocabulary as opLineLabel/deltaSummary
-// elsewhere. Capped at 4 lines + a trailing "+n more" once there are more.
+// elsewhere. One rule: `sign` is the single authoritative glyph — the
+// leading '+ '/'− ' glyph deltaSummary puts on named ingredient lines is
+// stripped from `text`, so a rendered line is always `{sign} {text}` with
+// exactly one mark ("+ lemon", never "+ + lemon"). Capped at 4 lines plus
+// a trailing overflow entry ("+ n more").
 export function summarizeOps(ops: Op[], base: Draft): { sign: '+' | '→'; text: string }[] {
   const lines = ops.map((op) => ({
     sign: (op.op === 'add' ? '+' : '→') as '+' | '→',
-    text: deltaSummary([op], base),
+    text: deltaSummary([op], base).replace(/^[+−-]\s+/, ''),
   }))
   if (lines.length <= CHANGE_LINE_CAP) return lines
-  return [...lines.slice(0, CHANGE_LINE_CAP), { sign: '+' as const, text: `+${lines.length - CHANGE_LINE_CAP} more` }]
+  return [...lines.slice(0, CHANGE_LINE_CAP), { sign: '+' as const, text: `${lines.length - CHANGE_LINE_CAP} more` }]
 }
 
 function trimBlurb(text: string): string {
@@ -58,7 +62,7 @@ export default function AlternativesPicker({ proposals, base, onPick }: {
               </p>
               <div className="mt-[10px] flex flex-col gap-1">
                 {summarizeOps(ops, base).map((c, j) => (
-                  <span key={j} className="text-2xs text-ink">
+                  <span key={j} data-testid="alt-change-line" className="text-2xs text-ink">
                     <span aria-hidden="true">{c.sign}</span> {c.text}
                   </span>
                 ))}
