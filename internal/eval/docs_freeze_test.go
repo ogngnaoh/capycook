@@ -67,10 +67,11 @@ func TestREADMEMethodologyLinksPrereg(t *testing.T) {
 }
 
 // TestREADMEResultsTableEmpty pins the anti-fabrication guard on the Results
-// section: it must show the exact no-eval-data banner, and it must contain
-// no fabricated results — no all-dash placeholder table row and no
-// digit-bearing rate-like cell — before the pre-registered campaign
-// (milestone 02) completes.
+// section: it must show the exact no-eval-data banner, and until milestone-02
+// data lands (this guard gets retuned alongside it) the section is prose-only
+// — no markdown table rows at all (qualitative cells like "High"/"Low" are a
+// fabrication vector too) and no percentages anywhere, in cells or prose. The
+// all-dash-row and rate-like-cell checks remain as belt-and-braces.
 func TestREADMEResultsTableEmpty(t *testing.T) {
 	section := resultsSection(t)
 
@@ -81,8 +82,13 @@ func TestREADMEResultsTableEmpty(t *testing.T) {
 
 	for _, line := range strings.Split(section, "\n") {
 		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "|") || strings.Contains(line, "---") {
-			continue // not a table row, or the separator row
+		if !strings.HasPrefix(line, "|") {
+			continue // not a table row
+		}
+		// Prose-only until data lands: any markdown table row at all fails.
+		t.Errorf("results section has a markdown table row %q (section is prose-only until milestone-02 data lands)", line)
+		if strings.Contains(line, "---") {
+			continue // the separator row has no data cells to inspect
 		}
 		cells := strings.Split(strings.Trim(line, "|"), "|")
 		if len(cells) < 2 {
@@ -102,6 +108,10 @@ func TestREADMEResultsTableEmpty(t *testing.T) {
 
 	if rateRe := regexp.MustCompile(`\|\s*[0-9]+(\.[0-9]+)?%?\s*\|`); rateRe.MatchString(section) {
 		t.Errorf("results section has a digit-bearing rate-like cell (data cannot be faked in before the campaign)")
+	}
+
+	if pctRe := regexp.MustCompile(`[0-9]+(\.[0-9]+)?%`); pctRe.MatchString(section) {
+		t.Errorf("results section contains a percentage (prose rates are a fabrication vector too — none until the campaign lands)")
 	}
 }
 
