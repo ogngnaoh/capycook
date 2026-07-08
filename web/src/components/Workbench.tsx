@@ -586,10 +586,25 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
               foot of the canvas column exactly as before (max-md:* only). */}
           <div className="max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-sticky max-md:bg-page">
             <div id="gate-bar-anchor" tabIndex={-1} className="p-3 border-t border-hairline bg-page focus:outline-none">
-              {detail.state === 'awaiting_gate' && <GateBar onVerb={onVerb} />}
-              {detail.state === 'proposing' && <GateBar state="proposing" onCancel={cancelMove} />}
-              {detail.state === 'blocked' && detail.blocked && (
-                <GateBar state="blocked" onVerb={onVerb} />
+              {/* Compile bridge (interim, replaced in T9): the new mode-based
+                  GateBar (task 6) speaks proposal/draft + six callbacks. Wired
+                  through the machinery this file already has; the proposing
+                  Stop button and the blocked verbs move to T7's ProposingCard/
+                  SafetyHold when T9 rewrites this layout. */}
+              {detail.state === 'awaiting_gate' && selected && (
+                <GateBar proposal={selected} draft={detail.draft}
+                  onAccept={() => onVerb('accept')}
+                  onRegenerate={() => onVerb('regenerate')}
+                  onAlternatives={() => onVerb('alternatives')}
+                  onEditSubmit={(ops) => void runGate({ proposalId: selected.id, verb: 'edit', edit: { ops } })}
+                  onRedirectSubmit={(steer) => void runGate({ proposalId: selected.id, verb: 'redirect', edit: { steer } })}
+                  onTakeoverSubmit={(d) => void runGate({ proposalId: selected.id, verb: 'take_over', edit: { draft: d } })} />
+              )}
+              {detail.state === 'proposing' && (
+                <button onClick={() => void cancelMove()}
+                  className="min-h-[24px] px-2 py-1 uppercase border border-hairline-strong">
+                  Stop
+                </button>
               )}
               {detail.state === 'idle' && (
                 <p className="text-muted">The bench is ready — propose a move from the steering rail.</p>
