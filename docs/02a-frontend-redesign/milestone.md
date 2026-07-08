@@ -14,10 +14,10 @@
 - Bundled webfonts (fallback stacks stay).
 
 **Slices** (working doc for all four: `docs/superpowers/plans/2026-07-07-frontend-ia-redesign-direction-a.md`)
-- S1 — tokens + intake (plan Tasks 1–2) — planned
-- S2 — timeline + dish card (Tasks 3–5) — planned
-- S3 — gate + state cards + intent (Tasks 6–8) — planned
-- S4 — workbench integration + a11y/evidence (Tasks 9–10) — planned
+- S1 — tokens + intake (plan Tasks 1–2) — shipped
+- S2 — timeline + dish card (Tasks 3–5) — shipped
+- S3 — gate + state cards + intent (Tasks 6–8) — shipped
+- S4 — workbench integration + a11y/evidence (Tasks 9–10) — shipped (2026-07-08; evidence in `evidence/`, 26/27 states — `proposing` is unobservable in stub mode because the stub resolves moves in milliseconds)
 
 **Integration notes**
 - `Workbench.tsx` wire logic (SSE, resync, runGate/409, promote, dial) is kept verbatim; only presentation swaps. `mergeDiff` powers the on-dish diff; empty `moveType` = server-side auto classification (existing contract).

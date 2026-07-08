@@ -23,7 +23,7 @@ docs: `DESIGN.md` (what/why, v0.4) · `docs/SPEC.md` (the Go/React stack) ·
 - Persistence (end-to-end build, phase 1): SQLite via pure-Go `modernc.org/sqlite` behind a store interface; `DB_PATH` env.
 - Model (end-to-end build, phase 3 — the first real-DeepSeek phase): DeepSeek-V4-Pro via OpenAI-compatible client, swappable `llm` iface; stub mode w/ banner when no key.
 - Observability (end-to-end build, phase 3): OTel-Go → OTLP/HTTP → Langfuse (Cloud; self-host compose ships in repo). Eval is hand-rolled Go (SPEC §5).
-- Frontend: React + Vite + Tailwind in `web/`; graybox workbench (S0.4), styled in end-to-end build phase 5 — Acne structural system + Anthropic warm palette (see the 2026-07-06 end-to-end spec §8; process background in docs/superpowers/specs/2026-07-01-frontend-ui-strategy-design.md).
+- Frontend: React + Vite + Tailwind in `web/`; direction-A "Line of Development" IA (milestone 02a, 2026-07-08) — timeline spine + dish stage + intent bar + gate-as-decision; design source of truth `agent_docs/design/CapyCook-Redesign.dc.html` + `BUILD-SPEC.md`. Tokens: cc warm palette over the Acne structural system. ⚠ Tailwind theme scales are REPLACED, not extended — default-scale classes (`min-h-8`, `font-semibold`, `leading-none`) are silent no-ops; pixel-exact values need bracket classes (`min-h-[32px]`).
 
 ## Repo structure
 - `cmd/server` — HTTP entrypoint. `internal/*` — one package per P0 item (see SPEC §6/§3).

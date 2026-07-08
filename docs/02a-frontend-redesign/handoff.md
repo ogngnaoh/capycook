@@ -1,13 +1,16 @@
 # Handoff — 02a frontend-ia-redesign
 
 ## Next session start here
-Execute `docs/superpowers/plans/2026-07-07-frontend-ia-redesign-direction-a.md` from the first unchecked task (superpowers:subagent-driven-development or executing-plans).
+Branch `worktree-02a-frontend-redesign-a` is complete and reviewed; if it has not been merged to master yet, merge it and mark 02a shipped in `docs/milestones.md`. Then resume milestone 02 (measure-run).
 
 ## Current state
-- Branch: master. Design imported to `agent_docs/design/` (dc.html + BUILD-SPEC.md) from Claude Design project d76b16c2; direction A chosen by the user 2026-07-07.
-- Plan written; no implementation started.
+- All 4 slices shipped; plan (10 tasks) executed subagent-driven with per-task review + fixes.
+- web suite 203 tests green (0 skipped), tsc clean, vite build clean, Go `make test` green.
+- Evidence: docs/02a-frontend-redesign/evidence/ (12 desktop states × light+dark + 3 narrow; `proposing` unobservable in stub mode — the stub resolves moves in milliseconds).
+- Old presentation layer deleted (TrialStrip/SteeringPane/DraftPane/ProposedDraftView/SafetyBlock/RailTabs/VersionHistory/ProposalCard/DiffMark/Chips/UncertaintyLedger).
 
 ## Active concerns
-- Existing `Workbench.test.tsx` (619 lines) guards §9 behaviors — re-home assertions, never drop them (plan Task 9 step 1).
-- Palette discrepancy resolved: dc.html values win over BUILD-SPEC where they differ (`--cc-add-bg` #E7F0E8).
-- Small accent text uses `--color-accent-text` (AA), not raw `--cc-accent` — deliberate deviation from the prototype's sub-AA 11px accent labels.
+- Cook notes / timeline cook markers are session-local (as the old thread was) — lost on reload; candidate for server-side persist later.
+- `web/tools/demo.mjs` (GIF driver) still targets the OLD UI — rewrite before recording new hero GIFs.
+- Stub-mode seed proposals emit whole-array replace ops → the row-level diff falls back to the honest "could not be previewed" disclosure; granular ops render inline. Same mergeDiff behavior as before the redesign.
+- Deliberate omissions: Citation.date not rendered; timeline tech view shows ver ids only (move slugs not on the wire).
