@@ -1,6 +1,6 @@
 # Milestone 02 Reframe + Repo Showcase — Design
 
-**Date:** 2026-07-08 · **Status:** approved in brainstorming, pending spec review
+**Date:** 2026-07-08 · **Status:** spec review complete (2026-07-08); factual + honesty edits folded, ready for planning
 **Supersedes:** the "human-led campaign" framing of milestone 02 in `docs/milestones.md` (T1 instrument freeze, operator sessions, labeling campaign **+ second labeler**, κ).
 
 ## Goal
@@ -25,18 +25,20 @@ One dated entry in PREREGISTRATION §9, landed before any eval run. It changes t
 
 **What replaces the second human labeler (§6):**
 
-- **Tier 1 — deterministic verifier.** New code in `internal/eval`: for every claim whose cited source is vendored (`fdc:` nutrition, `foodon:` identity, cost table, FlavorGraph edges), re-derive ground truth in-process and emit the label mechanically (`grounded-correct` vs `grounded-mischaracterized` by recompute-and-compare; `correctly-unverified` by tag check). Unit-tested; unanchorable claims fall through to Tier 2 untouched. Rationale: the project's own boundary extended to the eval — *a human never labels what a program can verify.*
-- **Tier 2 — double-labeled judgment claims, 100% coverage** (vs the original 18% sliver). R1 = the author, **blinded to arm, seeded shuffle** (a bias control the frozen design lacked). R2 = an LLM judge on the existing swappable `llm` iface, prompted with the frozen §7a rubric verbatim, structured JSON out, writing `label_r2` (no schema change — the slot exists). κ + confusion matrix over the full Tier-2 set. Disagreements: author adjudicates with logged rationale.
-- **Logged caveats:** judge is same-family as the generator (D3); κ now measures author↔judge agreement, not human↔human — stated plainly, never dressed up as the original design.
+- **Tier 1 — deterministic verifier.** New code in `internal/eval`: for every claim whose cited source is vendored (`fdc:` nutrition, `foodon:` identity, cost table, FlavorGraph edges), re-derive ground truth in-process and emit the label mechanically (`grounded-correct` vs `grounded-mischaracterized` by recompute-and-compare; `correctly-unverified` by tag check). Unit-tested; unanchorable claims fall through to Tier 2 untouched. **Verifier validation:** the author blind-labels a small sample (~15–20) of Tier-1-anchored claims and we report verifier↔author agreement (flagged at S3 exit) — so Tier-1's mechanical labels are cross-checked against a human, not left as author-code judged only by author-written tests. Rationale: the project's own boundary extended to the eval — *a human never labels what a program can verify.*
+- **Tier 2 — double-labeled judgment claims, 100% coverage** (vs the original 18% sliver — the vestigial `DoubleLabelRate=0.18` seeded sampler in `labels.go` gets reconciled to full coverage). R1 = the author, **blinded to the arm label, seeded shuffle** (a bias control the frozen design lacked; blinding is *partial* — arm identity still leaks through content, since a claim carrying an `fdc:`/`foodon:` citation is self-evidently grounded and an uncited assertion self-evidently ungrounded). R2 = an LLM judge on the existing swappable `llm` iface, prompted with the frozen §7a rubric verbatim, structured JSON out, writing `label_r2` (no schema change — the slot exists). **κ + confusion matrix are reported pre-adjudication as the headline reliability number** — the author is one of the two raters, so author-adjudication cannot also serve as the independent tiebreak; adjudication then produces a clearly-labeled *author-final* set with logged rationale, never presented as the reliability figure.
+- **Logged caveats:** judge is same-family as the generator (D3); κ now measures author↔judge agreement, not human↔human, and the author is a target-persona *biased pilot*, so this κ is a labeling-reliability check and is **never** presented as external validation; §8 Rule 4's "κ<0.4 ⇒ ambiguous rubric" now carries a second reading (judge incompetence/parroting) while a high κ may mean the judge merely echoes the author's framing — all stated plainly, never dressed up as the original design.
 
-**Unchanged and already built:** scripted 3-arm runner through the real orchestrator (`internal/eval/runner.go`), κ/confusion matrix, rates math, H2 replay fold, label-sheet builder, drafted benchmark seeds awaiting ratification.
+**Unchanged and already built:** scripted 3-arm runner through the real orchestrator (`internal/eval/runner.go`), κ/confusion matrix, rates math, H2 replay fold, label-sheet builder. The 13-seed / ~195-claim benchmark set is **already ratified and locked** (Gate C, 2026-07-07 — `eval/fixtures/CHANGELOG.md`): frozen input to this milestone, and any seed change would itself require a §9 amendment.
+
+**Premise the amendment must own explicitly:** `labels.go` today enforces *"labels only ever come from human raters (PREREG §7)"* (the "phase-4 stop-line") and §5 says *"human-labeled."* Tier-1 (machine-produced labels) and R2 (an LLM rater) both overturn that premise. The §9 entry therefore authorizes deterministic machine labels **and** an LLM rater **by name** — not as a quiet "swap labeler #2" — and S3/S4 revise the `labels.go` stop-line comments + the `labels_test.go` assertion to match. This is the load-bearing scope the "labeling procedure only" framing understates.
 
 ## Part 2 — Running the campaign (solo)
 
-1. Author ratifies the drafted benchmark seeds (existing gate).
+1. Seeds are **already ratified and locked** (Gate C, 2026-07-07) — no ratification gate remains; the run uses the frozen 13-seed set as-is.
 2. Scripted runner executes all three arms with **live DeepSeek** (one-time spend, estimated at plan time after the api-docs verify). Runs traced OTel→Langfuse.
 3. Author does the blinded R1 pass over Tier-2 claims (~a few evenings); judge R2 pass; adjudication.
-4. **H2 telemetry:** real operator sessions in the event log — the author using the workbench for real dishes during the milestone weeks. Explicit N, per the frozen prereg.
+4. **H2 telemetry:** real operator sessions in the event log — the author using the workbench for real dishes during the milestone weeks. Explicit N, per the frozen prereg; aim for enough sessions that N isn't embarrassingly thin next to §3's N=140 example (rough floor ~8 sessions), reported honestly whatever it lands at.
 5. Results: three per-arm rates with explicit denominators, κ + confusion matrix, gate-dynamics table with explicit N, one honest findings paragraph (an H3b null reported as the confirmed prediction it is), a Langfuse trace screenshot in the README.
 
 ## Part 3 — README surgery + repo hygiene (pre-publish, from the 2026-07-08 fresh review)
@@ -45,7 +47,7 @@ One dated entry in PREREGISTRATION §9, landed before any eval run. It changes t
 - Restructure the empty Results placeholder (no all-dash table while unpublished; it fills before push anyway per D7). Give gate dynamics its own table stub — its columns don't match the three rates.
 - Fix stale claims: compose kit / Langfuse profile "arrives in Phase 6" → shipped; link `DEPLOY.md`; reconcile Node 20 vs CI's Node 22; check Makefile's stale "UNRATIFIED seeds" comment when seeds ratify.
 - Add: CI badge (+ Go/license badges), one-line stack statement, a short `internal/` package map so reviewers know where to sample code.
-- **`.gitignore`: add `data/*.db`** before anything else (privacy/pre-push bug).
+- **`.gitignore`: add `data/*.db` as literally the first commit** of the milestone (privacy/pre-push bug; the db is currently untracked but any `git add -A` before the fix would stage it).
 - Archive reorg (D6): shipped-milestone exhaust → `docs/archive/`; fix the dangling `docs/02-measure-run/` pointer by materializing the folder.
 
 ## Part 4 — Showcase kit
@@ -68,12 +70,12 @@ Push `master` → GitHub settings pass: repo description, topics, social-preview
 
 | # | Slice | Size |
 |---|---|---|
-| S1 | README surgery + hygiene + archive reorg + state-machine & data-flow Mermaid diagrams | S |
-| S2 | Prereg §9 amendment + materialize `docs/02-measure-run/` (milestone.md, handoff.md) + update `docs/milestones.md` | S |
-| S3 | Tier-1 deterministic verifier (TDD) | M |
-| S4 | Blinded label sheet + judge R2 client (model id verified against live docs first) | M |
-| S5 | Seed ratification (user gate) + live 3-arm run + Langfuse traces | S + spend |
-| S6 | Blinded R1 labeling, adjudication, κ, rates → Results section + findings + eval-pipeline diagram + H2 fold from operator sessions | M (author hours) |
+| S1 | README surgery + hygiene + archive reorg + state-machine & data-flow Mermaid diagrams | M |
+| S2 | Prereg §9 amendment (authorizes machine + LLM raters by name) + materialize `docs/02-measure-run/` (milestone.md, handoff.md) + update `docs/milestones.md` | S |
+| S3 | Tier-1 deterministic verifier (TDD) + author blind-check validation sample (report verifier↔author agreement) | M |
+| S4 | Blinded label sheet + judge R2 client (model id verified against live docs first); revise `labels.go` human-only stop-line + reconcile 18% sampler with 100% Tier-2 coverage | M |
+| S5 | Live 3-arm run + Langfuse traces (seeds already ratified/locked — no gate) | S + spend |
+| S6 | Blinded R1 labeling, **pre-adjudication** κ + confusion matrix, adjudication → author-final set, rates → Results section + findings + eval-pipeline diagram + H2 fold from operator sessions | M (author hours) |
 | S7 | Media wave: 4 new GIFs, eval terminal capture, hero banner, social preview, SVG exports, portfolio MP4s | M |
 | S8 | Publish: push + GitHub settings pass + portfolio linkage | S |
 
@@ -82,8 +84,8 @@ H2 operator sessions run in the background throughout S3–S6 (real usage, not a
 ## Exit criteria
 
 - PREREGISTRATION §9 carries one dated amendment; body untouched; CI frozen-doc guard still green.
-- `go test ./...` green including the new verifier; judge writes only `label_r2`; blinding verified by test.
-- Results table filled per §7a with explicit denominators; κ + confusion matrix reported; findings paragraph present; H3b null (if it lands) framed as confirmed prediction.
+- `go test ./...` green including the new verifier; judge writes only `label_r2`; blinding verified by test; verifier↔author blind-check agreement reported at S3 exit.
+- Results table filled per §7a with explicit denominators; **pre-adjudication** κ + confusion matrix reported (any adjudicated author-final set clearly labeled as such, not as the reliability figure); findings paragraph present; H3b null (if it lands) framed as confirmed prediction.
 - README: surgery items done, 8 GIFs + 3 diagrams render on GitHub, hero + badges live, no stale claims.
 - Repo public with settings pass complete; portfolio site has MP4s + repo link.
 - Zero recurring hosting cost; no API key in any public artifact.
