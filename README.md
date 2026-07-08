@@ -126,7 +126,7 @@ source of truth — this section summarizes it and restates nothing.
 
 ## Quickstart (fork & run)
 
-Prerequisites: Go 1.26+, Node 20+ (frontend build only), `make`.
+Prerequisites: Go 1.26+, Node 22+ (frontend build only), `make`.
 
 ```sh
 git clone https://github.com/ogngnaoh/capycook.git
@@ -142,9 +142,9 @@ make run               # workbench + GET /healthz on :8080
   every demo GIF above was captured in). Set `DEEPSEEK_API_KEY` to go live.
 - `make build` alone compiles the backend (API + `/healthz`) without Node; the embedded
   workbench UI needs `make build-all`.
-- **Docker:** `make docker-build` builds the backend image (`capycook:dev`). A
-  `docker-compose.yml` fork kit (app + volume, optional self-hosted Langfuse profile)
-  arrives in Phase 6.
+- **Docker:** `docker compose up` runs the full fork kit (app + volume; keyless
+  stub mode). `make docker-build` builds just the backend image (`capycook:dev`).
+  Full walkthrough + the opt-in self-hosted Langfuse profile: [DEPLOY.md](DEPLOY.md).
 
 ## Related work & positioning
 
@@ -178,7 +178,7 @@ you configure**:
 - **Tracing is optional and off by default.** OpenTelemetry export to Langfuse activates *only*
   when `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` are all set; with them
   unset the tracer is a no-op (the server logs this at startup) and nothing leaves the box. You
-  can point `LANGFUSE_HOST` at a self-hosted Langfuse — a compose profile for it ships in Phase 6.
+  can point `LANGFUSE_HOST` at a self-hosted Langfuse — the shipped compose profile runs it locally (`docker compose --profile langfuse up` — see [DEPLOY.md](DEPLOY.md)).
 - **Data:** dishes and trials live in a local SQLite file (`DB_PATH`); the vendored FlavorGraph /
   USDA / FoodOn subsets under `data/` are read-only. There is no analytics, account system, or
   phone-home.
@@ -201,6 +201,7 @@ DESIGN §8.7 for the gate's scope and its documented limits.
 - [`docs/SPEC.md`](docs/SPEC.md) — the Go/React stack (how)
 - [`docs/PREREGISTRATION.md`](docs/PREREGISTRATION.md) — **frozen** eval methodology
 - [`docs/milestones.md`](docs/milestones.md) — execution order
+- [`DEPLOY.md`](DEPLOY.md) — fork kit: docker compose walkthrough, platform notes, self-hosted Langfuse wiring.
 - [`web/tools/`](web/tools/) — headless capture tooling for the evidence stills and demo GIFs
 
 ## License
