@@ -91,6 +91,21 @@ test('a pending proposal appends a decision node with a deltaSummary note', () =
   expect(pending.when).toBe('')
 })
 
+test('the pending node never claims current or viewing, even alongside real flags', () => {
+  const v1 = version({ id: 'ver_1' })
+  const v2 = version({ id: 'ver_2', parentVersionId: 'ver_1' })
+  const data: VersionsResponse = { currentVersionId: 'ver_2', versions: [v1, v2] }
+  const nodes = buildTimeline(data, {
+    ...baseOpts,
+    viewingId: 'ver_1',
+    pendingProposal: { move_type: 'ingredient_change', change: [] },
+  })
+  expect(nodes).toHaveLength(3)
+  expect(nodes[0]).toMatchObject({ isCurrent: false, isViewing: true, pending: false })
+  expect(nodes[1]).toMatchObject({ isCurrent: true, isViewing: false, pending: false })
+  expect(nodes[2]).toMatchObject({ isCurrent: false, isViewing: false, pending: true })
+})
+
 test('a pending proposal with no visible changes leads with the move label', () => {
   const data: VersionsResponse = { currentVersionId: null, versions: [] }
   const nodes = buildTimeline(data, {
