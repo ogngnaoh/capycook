@@ -516,7 +516,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         </div>
       )}
 
-      <main className="wb-grid" style={{ minHeight: 'calc(100vh - 55px)' }}>
+      <main className="wb-grid" style={{ minHeight: 'calc(100vh - var(--header-height) - 1px)' }}>
         <TimelineSpine nodes={timelineNodes} summary={summary} nextHint={nextHint}
           technical={technical} onView={viewSnapshot} onPromote={(id) => void promote(id)} />
 
@@ -607,7 +607,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       <Toast message={toast} />
       {override && (
         <OverridePrompt message={override.message}
-          onCancel={() => setOverride(null)}
+          onCancel={() => { setOverride(null); focusDecision() }}
           onConfirm={() => { const resend = override.resend; setOverride(null); void runGate(resend) }} />
       )}
     </div>

@@ -29,9 +29,8 @@ import { formatValue } from '../lib/formatValue'
 //     treatment here — the new title renders plainly.
 //
 // Chips/badges are hand-rolled to the design's exact bordered-outline
-// look (border + text, no fill) rather than reusing the pre-redesign
-// Chips.tsx primitives (filled variants) — same call TimelineSpine (task 4)
-// already made for this design system.
+// look (border + text, no fill) rather than a filled-variant primitive —
+// same call TimelineSpine (task 4) already made for this design system.
 export default function DishCard({ draft, diff, ops, technical, showDetail }: {
   draft: Draft // the current draft; analysis/constraints always read from here
   diff?: DiffView | null

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Op } from '../types'
 import { list } from '../types'
 import { opLineLabel } from '../lib/pathLabels'
-import { BLOCKED_REDIRECT, BLOCKED_REGEN } from '../vocab'
+import { BLOCKED_REDIRECT, BLOCKED_REGEN, SAFETY_HOLD_TITLE } from '../vocab'
 
 // SafetyHold is the redesign's hold pane (design 219-240) — the next
 // generation of the pre-redesign safety block it replaced in task 9. The
@@ -36,7 +36,7 @@ export default function SafetyHold({
     <div ref={ref} tabIndex={-1} role="alert" data-testid="safety-hold"
       className="cc-rise border-2 border-critical bg-critical-surface p-[18px] mb-4">
       <span className="text-2xs tracking-[0.12em] uppercase text-critical font-bold">
-        Safety hold — this change was stopped
+        {SAFETY_HOLD_TITLE}
       </span>
       <p className="mt-3 text-[15px] leading-[1.6] text-ink">{reason}</p>
       {held.length > 0 && (

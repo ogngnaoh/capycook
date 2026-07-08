@@ -399,7 +399,7 @@ test('an unsafe edit warns-and-confirms with the reason, then resends with confi
   expect(gateCalls).toBe(2)
 })
 
-test('the override prompt is a modal alert dialog: named, described, least-destructive focus, Escape cancels', async () => {
+test('the override prompt is a modal alert dialog: named, described, least-destructive focus, Escape cancels and restores focus to the gate bar', async () => {
   detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal(), pendingProposals: [sampleProposal()] })
   const reason = 'Room-temperature garlic-in-oil supports Clostridium botulinum growth.'
   fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -424,6 +424,8 @@ test('the override prompt is a modal alert dialog: named, described, least-destr
   await waitFor(() => expect(within(dialog).getByRole('button', { name: /go back/i })).toHaveFocus())
   fireEvent.keyDown(dialog, { key: 'Escape' })
   expect(screen.queryByTestId('override-prompt')).not.toBeInTheDocument()
+  // Cancelling returns focus to the gate bar rather than dropping it to <body>.
+  await waitFor(() => expect(bar.contains(document.activeElement)).toBe(true))
 })
 
 // --- cancel ----------------------------------------------------------------

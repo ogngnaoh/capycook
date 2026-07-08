@@ -18,12 +18,6 @@ export const STATE_LABEL: Record<string, string> = {
   blocked: 'Safety hold',
 }
 
-export const STATE_GLOSS: Record<string, string> = {
-  idle: 'ready for your next idea',
-  awaiting_gate: 'a change is waiting on you',
-  blocked: 'a safety rule stopped this change',
-}
-
 // Gate verbs. The mode-based GateBar (task 6) speaks two altitudes: the
 // decision pair up front (Use it / Tweak it) plus "Try another way ▾" for
 // the four revision/mode-switch verbs.
@@ -63,17 +57,9 @@ export const MOVE_LABEL: Record<MoveType, string> = {
 
 // Fixed copy, naming map §6. Failure is rigor: an intentional kill is never
 // "something went wrong".
-export const SAFETY_HOLD_TITLE = 'Safety hold — critical limit'
-export const CORRECTIVE_ACTION = 'Corrective action'
-export const TRIALS_HEADING = 'Trials'
-export const TASTING_NOTES_PROMPT = 'Tasting notes — what worked, what changes?'
-export const PROPOSE_REWORK = 'Propose a rework'
-export const DIRECTION_LABEL = 'Direction (optional)'
-export const STATION_CARD = 'Station card'
+export const SAFETY_HOLD_TITLE = 'Safety hold — this change was stopped'
+export const TASTING_NOTES_PROMPT = 'Tasting notes — what worked, what to change?'
 export const DIAL_LABEL = 'Auto-apply safe steps'
-export const EMPTY_DRAFT = 'The bench is clear. One move sketches the dish — propose it when ready.'
-export const EMPTY_THREAD = 'Development opens with a move. The kitchen is ready below.'
-export const TRIAL_RETIRED = 'Trial retired. The kitchen will draft another.'
 
 export function promotedToService(ref: string): string {
   return `${ref} promoted to service`
@@ -110,12 +96,8 @@ export const GATE_ANNOUNCE: Record<GateVerb, string> = {
   take_over: 'Saving your draft…',
 }
 
-// Version aliasing: v1/v2/v3 in running text, Trial pills on the strip,
-// 8-char hash refs where precision matters (full hash only on the snapshot).
-export function versionAlias(n: number): string {
-  return `v${n}`
-}
-
+// Version aliasing: Trial pills on the strip, 8-char hash refs where
+// precision matters (full hash only on the snapshot).
 export function trialAlias(n: number): string {
   return `Trial ${n}`
 }

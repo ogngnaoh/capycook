@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { TASTING_NOTES_PROMPT } from '../vocab'
 
 // CookFlow is the post-cook loop (design 386-404): the collapsed "Cooked
 // this version?" row expands into the tasting-notes form, which asks for
@@ -50,7 +51,7 @@ export default function CookFlow({ versionLabel, onSubmit }: {
     <div className="cc-rise mt-[16px] px-[18px] py-[16px] border border-accent bg-accent-soft">
       <label htmlFor="cc-tasting-notes"
         className="block text-[11px] tracking-[0.1em] uppercase text-accent-text mb-[8px]">
-        Tasting notes — what worked, what to change?
+        {TASTING_NOTES_PROMPT}
       </label>
       <textarea id="cc-tasting-notes" ref={textareaRef} value={notes}
         onChange={(e) => setNotes(e.target.value)}

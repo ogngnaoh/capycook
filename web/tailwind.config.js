@@ -35,7 +35,6 @@ export default {
         soft: 'var(--color-accent-soft)',
       },
       'on-accent': 'var(--color-on-accent)',
-      info: { DEFAULT: 'var(--color-info)', surface: 'var(--color-info-surface)' },
       success: { DEFAULT: 'var(--color-success)', surface: 'var(--color-success-surface)' },
       warning: { DEFAULT: 'var(--color-warning)', surface: 'var(--color-warning-surface)' },
       critical: { DEFAULT: 'var(--color-critical)', surface: 'var(--color-critical-surface)' },

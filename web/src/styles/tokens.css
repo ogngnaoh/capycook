@@ -127,8 +127,6 @@
      (Caveat: warning-on-surface is 3.9:1 — never normal-size text.
      Chips use ink-on-warning-surface + warning border; reserve
      text-warning for ≥ 16px/bold.) */
-  --color-info:             #0018A8;
-  --color-info-surface:     #EAEDFB;
   --color-success:          #2C6E49;
   --color-success-surface:  #E7F0E8;
   --color-warning:          #B36200;
@@ -171,8 +169,6 @@
     --color-accent-soft:  #33261C;  /* soft accent background */
 
     /* Semantic dark companions — tuned for AA on the warm near-black */
-    --color-info:             #8FA1F2;
-    --color-info-surface:     #20263E;
     --color-success:          #7FB894;
     --color-success-surface:  #1E2A20;
     --color-warning:          #E0A552;
@@ -200,8 +196,6 @@
   --color-on-accent:    #17130E;
   --color-accent-soft:  #33261C;
 
-  --color-info:             #8FA1F2;
-  --color-info-surface:     #20263E;
   --color-success:          #7FB894;
   --color-success-surface:  #1E2A20;
   --color-warning:          #E0A552;

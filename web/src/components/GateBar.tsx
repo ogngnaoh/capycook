@@ -265,7 +265,7 @@ export default function GateBar({
   }
 
   return (
-    <div data-testid="gate-bar"
+    <div id="cc-gate" data-testid="gate-bar"
       className="sticky bottom-0 z-sticky border-t border-hairline-strong bg-panel px-[26px] py-[12px]">
       <div className="max-w-[840px] mx-auto">
         {mode === 'decide' && (
@@ -297,7 +297,7 @@ export default function GateBar({
               </button>
               <button type="button"
                 ref={(el) => { btnRefs.current[2] = el; tryAnotherRef.current = el }}
-                tabIndex={activeIndex === 2 ? 0 : -1} aria-disabled={locked} aria-expanded={false}
+                tabIndex={activeIndex === 2 ? 0 : -1} aria-disabled={locked}
                 onFocus={() => setActiveIndex(2)}
                 onClick={() => openMode('another')}
                 className={bigGhostBtn(locked)}>

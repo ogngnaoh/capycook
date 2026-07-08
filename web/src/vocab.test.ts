@@ -1,8 +1,8 @@
 import { MOVE_TYPES } from './types'
 import {
   BLOCKED_REDIRECT, BLOCKED_REGEN, GATE_ANOTHER_LABEL, GATE_PROMPT,
-  LEVEL_ONE_VERBS, MORE_VERBS, MOVE_LABEL, STATE_GLOSS, STATE_LABEL,
-  VERB_LABEL, shortRef, trialAlias, versionAlias,
+  LEVEL_ONE_VERBS, MORE_VERBS, MOVE_LABEL, STATE_LABEL,
+  VERB_LABEL, shortRef, trialAlias,
 } from './vocab'
 
 test('every move-type slug has a plain-language label with no slug leakage', () => {
@@ -32,20 +32,11 @@ test('gate levels partition the six verbs: accept + tweak up front, four behind 
   expect(all).toEqual(Object.keys(VERB_LABEL).sort())
 })
 
-test('renamed workbench states speak the culinary-decision register and carry plain glosses', () => {
+test('renamed workbench states speak the culinary-decision register', () => {
   expect(STATE_LABEL.idle).toBe('Ready')
   expect(STATE_LABEL.proposing).toBe('Thinking…')
   expect(STATE_LABEL.awaiting_gate).toBe('Needs your call')
   expect(STATE_LABEL.blocked).toBe('Safety hold')
-  // Every renamed state carries a first-use gloss (call #4); the gloss is
-  // plain language, so it never repeats the label.
-  for (const state of ['idle', 'awaiting_gate', 'blocked'] as const) {
-    expect(STATE_GLOSS[state], `missing gloss for ${state}`).toBeTruthy()
-    expect(STATE_GLOSS[state]).not.toBe(STATE_LABEL[state])
-  }
-  expect(STATE_GLOSS.idle).toBe('ready for your next idea')
-  expect(STATE_GLOSS.awaiting_gate).toBe('a change is waiting on you')
-  expect(STATE_GLOSS.blocked).toBe('a safety rule stopped this change')
 })
 
 test('the GateBar decide-mode prompt and disclosure label are fixed copy', () => {
@@ -64,7 +55,6 @@ test('version ids compact to the 8-char trial form, full ids pass through when s
   expect(shortRef('deadbeefcafe0123')).toBe('deadbeef')
 })
 
-test('trial and version aliases number from the chain position', () => {
+test('trial aliases number from the chain position', () => {
   expect(trialAlias(3)).toBe('Trial 3')
-  expect(versionAlias(3)).toBe('v3')
 })
