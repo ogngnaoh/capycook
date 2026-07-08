@@ -22,6 +22,16 @@ test('plain mode renders every section with no diff tint classes', () => {
   expect(container.querySelectorAll('.row-add, .row-change').length).toBe(0)
 })
 
+test('the station card gives every constraint field a home, cuisine included', () => {
+  render(<DishCard draft={sampleDraft()} technical={false} showDetail={false} />)
+  const card = screen.getByTestId('dish-card')
+  for (const key of ['skill', 'serves', 'avoid', 'dietary', 'equipment', 'on hand', 'cuisine']) {
+    expect(card).toHaveTextContent(key)
+  }
+  expect(card).toHaveTextContent('western') // cuisine value, kept from the old DraftPane
+  expect(card).toHaveTextContent('—') // empty array fields render the dash, not a blank
+})
+
 // --- diff mode: ingredients ---
 
 test('diff mode: an added ingredient row carries row-add, a New chip, and the SR_ADDED prefix', () => {
@@ -168,6 +178,19 @@ test('failed or other diff changes surface a muted disclosure line above the car
   render(<DishCard draft={base} diff={diff} technical={false} showDetail={false} />)
   expect(screen.getByText(/Some changes could not be previewed/)).toBeInTheDocument()
   expect(screen.getByText(/Analysis — changed/)).toBeInTheDocument()
+})
+
+test('a failed-only diff still discloses, with the failed op labeled', () => {
+  const base = sampleDraft()
+  // Out-of-range array index — mergeDiff routes this to `failed`, not `other`.
+  const ops: Op[] = [{ op: 'replace', path: '/ingredients/99/qty', value: 5 }]
+  const diff = mergeDiff(base, ops)
+  expect(diff.failed).toHaveLength(1)
+  expect(diff.other).toHaveLength(0)
+  render(<DishCard draft={base} diff={diff} technical={false} showDetail={false} />)
+  const line = screen.getByTestId('dish-card-unpreviewable')
+  expect(line).toHaveTextContent('Some changes could not be previewed — accepting still applies them.')
+  expect(line).toHaveTextContent('Ingredients — changed')
 })
 
 test('the disclosure line does not appear in plain mode', () => {

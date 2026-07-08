@@ -1,6 +1,7 @@
 import type { Constraints, Draft, FlavorClaim, Ingredient, Op, Step } from '../types'
 import { list } from '../types'
 import type { DiffView, Row, ScalarDiff } from '../lib/mergeDiff'
+import { opLineLabel } from '../lib/pathLabels'
 import { SR_ADDED, SR_NOW, SR_REMOVED, SR_WAS } from '../vocab'
 import { formatValue } from './ProposalCard'
 
@@ -40,15 +41,19 @@ export default function DishCard({ draft, diff, ops, technical, showDetail }: {
 }) {
   const view = diff ?? plainView(draft)
   const { cost, nutrition } = draft.analysis
-  const unpreviewable = diff != null && (diff.failed.length > 0 || diff.other.length > 0)
+  // Ops mergeDiff could not preview inline: routed-elsewhere ones already
+  // carry a label; failed ones get theirs from the same pathLabels grammar.
+  const unpreviewed = diff == null
+    ? []
+    : [...diff.other.map((o) => o.label), ...diff.failed.map(opLineLabel)]
   const stationChips = buildStationChips(draft.constraints)
 
   return (
     <>
-      {unpreviewable && (
+      {unpreviewed.length > 0 && (
         <p data-testid="dish-card-unpreviewable" className="text-2xs text-muted mb-2">
           Some changes could not be previewed — accepting still applies them.
-          {diff!.other.length > 0 && ` ${diff!.other.map((o) => o.label).join(', ')}`}
+          {` ${unpreviewed.join(', ')}`}
         </p>
       )}
       <article data-testid="dish-card" className="border border-hairline-strong bg-panel">
@@ -110,7 +115,7 @@ export default function DishCard({ draft, diff, ops, technical, showDetail }: {
                 <span aria-hidden="true" className="w-[8px] h-[8px] rounded-[50%] bg-success" />
                 <span className="text-2xs uppercase tracking-[0.1em] text-muted">Nutrition — USDA-verified</span>
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-[2px] font-mono text-2xs text-muted">
+              <div className="grid grid-cols-2 gap-x-[16px] gap-y-[2px] font-mono text-2xs text-muted">
                 <span>protein {fmt(nutrition.protein_g)} g</span><span>carbs {fmt(nutrition.carbs_g)} g</span>
                 <span>fat {fmt(nutrition.fat_g)} g</span><span>fiber {fmt(nutrition.fiber_g)} g</span>
                 <span>sat fat {fmt(nutrition.sat_fat_g)} g</span><span>sugar {fmt(nutrition.sugar_g)} g</span>
@@ -298,11 +303,11 @@ function FlavorRow({ row }: { row: Row<FlavorClaim> }) {
 }
 
 // buildStationChips (design "Cooking for", lines 365-373): skill/serves/avoid
-// (allergens)/equipment/on hand, PLUS dietary — the design's own stationChips
-// array (line 1103) omitted it; every constraint field gets a home here.
-// Empty array fields render "—", matching what the design already did for
-// `avoid` (line 1105) rather than the silent blank the design left for
-// equipment/on_hand.
+// (allergens)/equipment/on hand, PLUS dietary and cuisine — the design's own
+// stationChips array (line 1103) omitted both; every Constraints field gets a
+// home here (§9). Empty array fields render "—", matching what the design
+// already did for `avoid` (line 1105) rather than the silent blank the design
+// left for equipment/on_hand.
 function buildStationChips(c: Constraints): { k: string; v: string }[] {
   const arr = (xs: string[] | null | undefined) => {
     const items = list(xs)
@@ -315,6 +320,7 @@ function buildStationChips(c: Constraints): { k: string; v: string }[] {
     { k: 'dietary', v: arr(c.dietary) },
     { k: 'equipment', v: arr(c.equipment) },
     { k: 'on hand', v: arr(c.on_hand) },
+    { k: 'cuisine', v: c.cuisine || '—' },
   ]
 }
 
