@@ -178,3 +178,12 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   attribution if a future release vendors it. Cost-table sources (BLS/ERS,
   public domain) added; safety rules noted as hand-authored from FSIS/CDC.
   Oracle: clean-worktree `docker compose up` + only .env served the full loop.
+- **2026-07-07 · 6.2 deviations/deferrals ledger (hand-back).** Deferred:
+  duplicate `proposal-heading` id in alternatives view (focus-protocol
+  load-bearing); trial-pill delta summaries unwired (VersionItem carries no
+  ops; `summaryOf` prop ready); gate shortcuts remappable via localStorage
+  only (no UI); dashboard ~MIN segment omitted (no total-time in the model).
+  Known stub limits (test-covered): near-identical alternatives; streaming/
+  move-failed/reconnect visuals uncapturable. Not vendored: KitcheNette
+  (notice records non-distribution). USER actions pending: log T1 amendment
+  at milestone-02 start; Gate D merge decision.

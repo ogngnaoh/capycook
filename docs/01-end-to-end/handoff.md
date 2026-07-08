@@ -1,31 +1,23 @@
 # Handoff — Milestone 01 (end-to-end build)
 
 ## Next session start here
-Process the **Gate C verdict** (re-presented 2026-07-07 after the redirect
-converged; artifact gallery + full set in evidence/phase5/). If converged AND
-seeds ratified: copy `docs/01-end-to-end/proposed-benchmark-seeds.json` →
-`eval/fixtures/seeds.json` + dated CHANGELOG entry, refresh the T1-amendment
-SHA, then task **5.5** (demo GIFs via `web/tools/shots.mjs`-style automation +
-full README), `git tag phase-5-ui`, then Phase 6 (fork kit) → **Gate D**
-(present, never merge). On a redirect: loop via `web/tools/shots.mjs`
-(README in web/tools/; stub server on :8098, never :8099).
+**Gate D is open.** The user reviews the outcome and decides the merge:
+`git checkout master && git merge e2e` (never done autonomously). After the
+merge: milestone 02 begins — USER logs the T1 amendment
+(docs/01-end-to-end/T1-amendment-draft.md, §9 of PREREGISTRATION), then
+operator sessions + the labeling campaign.
 
 ## Current state
-- Branch `e2e`, ~35 commits this session. ALL 15 Gate-C-redirect tasks landed
-  (working doc 5.4R checklist all ✓): proposal-as-recipe canvas, two-level
-  gate + APG toolbar + shortcuts, TrialStrip, safety hold w/ evidence
-  (additive `ops` on proposal.blocked — logged), vocab/glosses, fiche canvas,
-  uncertainty ledger, GOV.UK forms, structure pass, narrow-viewport tabs.
-- Suites: 194 web tests (24 files) + 16 Go packages green; prod build ok.
-- Convergence sweep fixed two found defects: SPA deep-link 301 loop
-  (web/serve.go) and narrow header overflow.
-- User checkpoint mid-wave approved the IA; user prototypes live on :8099
-  (scratchpad DB `checkpoint.db`, .env keys, $2 cap — restart cmd in log of
-  this handoff's session; kill evidence servers by PORT, never pkill).
+- Branch `e2e`, tags phase-1-skeleton … phase-6-handback. All six phases
+  shipped; Gates A/B/C cleared (C: converged + all 13 seeds ratified,
+  bench-12 confirmed). Suites: 194 web / 16 Go pkgs green; e2e script PASS
+  local+docker; eval dry-run exports UNLABELED claims + empty PREREG table;
+  compose-from-clean-checkout PASS. Evidence index:
+  docs/01-end-to-end/evidence/README.md.
+- User prototyping instance: :8099, live DeepSeek, scratchpad DB — session
+  temporary; restart per DEPLOY.md or `make run` with .env.
 
 ## Active concerns
-- Gate C verdict + seed ratification outstanding; **bench-12 (pesto +
-  tree-nut allergen) needs explicit user confirmation** — deliberate stress seed.
-- Deferred: duplicate `proposal-heading` id in alternatives view; stub emits
-  near-identical alternatives (pre-existing); streaming/failed/reconnect
-  states remain stub-uncapturable (test-covered).
+- Gate D pending — do not merge without the user.
+- Deferral ledger in log.md (2026-07-07 6.2 entry); none block the merge.
+- PREREGISTRATION.md untouched all milestone (diff-verified empty).
