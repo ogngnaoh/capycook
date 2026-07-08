@@ -467,7 +467,7 @@ replayed token-cadence **after** the safety screen passes.
     evidence, focus-visible set, novice seed form, dashboard expand), both themes →
     evidence/phase5/; self-critique. **→ STOP: re-present Gate C** (visual judgment
     + seed ratification incl. bench-12 tree-nut stress seed).
-- [ ] **5.5 demo GIFs + full README** — Record GIFs via browser automation: (1) seed →
+- [x] **5.5 demo GIFs + full README** (done 2026-07-07; tag phase-5-ui) — Record GIFs via browser automation: (1) seed →
   streaming move → accept → history; (2) safety block on garlic-oil steer;
   (3) restart-survival; (4) post-cook iterate. Save to `docs/media/`, embed in
   README. Complete README: related-work positioning, self-host honesty note, safety
