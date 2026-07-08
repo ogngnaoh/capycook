@@ -1,13 +1,6 @@
 # CapyCook — Dish Development Workbench
 
-> **Status (2026-07-07): mid-build — zero eval data exists.** The workbench and the
-> full human-gated loop are built and demoable (stub-LLM mode runs keyless); the eval
-> methodology is pre-registered and frozen ([`docs/PREREGISTRATION.md`](docs/PREREGISTRATION.md),
-> registered 2026-07-01 — zero eval data existed at registration). The [Results](#results)
-> section below is **structure only** — it fills when the human-led measurement campaign
-> (milestone 02) completes. The pre-registration document satisfies the "register the
-> methodology and hypothesis before any run" requirement (DESIGN §15 v0); this note records
-> that substitution explicitly.
+> **Status:** built & demoable (keyless stub mode); eval campaign in progress — methodology pre-registered & frozen before any data ([docs/PREREGISTRATION.md](docs/PREREGISTRATION.md), 2026-07-01).
 
 **CapyCook** is an open-source, self-hostable **human-in-the-loop workbench** for cooks
 who want to *develop and understand their own dishes*, not just fetch or generate a recipe.
@@ -112,17 +105,14 @@ source of truth — this section summarizes it and restates nothing.
 
 ## Results
 
-> **No eval data yet — results land in milestone 02 after the human-led measurement
-> campaign.** The table below is structure only. Per PREREGISTRATION §7a the three
-> rates are computed over the checkable denominator; `grounded-mischaracterized`
-> counts neither for nor against.
+**No eval data yet.** Results land here when the pre-registered campaign (milestone 02) completes; methodology is frozen in [docs/PREREGISTRATION.md](docs/PREREGISTRATION.md).
 
-| Arm | Provenance/honesty rate | Mischaracterization rate | Hallucination rate |
-|---|---|---|---|
-| Ungrounded | — | — | — |
-| FlavorGraph-only | — | — | — |
-| Grounded | — | — | — |
-| Gate dynamics (accept/edit/regenerate/reject/redirect; single-operator telemetry, explicit N) | — | — | — |
+When they land, this section reports, per PREREGISTRATION §7a (rates over the
+checkable denominator; `grounded-mischaracterized` counts neither for nor against):
+
+- **Per-arm rates** — provenance/honesty, mischaracterization, hallucination, with explicit denominators (ungrounded · FlavorGraph-only · grounded).
+- **Labeling reliability** — pre-adjudication Cohen's κ + confusion matrix over the double-labeled set.
+- **Gate dynamics (H2)** — accept/edit/regenerate/reject/redirect per move-category; single-operator telemetry with explicit N (its own table — different columns than the rates).
 
 ## Quickstart (fork & run)
 

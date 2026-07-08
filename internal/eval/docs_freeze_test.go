@@ -66,60 +66,42 @@ func TestREADMEMethodologyLinksPrereg(t *testing.T) {
 	}
 }
 
-// TestREADMEResultsTableEmpty pins the stop-line: the results table is
-// structure only — three arm rows + a gate-dynamics row, every data cell
-// exactly "—", under the bold no-eval-data banner.
+// TestREADMEResultsTableEmpty pins the anti-fabrication guard on the Results
+// section: it must show the exact no-eval-data banner, and it must contain
+// no fabricated results — no all-dash placeholder table row and no
+// digit-bearing rate-like cell — before the pre-registered campaign
+// (milestone 02) completes.
 func TestREADMEResultsTableEmpty(t *testing.T) {
 	section := resultsSection(t)
 
-	// Normalize blockquote markers and hard wraps so the banner check sees
-	// the rendered sentence, not the source line breaks.
-	normalized := strings.Join(strings.Fields(strings.ReplaceAll(section, ">", " ")), " ")
-	banner := "**No eval data yet — results land in milestone 02 after the human-led measurement campaign"
-	if !strings.Contains(normalized, banner) {
-		t.Errorf("results section missing the bold no-data banner %q", banner)
+	banner := "**No eval data yet.** Results land here when the pre-registered campaign (milestone 02) completes; methodology is frozen in [docs/PREREGISTRATION.md](docs/PREREGISTRATION.md)."
+	if !strings.Contains(section, banner) {
+		t.Errorf("results section missing the no-data banner %q", banner)
 	}
 
-	var tableRows []string
 	for _, line := range strings.Split(section, "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "|") || strings.Contains(line, "---") {
 			continue // not a table row, or the separator row
 		}
-		tableRows = append(tableRows, line)
-	}
-	if len(tableRows) == 0 {
-		t.Fatalf("results section has no table")
-	}
-	bodyRows := tableRows[1:] // tableRows[0] is the header row
-	if len(bodyRows) != 4 {
-		t.Fatalf("results table body rows = %d, want 4 (three arms + gate dynamics):\n%s",
-			len(bodyRows), strings.Join(bodyRows, "\n"))
-	}
-	for _, label := range []string{"ungrounded", "flavorgraph", "grounded", "gate dynamics"} {
-		found := false
-		for _, row := range bodyRows {
-			if strings.Contains(strings.ToLower(row), label) {
-				found = true
+		cells := strings.Split(strings.Trim(line, "|"), "|")
+		if len(cells) < 2 {
+			continue
+		}
+		allDash := true
+		for _, cell := range cells[1:] { // cells[0] is the row label
+			if strings.TrimSpace(cell) != "—" {
+				allDash = false
 				break
 			}
 		}
-		if !found {
-			t.Errorf("results table missing a %q row", label)
+		if allDash {
+			t.Errorf("results section has an all-dash placeholder row %q (retired — fabrication risk)", line)
 		}
 	}
-	for _, row := range bodyRows {
-		cells := strings.Split(strings.Trim(row, "|"), "|")
-		if len(cells) < 2 {
-			t.Errorf("row %q has no data cells", row)
-			continue
-		}
-		for _, cell := range cells[1:] { // cells[0] is the row label
-			if got := strings.TrimSpace(cell); got != "—" {
-				t.Errorf("results cell in %q = %q, want %q (structure only — no values ever pre-filled)",
-					cells[0], got, "—")
-			}
-		}
+
+	if rateRe := regexp.MustCompile(`\|\s*[0-9]+(\.[0-9]+)?%?\s*\|`); rateRe.MatchString(section) {
+		t.Errorf("results section has a digit-bearing rate-like cell (data cannot be faked in before the campaign)")
 	}
 }
 
