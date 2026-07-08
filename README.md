@@ -51,6 +51,50 @@ through the gate for your approval — closing the develop → cook → iterate 
 
 ![After cooking, tasting notes drive a post-cook rework proposal through the gate](docs/media/04-post-cook-rework.gif)
 
+## Architecture
+
+### The move/gate loop (the core state machine)
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+stateDiagram-v2
+    [*] --> Draft: seed intake (v0)
+    Draft --> Generating: move kickoff (creative)
+    Draft --> Deterministic: move kickoff (deterministic, no LLM)
+    Generating --> Draft: cancel (in-flight only)
+    Generating --> SafetyScreen: LLM proposal
+    Deterministic --> SafetyScreen: computed proposal
+    SafetyScreen --> Blocked: violation (hard-block, v0)
+    Blocked --> Generating: regenerate / redirect (ask-for-changes)
+    SafetyScreen --> Versioned: pass, deterministic + dial on — auto-advance
+    SafetyScreen --> Gate: pass, creative or dial off
+    Gate --> Versioned: accept / edit / take-over
+    Gate --> Generating: regenerate / redirect (new steer)
+    Versioned --> Draft: next move
+```
+
+### System data-flow (one grounded move)
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    S[Seed / current draft] --> E[Deterministic evidence<br/>FlavorGraph + USDA/FoodOn<br/>arm-gated matrix]
+    E --> P[LLM proposal<br/>DeepSeek or stub]
+    S --> D[Deterministic services<br/>cost · nutrition · scale · convert<br/>no LLM]
+    P --> G{Safety gate<br/>deterministic, hard-block}
+    D --> G
+    G -->|pass, deterministic + dial on| V[(Versioned draft<br/>SQLite + event log)]
+    G -->|pass, creative or dial off| H{Human gate<br/>accept · edit · regenerate<br/>redirect · take-over}
+    G -->|block| X[ask-for-changes]
+    H -->|accept / edit / take-over| V
+    P -.->|OTel span| L[Langfuse traces]
+```
+
+The gate's live verb set is six (`accept · edit · regenerate · alternatives · redirect ·
+take_over`); PREREGISTRATION's frozen-five reporting taxonomy (`accept/edit/regenerate/
+reject/redirect`) is a stated eval roll-up, not a literal gate action — `reject` there maps
+to cancelling a move before it ever reaches the gate (see `internal/eval/mapping.go`).
+
 ## How it works
 
 - **A hand-rolled move/gate state machine, not `prompt → response`.** Each turn is a *move*
