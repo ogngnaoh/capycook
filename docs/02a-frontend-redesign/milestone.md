@@ -22,7 +22,9 @@
 **Integration notes**
 - `Workbench.tsx` wire logic (SSE, resync, runGate/409, promote, dial) is kept verbatim; only presentation swaps. `mergeDiff` powers the on-dish diff; empty `moveType` = server-side auto classification (existing contract).
 - Deliberate field omissions to disclose: `Citation.date` not rendered (chips show source·ref); per-version move-type slugs unavailable on the wire (`VersionItem` carries none) so timeline tech view shows ver ids only.
-- Deletes `TrialStrip/SteeringPane/DraftPane/ProposedDraftView/SafetyBlock/RailTabs/VersionHistory/ProposalCard/DiffMark` once assertions are re-homed.
+- Deletes `TrialStrip/SteeringPane/DraftPane/ProposedDraftView/SafetyBlock/RailTabs/VersionHistory/ProposalCard/DiffMark` once assertions are re-homed (plus `Chips`/`UncertaintyLedger`, orphaned by those deletions).
+- Deliberate IA decision (final review, 2026-07-08): viewing a past-trial snapshot hides an active gate bar until "Back to current" — the snapshot is read-only context; the pending decision still shows in the timeline's pending node. (Pre-redesign the gate stayed visible over snapshots.)
+- Post-merge backlog (final review minors): formatWhen NNBSP hardening for newer ICU browsers; alternatives-picker narrow collapse; another-mode shortcut-hint truthfulness (G/L/R/T hints render but only fire in decide mode); GateBar remapped-shortcut + Home/End test coverage; demo.mjs rewrite; cuisine "· v0" suffix.
 
 **Exit criteria**
 - `cd web && npx tsc -b && npx vitest run` green; `make test` green.
