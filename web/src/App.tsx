@@ -58,13 +58,13 @@ function Home({ onNavigate, routeNonce }: { onNavigate: (to: string) => void; ro
   }, [routeNonce])
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-9">
+    <div className="max-w-3xl mx-auto px-4 pt-6 pb-8 space-y-6">
       <header className="h-header flex items-center border-b border-hairline">
         <h1 ref={headingRef} tabIndex={-1} className="uppercase font-medium text-sm focus:outline-none">
           CapyCook <span className="text-muted font-regular">— dish development workbench</span>
         </h1>
       </header>
-      <main className="space-y-9">
+      <main className="space-y-6">
         <SeedSetup onCreated={(d) => onNavigate(`/dishes/${d.id}`)} />
         <section aria-labelledby="recent-dishes-heading" className="space-y-3 border-t border-hairline pt-5">
           <h2 id="recent-dishes-heading" className="text-2xs uppercase tracking-ui text-muted">
@@ -81,7 +81,7 @@ function Home({ onNavigate, routeNonce }: { onNavigate: (to: string) => void; ro
               {dishes.map((d) => (
                 <li key={d.id}>
                   <button onClick={() => onNavigate(`/dishes/${d.id}`)}
-                    className="w-full min-h-11 flex items-center justify-between gap-4 border border-hairline-strong bg-panel px-4 py-3 text-left transition hover:bg-surface">
+                    className="w-full min-h-[44px] flex items-center justify-between gap-4 border border-hairline-strong bg-panel px-4 py-3 text-left transition hover:bg-surface">
                     <span className="truncate font-medium text-ink">{d.title}</span>
                     <span className="font-mono text-2xs text-faint shrink-0">{new Date(d.updated_at).toLocaleString()}</span>
                   </button>

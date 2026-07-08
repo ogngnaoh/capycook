@@ -160,7 +160,7 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
             const on = values.allergens.includes(a)
             return (
               <button key={a} type="button" aria-pressed={on} onClick={() => toggleAllergen(a)}
-                className={`min-h-8 border px-3 py-2 text-2xs uppercase tracking-ui transition ${
+                className={`min-h-[32px] border px-3 py-2 text-2xs uppercase tracking-ui transition ${
                   on ? 'border-accent bg-accent-soft text-ink' : 'border-hairline-strong bg-panel text-ink hover:border-accent'}`}>
                 {a}
               </button>
@@ -222,7 +222,7 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
 
       <div className="flex items-center gap-3 pt-1">
         <button type="submit" disabled={submitting}
-          className="min-h-11 border border-accent px-5 py-3 text-base font-medium uppercase tracking-ui enabled:bg-accent enabled:text-on-accent disabled:border-hairline-strong disabled:bg-surface disabled:text-muted">
+          className="min-h-[44px] border border-accent px-5 py-3 text-base font-medium uppercase tracking-ui enabled:bg-accent enabled:text-on-accent disabled:border-hairline-strong disabled:bg-surface disabled:text-muted">
           {submitting ? 'Developing…' : 'Develop this dish →'}
         </button>
         <span className="text-2xs text-faint">or press Enter</span>
