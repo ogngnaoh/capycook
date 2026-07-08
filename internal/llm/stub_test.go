@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ogngnaoh/capycook/internal/draft"
+	"github.com/ogngnaoh/capycook/internal/grounding"
 	"github.com/ogngnaoh/capycook/internal/proposal"
 )
 
@@ -208,5 +209,46 @@ func TestStubSeededGarlicOil(t *testing.T) {
 				t.Errorf("infuse_oil step text %q does not mention garlic", infuseStep.Text)
 			}
 		})
+	}
+}
+
+func TestStubSetsProvenanceFromEvidence(t *testing.T) {
+	req := MoveRequest{
+		Draft:    baseDraft(),
+		MoveType: MoveTypeFlavorDirection,
+		Evidence: Evidence{Pairings: []grounding.Pairing{{Ingredient: "basil", Score: 0.9}}},
+	}
+	p, err := Stub{}.GenerateMove(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applied, err := req.Draft.Apply(p.Change)
+	if err != nil {
+		t.Fatalf("Apply(Change) error: %v", err)
+	}
+	var got *string
+	for _, fc := range applied.FlavorRationale {
+		if fc.Provenance != nil {
+			got = fc.Provenance
+		}
+	}
+	if got == nil || *got != "pairing:basil" {
+		t.Fatalf("flavor claim provenance = %v, want pairing:basil", got)
+	}
+
+	// No evidence (ungrounded arm) => provenance stays nil.
+	req.Evidence = Evidence{}
+	p, err = Stub{}.GenerateMove(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applied, err = req.Draft.Apply(p.Change)
+	if err != nil {
+		t.Fatalf("Apply(Change) error: %v", err)
+	}
+	for _, fc := range applied.FlavorRationale {
+		if fc.Provenance != nil {
+			t.Fatalf("ungrounded stub claim carries provenance %q, want nil", *fc.Provenance)
+		}
 	}
 }

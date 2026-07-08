@@ -34,9 +34,19 @@ func (Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Proposa
 		return proposal.Proposal{}, fmt.Errorf("llm: unknown move type %q", req.MoveType)
 	}
 	proposed := clone(req.Draft)
+	before := len(proposed.FlavorRationale)
 	tmpl.mutate(&proposed)
 	if strings.Contains(strings.ToLower(req.Steer), "garlic oil") {
 		addGarlicOil(&proposed)
+	}
+	// Pinned-vocabulary provenance (Amendment 1 / Tier-1 dry-run coverage):
+	// flavor claims appended by this move cite the first supplied pairing,
+	// exactly as the prompt contract instructs the live model to.
+	if len(req.Evidence.Pairings) > 0 && len(proposed.FlavorRationale) > before {
+		ref := "pairing:" + req.Evidence.Pairings[0].Ingredient
+		for i := before; i < len(proposed.FlavorRationale); i++ {
+			proposed.FlavorRationale[i].Provenance = &ref
+		}
 	}
 	change := proposal.ComputeDiff(req.Draft, proposed)
 	rationale := tmpl.rationale
