@@ -63,6 +63,21 @@
   .row-add    { background: var(--color-success-surface); box-shadow: inset 3px 0 var(--color-success); }
   .row-change { background: var(--color-success-surface); box-shadow: inset 3px 0 var(--color-accent); }
   .cc-rise { animation: cc-rise .18s ease both; }
+
+  /* The workbench body (design 142-144): the 308px timeline spine beside the
+     1fr stage. Below --bp-md it stacks to a single column with the stage
+     first (order) and the timeline reflowed underneath with a top hairline in
+     place of its desktop right border (design 40-45). */
+  .wb-grid { display: grid; grid-template-columns: 308px 1fr; }
+  @media (max-width: 1023px) {
+    .wb-grid { grid-template-columns: 1fr; }
+    .wb-grid > section { order: -1; }
+    .wb-grid > aside {
+      width: 100%;
+      border-right: none;
+      border-top: var(--border-width) solid var(--color-border);
+    }
+  }
 }
 
 @keyframes cc-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

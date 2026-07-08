@@ -1,31 +1,40 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  DishDetail, Draft, GateRequestBody, GateVerb, Op, Proposal,
-  VersionItem, VersionsResponse,
+  DishDetail, DishState, GateRequestBody, GateVerb, LLMStatusResponse,
+  MoveType, Proposal, VersionItem, VersionsResponse,
 } from '../types'
 import { list } from '../types'
 import {
   ApiError, getDish, getLLMStatus, getVersions, openDishStream, postCancel,
   postGate, postMove, promoteVersion, setAutonomyDial,
 } from '../api'
-import DraftPane from './DraftPane'
-import SteeringPane, { type ThreadEntry } from './SteeringPane'
+import TimelineSpine from './TimelineSpine'
+import DishCard from './DishCard'
+import { TrustStrip } from './TrustStrip'
 import GateBar from './GateBar'
-import ProposedDraftView from './ProposedDraftView'
+import ProposingCard from './ProposingCard'
+import SafetyHold from './SafetyHold'
+import ProposalHeader from './ProposalHeader'
 import AlternativesPicker from './AlternativesPicker'
-import SafetyBlock from './SafetyBlock'
+import { Toast } from './Toast'
+import IntentBar from './IntentBar'
+import CookFlow from './CookFlow'
 import DialToggle from './DialToggle'
 import ThemeToggle from './ThemeToggle'
-import TrialStrip from './TrialStrip'
-import RailTabs, { type RailTab } from './RailTabs'
-
+import { buildTimeline } from '../lib/trials'
+import { mergeDiff } from '../lib/mergeDiff'
 import {
   ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED, ANNOUNCE_PROPOSING,
-  GATE_ANNOUNCE, STATE_GLOSS, STATE_LABEL, VERB_LABEL,
+  GATE_ANNOUNCE, MOVE_LABEL, STATE_LABEL, VERB_LABEL,
   announceAlternatives, announceProposalReady, promotedToService, shortRef,
   trialAlias,
 } from '../vocab'
-import { opLineLabel } from '../lib/pathLabels'
+
+// The persisted Technical-view preference: once a power user flips it on,
+// raw ops/confidence/provenance return at full density on every proposal.
+// Same key the retired proposed-draft view used, so the preference survives
+// the redesign unchanged.
+const TECH_VIEW_KEY = 'capycook-technical-view'
 
 // LastMove is the most recent move this view dispatched — the retry target
 // for the move-failed banner.
@@ -35,20 +44,12 @@ interface LastMove {
   baseVersion?: string
 }
 
-// VerbPanel is the verb-specific UI opened over the draft: the edit form,
-// the take-over draft editor, the redirect steer prompt, or the
-// warn-and-confirm override prompt for human writes.
-type VerbPanel =
-  | { kind: 'edit'; proposal: Proposal }
-  | { kind: 'take_over'; target: string }
-  | { kind: 'redirect'; target: string }
-  | { kind: 'override'; message: string; resend: GateRequestBody }
-  | null
-
-// Workbench is the per-dish screen: it loads the dish, holds the one
-// persistent EventSource, and drives moves and all six gate verbs against
-// the real API. All gate state is server-owned; SSE events update the local
-// view and every reconnect re-syncs via GET.
+// Workbench is the per-dish screen (redesign direction A): a sticky header
+// of chrome, the timeline spine, and the stage — the dish rendered in one of
+// its lifecycle states with the gate bar the one fixed decision control. It
+// loads the dish, holds the one persistent EventSource, and drives moves and
+// all six gate verbs against the real API. All gate state is server-owned;
+// SSE events update the local view and every reconnect re-syncs via GET.
 export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   dishId: string
   onNavigate: (to: string) => void
@@ -62,16 +63,30 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const routeFocused = useRef(false)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [thread, setThread] = useState<ThreadEntry[]>([])
+
+  // The proposing stream (replaces the old thread): rationale tokens for the
+  // move this view awaits, accumulated live and rendered in the ProposingCard.
+  const [streamText, setStreamText] = useState('')
+  // Cook feedback captured per version, surfaced back in the timeline node.
+  const [cookNotes, setCookNotes] = useState<Record<string, string>>({})
+  // The one-line bottom-center confirmation chip.
+  const [toast, setToast] = useState('')
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [technical, setTechnical] = useState(() => localStorage.getItem(TECH_VIEW_KEY) === '1')
+
   const [moveFailed, setMoveFailed] = useState<{ moveId: string; reason: string } | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [reconnecting, setReconnecting] = useState(false)
-  const [panel, setPanel] = useState<VerbPanel>(null)
+  // The warn-and-confirm override for a human write that trips the safety gate.
+  const [override, setOverride] = useState<{ message: string; resend: GateRequestBody } | null>(null)
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null)
+  // Among two+ alternatives, whether the cook has picked one to develop — the
+  // compare view then yields to that proposal's diff view + gate bar.
+  const [picked, setPicked] = useState(false)
   const [suggestedNext, setSuggestedNext] = useState<string[]>([])
   const [versions, setVersions] = useState<VersionsResponse | null>(null)
   const [snapshot, setSnapshot] = useState<VersionItem | null>(null)
-  const [stubMode, setStubMode] = useState(false)
+  const [status, setStatus] = useState<LLMStatusResponse | null>(null)
   const lastMove = useRef<LastMove | null>(null)
   // expectedMove is the move id this view is waiting a proposal for: set on
   // POST /move, on gate verbs that spawn a move, and from inFlightMoveId on
@@ -82,32 +97,32 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   const expectedMove = useRef<string | null>(null)
 
   // The permanent status region (P1): one sentence per gate-lifecycle
-  // transition, pushed here and rendered in a pre-existing sr-only
-  // role="status" element. Never the token stream. The nudge toggle makes
-  // repeated identical messages re-announce (live regions only speak on
-  // DOM change).
+  // transition, pushed here and rendered in an sr-only role="status" element.
+  // Never the token stream. The nudge toggle makes repeated identical
+  // messages re-announce (live regions only speak on DOM change).
   const [liveMessage, setLiveMessage] = useState('')
   const announceNudge = useRef(false)
   const announce = useCallback((msg: string) => {
     announceNudge.current = !announceNudge.current
-    setLiveMessage(msg + (announceNudge.current ? '' : ' '))
+    setLiveMessage(msg + (announceNudge.current ? '' : ' '))
   }, [])
   // pendingCountRef lets SSE handlers distinguish a first proposal from an
   // arriving alternative without re-subscribing on every detail change.
   const pendingCountRef = useRef(0)
 
-  // Which region owns the screen below --bp-md (task 14). Inert on desktop —
-  // the CSS toggles only fire under max-md, so every value leaves the ≥md
-  // layout pixel-identical. Defaults to the canvas (the recipe is the spine).
-  const [activeTab, setActiveTab] = useState<RailTab>('recipe')
-  const prevPendingRef = useRef(0)
+  // flash shows the toast for a beat, then clears it (timer kept in a ref so a
+  // second flash resets the clock rather than stacking timers).
+  const flash = useCallback((msg: string) => {
+    setToast(msg)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(''), 2600)
+  }, [])
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
 
-  // The stub-mode banner (task 3.3): GET /api/status reports which model
-  // edge is wired. Advisory only — a failed fetch leaves the banner off.
+  // The stub-mode strip: GET /api/status reports which model edge is wired
+  // plus the budget meter. Advisory only — a failed fetch leaves it off.
   useEffect(() => {
-    getLLMStatus()
-      .then((s) => setStubMode(s.llm_mode === 'stub'))
-      .catch(() => {})
+    getLLMStatus().then(setStatus).catch(() => {})
   }, [])
 
   const resync = useCallback(async () => {
@@ -126,10 +141,13 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   useEffect(() => {
     void resync()
     const stream = openDishStream(dishId, {
-      onToken: (e) => setThread((t) => appendToken(t, e.moveId, e.text)),
+      onToken: (e) => {
+        // Only the awaited move's tokens grow the ProposingCard.
+        if (e.moveId === expectedMove.current) setStreamText((t) => t + e.text)
+      },
       onProposalReady: (e) => {
-        setThread((t) => finishTokens(t, e.moveId))
         if (e.moveId !== expectedMove.current) return // stale replay tail
+        setStreamText('')
         setSuggestedNext(list(e.proposal.suggested_next))
         setSelectedProposalId((cur) => cur ?? e.proposal.id)
         setDetail((d) => (d ? addPending(d, e.proposal) : d))
@@ -138,26 +156,26 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         announce(arriving > 1
           ? announceAlternatives(arriving)
           : announceProposalReady(list(e.proposal.change).length))
-        setTimeout(() => document.getElementById('proposal-heading')?.focus(), 0)
+        focusDecision()
       },
       onProposalBlocked: (e) => {
-        setThread((t) => finishTokens(t, e.moveId))
+        setStreamText('')
         setDetail((d) => (d ? {
           ...d, state: 'blocked', blocked: e,
           pendingProposal: undefined, pendingProposals: undefined,
           inFlightMoveId: undefined,
         } : d))
       },
-      onMoveCancelled: (e) => {
+      onMoveCancelled: () => {
+        setStreamText('')
         announce(ANNOUNCE_MOVE_CANCELLED)
-        setThread((t) => [...finishTokens(t, e.moveId), { kind: 'info', text: 'move cancelled' }])
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
           : d))
       },
       onMoveFailed: (e) => {
+        setStreamText('')
         announce(ANNOUNCE_MOVE_FAILED)
-        setThread((t) => finishTokens(t, e.moveId))
         setMoveFailed(e)
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
@@ -170,6 +188,8 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       },
     })
     return () => stream.close()
+    // focusDecision/announce are stable callbacks; resync is the only real dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dishId, resync])
 
   const pending = detail
@@ -177,39 +197,25 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     : []
   const selected = pending.find((p) => p.id === selectedProposalId) ?? pending[0] ?? null
 
-  // A proposal arriving is the decision moment: below --bp-md the tabs auto-
-  // switch to Recipe so the gate surface (the would-be recipe on the canvas)
-  // is what the cook sees, not whatever tab they left open (task 14 §5b). Fires
-  // only on the 0→pending edge, so it never fights a deliberate tab switch made
-  // while the gate is already up.
-  useEffect(() => {
-    if (pending.length > 0 && prevPendingRef.current === 0) setActiveTab('recipe')
-    prevPendingRef.current = pending.length
-    pendingCountRef.current = pending.length
-  }, [pending.length])
+  useEffect(() => { pendingCountRef.current = pending.length }, [pending.length])
 
-  // A safety hold is likewise a canvas-owned decision — surface it on Recipe.
-  useEffect(() => {
-    if (detail?.state === 'blocked') setActiveTab('recipe')
-  }, [detail?.state])
-
-  async function refreshVersions() {
+  const refreshVersions = useCallback(async () => {
     try {
       setVersions(await getVersions(dishId))
     } catch (err) {
       setActionError(errMessage(err))
     }
-  }
+  }, [dishId])
 
-  // The trial strip is persistent (no toggle), so the record loads with
-  // the dish and refreshes after every version-changing action.
-  useEffect(() => { void refreshVersions() }, [dishId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The timeline loads with the dish and refreshes after every version-changing
+  // action.
+  useEffect(() => { void refreshVersions() }, [refreshVersions])
 
   // The workbench owns the per-dish document title; it re-reads when the draft
   // title changes (accept/edit) and only after the dish has loaded (audit #9).
   useEffect(() => {
     if (detail) document.title = `${detail.draft.title || detail.seed} — CapyCook`
-  }, [detail?.draft.title, detail?.seed])
+  }, [detail?.draft.title, detail?.seed, detail])
 
   // Route-change focus: land on the dish title once the dish has loaded, but
   // only when the cook navigated here (routeNonce > 0) — and only once, so a
@@ -221,73 +227,78 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     }
   }, [routeNonce, detail])
 
+  // focusDecision lands focus on whatever decision surface survives a
+  // transition (P1): the gate bar's first verb when awaiting, the Stop control
+  // while proposing, the stage heading otherwise. The blocked hold focuses
+  // itself on mount, so it needs nothing here.
+  const focusDecision = useCallback(() => {
+    setTimeout(() => {
+      const gateBtn = document.querySelector<HTMLElement>('[data-testid="gate-bar"] button[data-verb]')
+      if (gateBtn) { gateBtn.focus(); return }
+      const stop = document.querySelector<HTMLElement>('[data-testid="proposing-card"] button')
+      if (stop) { stop.focus(); return }
+      document.getElementById('stage-heading')?.focus()
+    }, 0)
+  }, [])
+
   // propose starts a move; with baseVersion it is the post-cook flow — the
   // feedback rides as steer and the move runs against the cooked version.
-  async function propose(moveType: string, steer: string, baseVersion?: string) {
+  const propose = useCallback(async (moveType: string, steer: string, baseVersion?: string) => {
     announce(ANNOUNCE_PROPOSING)
     setMoveFailed(null)
     setActionError(null)
+    setStreamText('')
     lastMove.current = { moveType, steer, baseVersion }
     const beforeVersion = detail?.currentVersionId ?? null
     try {
       const mv = await postMove(dishId, moveType, steer, baseVersion)
       expectedMove.current = mv.moveId ?? null
-      if (baseVersion) {
-        setThread((t) => [...t, { kind: 'cooked', versionId: baseVersion, feedback: steer }])
-      } else if (steer) {
-        setThread((t) => [...t, { kind: 'steer', text: steer }])
-      }
       const d = await getDish(dishId)
       setDetail(d)
-      // A deterministic move with the dial ON resolved before the 202
-      // returned (move_auto_advanced has no SSE event): collapse it into
-      // the thread.
+      // A deterministic move with the dial ON resolved before the 202 returned
+      // (move_auto_advanced has no SSE event): confirm it with a toast and
+      // refresh the timeline — no gate.
       if (d.state === 'idle' && d.currentVersionId && d.currentVersionId !== beforeVersion) {
-        const versionId = d.currentVersionId
-        setThread((t) => [...t, { kind: 'auto', moveType: moveType || 'move', versionId }])
+        const label = MOVE_LABEL[moveType as MoveType] ?? (moveType || 'move')
+        flash(`${label} — applied automatically (safe step)`)
+        announce(`${label} — applied automatically`)
         void refreshVersions()
       }
     } catch (err) {
       setActionError(errMessage(err))
     }
-  }
+  }, [announce, detail?.currentVersionId, dishId, flash, refreshVersions])
 
-  async function runGate(body: GateRequestBody) {
+  const runGate = useCallback(async (body: GateRequestBody) => {
     announce(GATE_ANNOUNCE[body.verb])
     setActionError(null)
     setMoveFailed(null)
     try {
       const res = await postGate(dishId, body)
-      // Verbs that spawn a move (regenerate/redirect/alternatives) hand
-      // over the wait to the new move id; resolving verbs clear it.
+      // Verbs that spawn a move (regenerate/redirect/alternatives) hand over
+      // the wait to the new move id; resolving verbs clear it.
       expectedMove.current = res.newMoveId ?? null
-      setPanel(null)
       setSelectedProposalId(null)
-      if (res.newVersionId) {
-        setThread((t) => [...t, { kind: 'info', text: `${res.verb} → new version ${res.newVersionId}` }])
-      } else if (res.newMoveId) {
-        setThread((t) => [...t, { kind: 'info', text: `${res.verb} → new move` }])
-      }
+      setPicked(false)
+      setStreamText('')
+      if (res.newVersionId) flash(`${VERB_LABEL[res.verb]} — saved to the timeline`)
       await resync()
       void refreshVersions()
-      // Gate resolve returns focus to whatever bar survives (P1): Cancel
-      // while the respawned move streams, or nothing when the dish idles.
-      focusGateBar()
+      focusDecision()
     } catch (err) {
-      // Human writes (edit/take_over) warn-and-confirm on a safety hit:
-      // the orchestrator answers 409 confirm-required until the cook
-      // explicitly overrides (recorded as safety_warning_overridden).
+      // Human writes (edit/take_over) warn-and-confirm on a safety hit: the
+      // orchestrator answers 409 confirm-required until the cook explicitly
+      // overrides (recorded as safety_warning_overridden).
       if (err instanceof ApiError && err.status === 409 && /confirm override/i.test(err.message)
         && (body.verb === 'edit' || body.verb === 'take_over')) {
-        // Show the cook the safety reasons only — the "orchestrator: safety
-        // warning requires confirm override:" prefix is wire plumbing.
+        // Show the cook the safety reasons only — the wire prefix is plumbing.
         const message = err.message.replace(/^.*?confirm override:\s*/i, '')
-        setPanel({ kind: 'override', message, resend: { ...body, confirmOverride: true } })
+        setOverride({ message, resend: { ...body, confirmOverride: true } })
         return
       }
       setActionError(errMessage(err))
     }
-  }
+  }, [announce, dishId, flash, focusDecision, refreshVersions, resync])
 
   // gateTarget resolves the gate's idempotency key for the current state: a
   // pending proposal id at the gate, the blocked move id while blocked.
@@ -297,31 +308,18 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     return selected?.id ?? null
   }
 
-  // Dispatching verbs return their promise so the gate bar can lock
-  // (disable + spinner) until the gate call settles; panel verbs open
-  // their form instantly and return void.
-  function onVerb(v: GateVerb): void | Promise<void> {
+  // onVerb dispatches the three verbs that resolve or respawn straight from a
+  // decision surface (accept/regenerate/alternatives); the form verbs
+  // (edit/redirect/take_over) submit from inside the GateBar/SafetyHold forms.
+  function onVerb(v: Extract<GateVerb, 'accept' | 'regenerate' | 'alternatives'>): Promise<void> | void {
     const target = gateTarget()
     if (!target) return
-    switch (v) {
-      case 'accept':
-      case 'regenerate':
-      case 'alternatives':
-        return runGate({ proposalId: target, verb: v })
-      case 'edit':
-        if (selected) setPanel({ kind: 'edit', proposal: selected })
-        return
-      case 'redirect':
-        setPanel({ kind: 'redirect', target })
-        return
-      case 'take_over':
-        setPanel({ kind: 'take_over', target })
-        return
-    }
+    return runGate({ proposalId: target, verb: v })
   }
 
   async function cancelMove() {
     setActionError(null)
+    setStreamText('')
     try {
       await postCancel(dishId)
       expectedMove.current = null
@@ -329,45 +327,6 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     } catch (err) {
       setActionError(errMessage(err))
     }
-  }
-
-  // Focus protocol (P1): panel cancel and gate resolve return focus to the
-  // gate bar — the panel's own controls unmount with it, so the nearest
-  // surviving origin of the flow is the bar (preferring the invoking verb
-  // when it is still on the surface).
-  const focusGateBar = useCallback((preferVerb?: GateVerb) => {
-    setTimeout(() => {
-      const bar = document.querySelector('[data-testid="gate-bar"]')
-      if (!bar) return
-      const buttons = Array.from(bar.querySelectorAll('button'))
-      const target = (preferVerb && buttons.find((b) => b.textContent === VERB_LABEL[preferVerb]))
-        ?? buttons[0]
-      target?.focus()
-    }, 0)
-  }, [])
-
-  function closePanel() {
-    setPanel(null)
-    focusGateBar()
-  }
-
-  function closeOverride(verb: GateVerb) {
-    setPanel(null)
-    focusGateBar(verb)
-  }
-
-  // Skip links (audit #10): the keyboard path to the gate crosses the header,
-  // the trial strip, and the whole draft — these jump straight there. Gate
-  // lands on the first live verb (its footer anchor when idle, no verbs up).
-  function skipToGate(e: React.MouseEvent) {
-    e.preventDefault()
-    const btn = document.querySelector<HTMLElement>('[data-testid="gate-bar"] button')
-    if (btn) btn.focus()
-    else document.getElementById('gate-bar-anchor')?.focus()
-  }
-  function skipToSteering(e: React.MouseEvent) {
-    e.preventDefault()
-    document.getElementById('steering-anchor')?.focus()
   }
 
   async function toggleDial(next: boolean) {
@@ -379,10 +338,17 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     }
   }
 
+  function toggleTechnical() {
+    setTechnical((on) => {
+      localStorage.setItem(TECH_VIEW_KEY, on ? '0' : '1')
+      return !on
+    })
+  }
+
   async function promote(versionId: string) {
     try {
       await promoteVersion(dishId, versionId)
-      setThread((t) => [...t, { kind: 'info', text: promotedToService(shortRef(versionId)) }])
+      flash(promotedToService(shortRef(versionId)))
       setSnapshot(null)
       await resync()
       void refreshVersions()
@@ -391,6 +357,30 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     }
   }
 
+  function viewSnapshot(id: string) {
+    const vs = list(versions?.versions)
+    const i = vs.findIndex((v) => v.id === id)
+    if (i < 0) return
+    setSnapshot(vs[i])
+    announce(`Viewing ${trialAlias(i + 1)}, read-only.`)
+  }
+
+  // Skip links (audit #10): jump the keyboard straight past the header to the
+  // dish or to whichever decision surface is live.
+  function skipToDish(e: React.MouseEvent) {
+    e.preventDefault()
+    document.getElementById('stage-heading')?.focus()
+  }
+  function skipToDecision(e: React.MouseEvent) {
+    e.preventDefault()
+    const gateBtn = document.querySelector<HTMLElement>('[data-testid="gate-bar"] button[data-verb]')
+    if (gateBtn) return gateBtn.focus()
+    const hold = document.querySelector<HTMLElement>('[data-testid="safety-hold"]')
+    if (hold) return hold.focus()
+    const intent = document.getElementById('cc-intent')
+    if (intent) return intent.focus()
+    document.getElementById('stage-heading')?.focus()
+  }
 
   if (loadError && !detail) {
     return (
@@ -405,91 +395,97 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   }
   if (!detail) return <div className="p-4 text-muted">Loading the dish…</div>
 
-  // The one permitted header flourish (brief §6): a precise live datum
-  // beside the title — TRIAL n · $x/SERVING — each segment only when true.
-  const trialIndex = versions ? list(versions.versions).findIndex((v) => v.id === detail.currentVersionId) : -1
-  const perServing = detail.draft.analysis.cost.per_serving_usd
-  const headerDatum = [
-    trialIndex >= 0 ? trialAlias(trialIndex + 1) : null,
-    perServing > 0 ? `$${perServing.toFixed(2)}/serving` : null,
-  ].filter(Boolean).join(' · ')
+  const displayDraft = snapshot ? snapshot.draft : detail.draft
+  const singlePending = pending.length === 1 ? pending[0] : null
+  const timelineData: VersionsResponse = versions ?? { currentVersionId: detail.currentVersionId, versions: [] }
+  const timelineNodes = buildTimeline(timelineData, {
+    viewingId: snapshot?.id ?? null,
+    cookNotes,
+    pendingProposal: singlePending ? { move_type: singlePending.move_type, change: singlePending.change ?? null } : null,
+    baseDraft: detail.draft,
+  })
+  const trialCount = list(timelineData.versions).length
+  const summary = trialCount === 0
+    ? 'No trials yet'
+    : `${trialCount} ${trialCount === 1 ? 'trial' : 'trials'} on the line`
+  const nextHint = detail.state === 'awaiting_gate' ? 'A change is waiting on your call.'
+    : detail.state === 'blocked' ? 'Resolve the safety hold to continue.'
+    : detail.state === 'proposing' ? 'A move is in progress…'
+    : 'Your next move continues the line of development.'
+  const currentIndex = list(timelineData.versions).findIndex((v) => v.id === detail.currentVersionId)
+  const currentLabel = trialAlias((currentIndex >= 0 ? currentIndex : 0) + 1)
+  const snapshotIndex = snapshot ? list(versions?.versions).findIndex((v) => v.id === snapshot.id) : -1
 
-  // The verb panels ride whichever canvas is up — the plain draft or the
-  // proposed-draft view — so gate flows survive the canvas takeover.
-  const verbPanels = (
-    <>
-      {panel?.kind === 'edit' && (
-        <EditForm proposal={panel.proposal} onCancel={closePanel}
-          onSubmit={(ops) => void runGate({ proposalId: panel.proposal.id, verb: 'edit', edit: { ops } })} />
-      )}
-      {panel?.kind === 'take_over' && (
-        <TakeOverForm draft={detail.draft} onCancel={closePanel}
-          onSubmit={(d) => void runGate({ proposalId: panel.target, verb: 'take_over', edit: { draft: d } })} />
-      )}
-      {panel?.kind === 'redirect' && (
-        <RedirectForm onCancel={closePanel}
-          onSubmit={(steer) => void runGate({ proposalId: panel.target, verb: 'redirect', edit: { steer } })} />
-      )}
-      {panel?.kind === 'override' && (
-        <OverridePrompt message={panel.message}
-          onCancel={() => closeOverride(panel.resend.verb)}
-          onConfirm={() => void runGate(panel.resend)} />
-      )}
-    </>
-  )
+  // Which surface owns the stage. Snapshot (read-only) wins; then the
+  // lifecycle state; alternatives yield to the picked proposal's diff view.
+  const isBlocked = !snapshot && detail.state === 'blocked' && !!detail.blocked
+  const isProposing = !snapshot && detail.state === 'proposing'
+  const showAlternatives = !snapshot && detail.state === 'awaiting_gate' && pending.length >= 2 && !picked
+  const showSingleProposal = !snapshot && detail.state === 'awaiting_gate' && !!selected && (pending.length === 1 || picked)
+  const isIdle = !snapshot && detail.state === 'idle'
 
   return (
-    <div className="flex flex-col h-screen bg-page text-ink">
+    <div className="min-h-screen bg-page text-ink">
       {/* Pre-existing at first render — live regions added later miss
           announcements. Gate lifecycle only; never the token stream. */}
       <div data-testid="gate-live-region" role="status" aria-live="polite" className="sr-only">
         {liveMessage}
       </div>
-      {/* First tabbable elements: keyboard jumps past header + trial strip +
-          draft straight to the two hot zones (audit #10). Off-screen until
-          focused via the .skip-link rule in index.css. */}
-      <a href="#gate-bar-anchor" onClick={skipToGate}
+      {/* First tabbable elements: keyboard jumps past the header straight to
+          the dish or the decision (audit #10). */}
+      <a href="#stage" onClick={skipToDish}
         className="skip-link px-2 py-1 uppercase border border-hairline bg-page text-ink">
-        Skip to gate bar
+        Skip to the dish
       </a>
-      <a href="#steering-anchor" onClick={skipToSteering}
+      <a href="#cc-gate" onClick={skipToDecision}
         className="skip-link px-2 py-1 uppercase border border-hairline bg-page text-ink">
-        Skip to steering
+        Skip to the decision
       </a>
-      <header className="h-header shrink-0 px-3 border-b border-hairline bg-page flex items-center gap-2 max-md:h-auto max-md:flex-wrap max-md:py-1">
+
+      <header className="sticky top-0 z-sticky h-header flex items-center gap-3 px-4 border-b border-hairline bg-panel max-md:h-auto max-md:flex-wrap max-md:py-1">
         <button onClick={() => onNavigate('/')}
-          className="shrink-0 px-2 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page">
+          className="shrink-0 inline-flex items-center min-h-[32px] px-[11px] uppercase font-medium text-[11px] tracking-[0.1em] border border-hairline-strong bg-transparent text-ink transition hover:bg-ink hover:text-page">
           Dishes
         </button>
-        <h1 ref={headingRef} tabIndex={-1} className="font-medium text-sm truncate focus:outline-none min-w-0">{detail.draft.title || detail.seed}</h1>
-        {headerDatum && (
-          <span className="shrink-0 font-mono text-2xs text-muted uppercase">{headerDatum}</span>
-        )}
-        <span className="uppercase text-muted shrink-0">{STATE_LABEL[detail.state] ?? detail.state}</span>
-        {STATE_GLOSS[detail.state] && (
-          <span className="normal-case text-2xs text-muted shrink-0">— {STATE_GLOSS[detail.state]}</span>
-        )}
-        {stubMode && (
-          <span data-testid="stub-banner"
-            className="shrink-0 px-1 font-mono text-2xs bg-info-surface text-info">
-            stub mode — no model key
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-1">
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="font-bold tracking-[0.02em] shrink-0">CapyCook</span>
+          <span className="text-faint shrink-0">/</span>
+          <h1 ref={headingRef} tabIndex={-1}
+            className="font-medium truncate focus:outline-none max-w-[34ch]">
+            {detail.draft.title || detail.seed}
+          </h1>
+          <StatePill state={detail.state} />
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <DialToggle on={detail.autonomyDial} onToggle={(n) => void toggleDial(n)} />
+          <button type="button" aria-pressed={technical} onClick={toggleTechnical}
+            title="Show the engineering underneath" className={chromeToggle(technical)}>
+            Technical view
+          </button>
           <ThemeToggle />
         </div>
       </header>
 
+      {status?.llm_mode === 'stub' && (
+        <div data-testid="stub-banner"
+          className="flex items-center gap-2 px-4 py-1 bg-accent-soft border-b border-hairline text-2xs uppercase tracking-[0.05em] text-accent-text">
+          <span className="font-mono">stub mode</span>
+          <span className="text-muted normal-case">
+            — demo data, no model key · budget ${status.budget_spent_usd.toFixed(2)} / ${status.budget_cap_usd.toFixed(2)}
+          </span>
+        </div>
+      )}
+
       {reconnecting && (
         <div data-testid="reconnect-banner" role="status"
-          className="px-3 py-1 bg-surface text-muted border-b border-hairline">
+          className="px-4 py-1 bg-surface text-muted border-b border-hairline">
           Reconnecting — your draft is safe.
         </div>
       )}
       {moveFailed && (
         <div data-testid="move-failed-banner" role="alert"
-          className="px-3 py-2 bg-warning-surface text-ink border-b border-hairline flex items-center gap-2">
+          className="px-4 py-2 bg-warning-surface text-ink border-b border-hairline flex items-center gap-2">
           <span className="uppercase font-medium text-warning shrink-0">Move failed</span>
           <span className="truncate">{moveFailed.reason} — try again.</span>
           <span className="ml-auto shrink-0 flex gap-1">
@@ -498,12 +494,12 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
                 const m = lastMove.current!
                 void propose(m.moveType, m.steer, m.baseVersion)
               }}
-                className="min-h-[24px] px-2 py-1 uppercase border border-hairline-strong bg-transparent text-ink transition hover:bg-ink hover:text-page">
+                className="min-h-[32px] px-2 py-1 uppercase border border-hairline-strong bg-transparent text-ink transition hover:bg-ink hover:text-page">
                 Try again
               </button>
             )}
             <button onClick={() => setMoveFailed(null)}
-              className="px-2 py-1 uppercase border border-hairline-strong bg-transparent text-ink transition hover:bg-ink hover:text-page">
+              className="min-h-[32px] px-2 py-1 uppercase border border-hairline-strong bg-transparent text-ink transition hover:bg-ink hover:text-page">
               Dismiss
             </button>
           </span>
@@ -511,133 +507,135 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       )}
       {actionError && (
         <div role="alert"
-          className="px-3 py-1 bg-critical-surface text-critical border-b border-hairline flex items-center gap-2">
+          className="px-4 py-1 bg-critical-surface text-critical border-b border-hairline flex items-center gap-2">
           <span className="truncate">{actionError}</span>
           <button onClick={() => setActionError(null)}
-            className="ml-auto shrink-0 inline-flex items-center min-h-[24px] uppercase text-2xs underline">
+            className="ml-auto shrink-0 inline-flex items-center min-h-[32px] uppercase text-2xs underline">
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Desktop is a two-column row (canvas + rail), untouched at ≥md. Below
-          --bp-md it stacks (max-md:flex-col) and the RailTabs pick which region
-          fills the column; the swaps ride max-md:* classes so the ≥md layout
-          stays pixel-identical (task 14). */}
-      <div className="flex flex-1 overflow-hidden max-md:flex-col">
-        {/* Under Develop the canvas column carries no in-flow content (the gate
-            bar is fixed), so it must not keep growing and starving the rail. */}
-        <main className={`flex-1 min-w-0 flex flex-col overflow-hidden ${activeTab === 'develop' ? 'max-md:flex-none' : ''}`}>
-          <TrialStrip
-            data={versions ?? { currentVersionId: detail.currentVersionId, versions: [] }}
-            selectedId={snapshot?.id ?? null}
-            onSelect={setSnapshot}
-            onPromote={(id) => void promote(id)}
-            onCook={(versionId, feedback) => void propose('iterate_feedback', feedback, versionId)}
-            canCook={detail.state === 'idle'}
-            panelClassName={activeTab === 'history' ? 'max-md:flex-1 max-md:overflow-y-auto max-md:pb-[150px]' : 'max-md:hidden'} />
-          <div id="canvas-region"
-            className={`flex-1 overflow-y-auto max-md:pb-[150px] ${activeTab === 'recipe' ? '' : 'max-md:hidden'}`}>
-            {/* The hold owns the top of the canvas: the stopped change is
-                the news, shown grayed right where it would have landed. */}
-            {detail.state === 'blocked' && detail.blocked && !snapshot && (
-              <div className="p-3 pb-0">
-                <SafetyBlock reason={detail.blocked.reason} ruleId={detail.blocked.ruleId}
-                  ops={detail.blocked.ops} />
-              </div>
-            )}
+      <main className="wb-grid" style={{ minHeight: 'calc(100vh - 55px)' }}>
+        <TimelineSpine nodes={timelineNodes} summary={summary} nextHint={nextHint}
+          technical={technical} onView={viewSnapshot} onPromote={(id) => void promote(id)} />
+
+        <section id="stage" aria-labelledby="stage-heading"
+          className="cc-scroll flex flex-col overflow-y-auto">
+          <div className="w-full max-w-[840px] mx-auto px-6 pt-5 pb-9 flex-1">
+            <h2 id="stage-heading" tabIndex={-1} className="sr-only">The dish</h2>
+            <TrustStrip draft={displayDraft} />
+
             {snapshot ? (
-              <div className="p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="px-1 font-mono text-2xs bg-info-surface text-info">
-                    read-only snapshot {snapshot.id}
+              <>
+                <div className="cc-rise flex items-center justify-between gap-3 flex-wrap px-[14px] py-[11px] border border-hairline-strong bg-surface mb-4">
+                  <span className="text-muted">
+                    Viewing a past trial — <strong className="text-ink font-medium">{trialAlias(snapshotIndex + 1)}</strong>, read-only.
                   </span>
                   <button onClick={() => setSnapshot(null)}
-                    className="px-2 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page">
-                    Back to current draft
+                    className="inline-flex items-center min-h-[32px] px-3 uppercase font-medium text-[11px] tracking-[0.06em] border border-hairline-strong bg-panel text-ink transition hover:bg-ink hover:text-page">
+                    Back to current
                   </button>
                 </div>
-                <DraftPane draft={snapshot.draft} heading="Snapshot" />
-              </div>
-            ) : pending.length === 1 ? (
-              // The decision object owns the fold: one pending proposal
-              // renders as the would-be recipe on the canvas.
-              <ProposedDraftView base={detail.draft} proposal={pending[0]}>
-                {verbPanels}
-              </ProposedDraftView>
-            ) : pending.length > 1 ? (
-              // Alternatives: two comparison cards (task 7 rewrite) — picking
-              // sets which proposal the footer gate bar targets. Verb panels
-              // render alongside for now; T9 finishes wiring this region.
+                <DishCard draft={snapshot.draft} technical={technical} showDetail />
+                {detail.state === 'idle' && (
+                  <CookFlow versionLabel={trialAlias(snapshotIndex + 1)}
+                    onSubmit={(notes) => {
+                      const fb = notes.trim() === '' ? 'Cooked it.' : notes
+                      setCookNotes((prev) => ({ ...prev, [snapshot.id]: fb }))
+                      void propose('iterate_feedback', fb, snapshot.id)
+                    }} />
+                )}
+              </>
+            ) : isBlocked ? (
               <>
-                <AlternativesPicker base={detail.draft} proposals={pending} onPick={setSelectedProposalId} />
-                {verbPanels}
+                <SafetyHold reason={detail.blocked!.reason} ruleId={detail.blocked!.ruleId}
+                  ops={detail.blocked!.ops} technical={technical}
+                  onRegenerate={() => void onVerb('regenerate')}
+                  onRedirectSubmit={(steer) => void runGate({ proposalId: gateTarget()!, verb: 'redirect', edit: { steer } })} />
+                <DishCard draft={detail.draft} technical={technical} showDetail={false} />
+              </>
+            ) : isProposing ? (
+              <>
+                <ProposingCard text={streamText} onCancel={() => void cancelMove()} />
+                <DishCard draft={detail.draft} technical={technical} showDetail={false} />
+              </>
+            ) : showAlternatives ? (
+              <AlternativesPicker proposals={pending} base={detail.draft}
+                onPick={(id) => { setSelectedProposalId(id); setPicked(true) }} />
+            ) : showSingleProposal ? (
+              <>
+                <ProposalHeader proposal={selected!} streaming={false} technical={technical} />
+                <DishCard draft={detail.draft}
+                  diff={mergeDiff(detail.draft, list(selected!.change))}
+                  ops={list(selected!.change)} technical={technical} showDetail={false} />
               </>
             ) : (
-              <DraftPane draft={detail.draft} emptyNote={emptyNoteFor(detail.state, pending.length)}>
-                {verbPanels}
-              </DraftPane>
+              <>
+                <DishCard draft={detail.draft} technical={technical} showDetail />
+                {isIdle && (
+                  <>
+                    <CookFlow versionLabel={currentLabel}
+                      onSubmit={(notes) => {
+                        const cur = detail.currentVersionId
+                        if (!cur) return
+                        const fb = notes.trim() === '' ? 'Cooked it.' : notes
+                        setCookNotes((prev) => ({ ...prev, [cur]: fb }))
+                        void propose('iterate_feedback', fb, cur)
+                      }} />
+                    <IntentBar canPropose={detail.state === 'idle'} autonomyOn={detail.autonomyDial}
+                      servings={detail.draft.constraints.servings} suggestedNext={suggestedNext}
+                      onMove={(mt, steer) => void propose(mt, steer)} />
+                  </>
+                )}
+              </>
             )}
           </div>
 
-          {/* The gate bar is the one non-negotiable control (brief §5b): below
-              --bp-md this stack detaches to the bottom of the viewport so it is
-              reachable from every tab, with the tab bar as the bottom-most row.
-              On desktop the wrapper is inert chrome and the footer sits at the
-              foot of the canvas column exactly as before (max-md:* only). */}
-          <div className="max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-sticky max-md:bg-page">
-            <div id="gate-bar-anchor" tabIndex={-1} className="p-3 border-t border-hairline bg-page focus:outline-none">
-              {/* Compile bridge (interim, replaced in T9): the new mode-based
-                  GateBar (task 6) speaks proposal/draft + six callbacks. Wired
-                  through the machinery this file already has; the proposing
-                  Stop button and the blocked verbs move to T7's ProposingCard/
-                  SafetyHold when T9 rewrites this layout. */}
-              {detail.state === 'awaiting_gate' && selected && (
-                <GateBar proposal={selected} draft={detail.draft}
-                  onAccept={() => onVerb('accept')}
-                  onRegenerate={() => onVerb('regenerate')}
-                  onAlternatives={() => onVerb('alternatives')}
-                  onEditSubmit={(ops) => void runGate({ proposalId: selected.id, verb: 'edit', edit: { ops } })}
-                  onRedirectSubmit={(steer) => void runGate({ proposalId: selected.id, verb: 'redirect', edit: { steer } })}
-                  onTakeoverSubmit={(d) => void runGate({ proposalId: selected.id, verb: 'take_over', edit: { draft: d } })} />
-              )}
-              {detail.state === 'proposing' && (
-                <button onClick={() => void cancelMove()}
-                  className="min-h-[24px] px-2 py-1 uppercase border border-hairline-strong">
-                  Stop
-                </button>
-              )}
-              {detail.state === 'idle' && (
-                <p className="text-muted">The bench is ready — propose a move from the steering rail.</p>
-              )}
-            </div>
-            <RailTabs active={activeTab} onChange={setActiveTab} />
-          </div>
-        </main>
+          {showSingleProposal && selected && (
+            <GateBar proposal={selected} draft={detail.draft}
+              onAccept={() => onVerb('accept')}
+              onRegenerate={() => onVerb('regenerate')}
+              onAlternatives={() => onVerb('alternatives')}
+              onEditSubmit={(ops) => runGate({ proposalId: selected.id, verb: 'edit', edit: { ops } })}
+              onRedirectSubmit={(steer) => runGate({ proposalId: selected.id, verb: 'redirect', edit: { steer } })}
+              onTakeoverSubmit={(d) => runGate({ proposalId: selected.id, verb: 'take_over', edit: { draft: d } })} />
+          )}
+        </section>
+      </main>
 
-        <SteeringPane thread={thread} suggestedNext={suggestedNext}
-          canPropose={detail.state === 'idle'}
-          onPropose={(mt, steer) => void propose(mt, steer)}
-          panelClassName={activeTab === 'develop' ? 'max-md:w-full max-md:flex-1 max-md:pb-[150px]' : 'max-md:hidden'} />
-
-      </div>
+      <Toast message={toast} />
+      {override && (
+        <OverridePrompt message={override.message}
+          onCancel={() => setOverride(null)}
+          onConfirm={() => { const resend = override.resend; setOverride(null); void runGate(resend) }} />
+      )}
     </div>
   )
 }
 
-// --- thread helpers ---
-
-function appendToken(t: ThreadEntry[], moveId: string, text: string): ThreadEntry[] {
-  const i = t.findIndex((e) => e.kind === 'tokens' && e.moveId === moveId)
-  if (i === -1) return [...t, { kind: 'tokens', moveId, text, done: false }]
-  const entry = t[i] as Extract<ThreadEntry, { kind: 'tokens' }>
-  const next = [...t]
-  next[i] = { ...entry, text: entry.text + text }
-  return next
+// StatePill is the header's live state chip: STATE_LABEL text with a status
+// dot whose color is never the only signal (idle success · proposing/awaiting
+// accent · blocked critical).
+function StatePill({ state }: { state: DishState }) {
+  const dot = state === 'idle' ? 'bg-success' : state === 'blocked' ? 'bg-critical' : 'bg-accent'
+  return (
+    <span data-testid="state-pill"
+      className="shrink-0 inline-flex items-center gap-[6px] px-[9px] py-[3px] border border-hairline-strong text-2xs uppercase tracking-[0.06em] text-muted whitespace-nowrap">
+      <span aria-hidden="true" className={`inline-block w-[7px] h-[7px] ${dot}`} />
+      {STATE_LABEL[state] ?? state}
+    </span>
+  )
 }
 
-function finishTokens(t: ThreadEntry[], moveId: string): ThreadEntry[] {
-  return t.map((e) => (e.kind === 'tokens' && e.moveId === moveId ? { ...e, done: true } : e))
+// The header's chrome toggles (design 73–76/1135): a hairline ghost that fills
+// accent-soft when active.
+function chromeToggle(active: boolean): string {
+  return `inline-flex items-center gap-[6px] min-h-[32px] px-[10px] uppercase font-medium text-[11px] tracking-[0.06em] border transition ${
+    active
+      ? 'border-accent bg-accent-soft text-accent-text'
+      : 'border-hairline-strong bg-transparent text-ink hover:bg-ink hover:text-page'
+  }`
 }
 
 // addPending lands one proposal-ready payload: alternatives deliver two
@@ -656,176 +654,11 @@ function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'request failed'
 }
 
-// emptyNoteFor keeps the empty-draft line an invitation to an act that is
-// actually available: reviewing the pending card, resolving the block, or
-// waiting out the in-flight move — proposing only when the dish is idle.
-function emptyNoteFor(state: string, pendingCount: number): string | undefined {
-  // A single pending proposal never reaches here — it takes over the
-  // canvas as ProposedDraftView; only the alternatives picker keeps the
-  // plain canvas underneath.
-  if (pendingCount > 1) return 'Empty draft — review the proposals below.'
-  if (state === 'blocked') return 'Empty draft — resolve the blocked move below.'
-  if (state === 'proposing') return 'Empty draft — a move is being proposed.'
-  return undefined // idle: the default "propose the first move" invitation
-}
-
-// --- verb panels ---
-
-// Shared panel control styles: ghost is the default voice; the panel's one
-// primary action fills terracotta — disabled it goes neutral, so only a
-// live primary ever wears the accent.
-const panelPrimary = 'px-3 py-1 uppercase font-medium enabled:bg-accent enabled:text-on-accent disabled:bg-surface disabled:text-muted'
-const panelGhost = 'px-3 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page'
-
-function editableValue(v: unknown): string {
-  if (typeof v === 'string') return v
-  return v === undefined ? '' : JSON.stringify(v)
-}
-
-// parseEdited mirrors editableValue: string-valued ops stay raw text;
-// everything else round-trips through JSON (falling back to the raw string
-// when it no longer parses).
-function parseEdited(text: string, original: unknown): unknown {
-  if (typeof original === 'string') return text
-  try {
-    return JSON.parse(text)
-  } catch {
-    return text
-  }
-}
-
-// Focus protocol (P1): a verb panel opens on its first field.
-function useFocusFirstField(ref: React.RefObject<HTMLFormElement | null>) {
-  useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('input, textarea')?.focus()
-  }, [ref])
-}
-
-// EditForm is the gate's edit verb: a form over the proposed values — the
-// proposal's ops with each value editable, submitted as edit.ops.
-function EditForm({ proposal, onSubmit, onCancel }: {
-  proposal: Proposal
-  onSubmit: (ops: Op[]) => void
-  onCancel: () => void
-}) {
-  const ops = list(proposal.change)
-  const [values, setValues] = useState<string[]>(
-    () => ops.map((op) => (op.op === 'remove' ? '' : editableValue(op.value))),
-  )
-  const formRef = useRef<HTMLFormElement>(null)
-  useFocusFirstField(formRef)
-  function submit(e: FormEvent) {
-    e.preventDefault()
-    onSubmit(ops.map((op, i) => (op.op === 'remove' ? op : { ...op, value: parseEdited(values[i], op.value) })))
-  }
-  return (
-    <form ref={formRef} onSubmit={submit} data-testid="edit-form"
-      className="border border-hairline bg-page p-3 space-y-2">
-      <h3 className="uppercase text-muted">Edit proposed values</h3>
-      {ops.map((op, i) => (
-        <label key={i} className="block text-muted">
-          <span className="uppercase text-2xs">{opLineLabel(op)}</span>
-          <span className="ml-1 font-mono text-2xs opacity-60">{op.path}</span>
-          {op.op === 'remove' ? (
-            <span className="block text-muted">(removal — nothing to edit)</span>
-          ) : (
-            <input value={values[i]}
-              onChange={(e) => setValues((v) => v.map((x, j) => (j === i ? e.target.value : x)))}
-              className="mt-1 w-full border border-hairline-strong bg-page p-1 font-mono text-ink" />
-          )}
-        </label>
-      ))}
-      <div className="flex gap-1">
-        <button type="submit" className={panelPrimary}>Apply edit</button>
-        <button type="button" onClick={onCancel} className={panelGhost}>Cancel</button>
-      </div>
-    </form>
-  )
-}
-
-// TakeOverForm is the gate's take_over verb: a draft editor over the
-// current draft, submitted whole as edit.draft (the server synthesizes the
-// diff via ComputeDiff).
-function TakeOverForm({ draft, onSubmit, onCancel }: {
-  draft: Draft
-  onSubmit: (d: Draft) => void
-  onCancel: () => void
-}) {
-  const formRef = useRef<HTMLFormElement>(null)
-  useFocusFirstField(formRef)
-  const [text, setText] = useState(() => JSON.stringify(draft, null, 2))
-  const [parseError, setParseError] = useState<string | null>(null)
-  const errorRef = useRef<HTMLParagraphElement>(null)
-  function submit(e: FormEvent) {
-    e.preventDefault()
-    try {
-      onSubmit(JSON.parse(text) as Draft)
-    } catch {
-      setParseError('The draft is not valid JSON — fix the highlighted text and save again.')
-    }
-  }
-  // GOV.UK error message (part of #15): a parse failure moves focus to the
-  // message so it is announced and reachable; the textarea points back at it
-  // via aria-describedby (set below).
-  useEffect(() => { if (parseError) errorRef.current?.focus() }, [parseError])
-  return (
-    <form ref={formRef} onSubmit={submit} data-testid="take-over-form"
-      className="border border-hairline bg-page p-3 space-y-2">
-      <h3 className="uppercase text-muted">Take over — edit the draft directly</h3>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={16}
-        aria-label="Draft JSON"
-        aria-invalid={parseError ? true : undefined}
-        aria-describedby={parseError ? 'take-over-error' : undefined}
-        className="w-full border border-hairline-strong bg-page p-2 font-mono text-2xs text-ink" />
-      {parseError && (
-        <p id="take-over-error" role="alert" tabIndex={-1} ref={errorRef} className="text-critical focus:outline-none">
-          <span className="sr-only">Error: </span>{parseError}
-        </p>
-      )}
-      <div className="flex gap-1">
-        <button type="submit" className={panelPrimary}>Save draft</button>
-        <button type="button" onClick={onCancel} className={panelGhost}>Cancel</button>
-      </div>
-    </form>
-  )
-}
-
-// RedirectForm is the gate's redirect verb: fresh steering text that
-// cancels/replaces the current proposal and re-runs the move.
-function RedirectForm({ onSubmit, onCancel }: {
-  onSubmit: (steer: string) => void
-  onCancel: () => void
-}) {
-  const formRef = useRef<HTMLFormElement>(null)
-  useFocusFirstField(formRef)
-  const [steer, setSteer] = useState('')
-  function submit(e: FormEvent) {
-    e.preventDefault()
-    if (steer.trim() === '') return
-    onSubmit(steer.trim())
-  }
-  return (
-    <form ref={formRef} onSubmit={submit} data-testid="redirect-form"
-      className="border border-hairline bg-page p-3 space-y-2">
-      <h3 className="uppercase text-muted">Ask for changes — direct the next attempt</h3>
-      <textarea value={steer} onChange={(e) => setSteer(e.target.value)} rows={2}
-        aria-label="Direction"
-        className="w-full border border-hairline-strong bg-page p-1 text-ink" />
-      <div className="flex gap-1">
-        <button type="submit" disabled={steer.trim() === ''} className={panelPrimary}>
-          Send
-        </button>
-        <button type="button" onClick={onCancel} className={panelGhost}>Cancel</button>
-      </div>
-    </form>
-  )
-}
-
-// OverridePrompt is the warn-and-confirm step for human writes that hit
-// the safety gate: proceeding resends the same gate call with
-// confirmOverride, recorded server-side as safety_warning_overridden.
-// A native modal <dialog> (APG alert dialog): focus opens on Back — the
-// least destructive action — and Escape cancels.
+// OverridePrompt is the warn-and-confirm step for human writes that hit the
+// safety gate: proceeding resends the same gate call with confirmOverride,
+// recorded server-side as safety_warning_overridden. A native modal <dialog>
+// (APG alert dialog): focus opens on Back — the least destructive action —
+// and Escape cancels.
 function OverridePrompt({ message, onConfirm, onCancel }: {
   message: string
   onConfirm: () => void
@@ -837,12 +670,20 @@ function OverridePrompt({ message, onConfirm, onCancel }: {
   useEffect(() => {
     const dialog = dialogRef.current
     if (dialog && !dialog.open) {
-      // jsdom implements <dialog> but not showModal(); the attribute
-      // fallback keeps tests honest while browsers get the real modal.
+      // jsdom implements <dialog> but not showModal(); the attribute fallback
+      // keeps tests honest while browsers get the real modal.
       if (typeof dialog.showModal === 'function') dialog.showModal()
       else dialog.setAttribute('open', '')
     }
     backRef.current?.focus()
+    // The gate bar that spawned this write resets to its decide mode when the
+    // (409-swallowing) gate promise resolves, and that reset synchronously
+    // re-focuses one of its own buttons in a later commit. A real browser's
+    // showModal() traps focus so it can't; jsdom's fallback can't, so re-claim
+    // focus one macrotask later — after that reset — so the least-destructive
+    // action reliably holds it.
+    const t = setTimeout(() => backRef.current?.focus(), 0)
+    return () => clearTimeout(t)
   }, [])
 
   return (
@@ -850,16 +691,16 @@ function OverridePrompt({ message, onConfirm, onCancel }: {
       aria-labelledby="override-heading" aria-describedby="override-message"
       onKeyDown={(e) => { if (e.key === 'Escape') onCancel() }}
       onCancel={onCancel} onClose={onCancel}
-      className="border-2 border-critical bg-panel p-3 space-y-2">
+      className="border-2 border-critical bg-panel p-4 space-y-2">
       <div id="override-heading" className="uppercase font-medium text-critical">Your edit trips a safety rule</div>
       <p id="override-message" className="text-ink">{message}</p>
-      <div className="flex gap-1">
+      <div className="flex gap-2">
         <button ref={backRef} type="button" onClick={onCancel}
-          className="px-3 py-1 uppercase font-medium border border-ink bg-ink text-page transition hover:opacity-90">
+          className="px-3 py-2 uppercase font-medium border border-ink bg-ink text-page transition hover:opacity-90">
           Go back — I'll change it
         </button>
         <button type="button" onClick={onConfirm}
-          className="px-3 py-1 uppercase font-medium border border-critical bg-transparent text-critical transition hover:bg-critical hover:text-page">
+          className="px-3 py-2 uppercase font-medium border border-critical bg-transparent text-critical transition hover:bg-critical hover:text-page">
           Use it anyway
         </button>
       </div>

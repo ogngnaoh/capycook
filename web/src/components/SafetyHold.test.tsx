@@ -3,10 +3,10 @@ import type { Op } from '../types'
 import { BLOCKED_REDIRECT, BLOCKED_REGEN } from '../vocab'
 import SafetyHold from './SafetyHold'
 
-// Re-homes SafetyBlock.test.tsx's §9-relevant assertions (role=alert +
-// self-focus, ops rendered via opLineLabel, a hold without ops still
-// renders) plus SafetyHold's own new behavior: the hold now owns the two
-// legal verbs directly instead of leaving them to the gate bar.
+// Re-homes the pre-redesign safety block test's §9-relevant assertions
+// (role=alert + self-focus, ops rendered via opLineLabel, a hold without ops
+// still renders) plus SafetyHold's own new behavior: the hold now owns the
+// two legal verbs directly instead of leaving them to the gate bar.
 const ops: Op[] = [
   { op: 'replace', path: '/title', from: 'Chicken', value: 'Confit Chicken' },
   {

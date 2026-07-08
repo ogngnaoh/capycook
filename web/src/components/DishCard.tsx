@@ -3,7 +3,7 @@ import { list } from '../types'
 import type { DiffView, Row, ScalarDiff } from '../lib/mergeDiff'
 import { opLineLabel } from '../lib/pathLabels'
 import { SR_ADDED, SR_NOW, SR_REMOVED, SR_WAS } from '../vocab'
-import { formatValue } from './ProposalCard'
+import { formatValue } from '../lib/formatValue'
 
 // DishCard is the centerpiece of the redesign stage (design lines 280-384):
 // the dish rendered data-driven off a view model, in ONE of two modes —
@@ -328,9 +328,9 @@ const fmt = (v: number) => String(Math.round(v * 10) / 10)
 const money = (v: number) => `$${v.toFixed(2)}`
 
 // --- formatQty / extractStepMeta ---
-// Verbatim copies of DraftPane's exports (DraftPane dies in task 9; until
-// then each component keeps its own — see task 5 brief). Do not edit
-// DraftPane's copies from here; they diverge intentionally for one task.
+// Verbatim copies of the pre-redesign draft pane's exports, re-homed here
+// (task 5 brief) when that pane was retired in task 9; DishCard now owns the
+// house quantity form and step-meta extraction outright.
 
 // U+2009 thin space — the house quantity signature (30 ml, 10 g).
 const THIN = ' '

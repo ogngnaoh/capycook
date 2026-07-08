@@ -28,7 +28,7 @@ test('the station card gives every constraint field a home, cuisine included', (
   for (const key of ['skill', 'serves', 'avoid', 'dietary', 'equipment', 'on hand', 'cuisine']) {
     expect(card).toHaveTextContent(key)
   }
-  expect(card).toHaveTextContent('western') // cuisine value, kept from the old DraftPane
+  expect(card).toHaveTextContent('western') // cuisine value, kept from the old draft pane
   expect(card).toHaveTextContent('—') // empty array fields render the dash, not a blank
 })
 
@@ -198,8 +198,9 @@ test('the disclosure line does not appear in plain mode', () => {
   expect(screen.queryByText(/Some changes could not be previewed/)).not.toBeInTheDocument()
 })
 
-// --- formatQty / extractStepMeta (moved from DraftPane.test.tsx — task 5 owns
-// its own verbatim copy; DraftPane keeps its own until task 9 retires it) ---
+// --- formatQty / extractStepMeta (moved from the pre-redesign draft pane's
+// test — task 5 owns its own verbatim copy; the old pane was retired in
+// task 9) ---
 
 test('formatQty joins value and unit with a thin space (U+2009)', () => {
   expect(formatQty(30, 'ml')).toBe('30 ml')

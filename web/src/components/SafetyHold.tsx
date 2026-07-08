@@ -5,11 +5,11 @@ import { opLineLabel } from '../lib/pathLabels'
 import { BLOCKED_REDIRECT, BLOCKED_REGEN } from '../vocab'
 
 // SafetyHold is the redesign's hold pane (design 219-240) — the next
-// generation of SafetyBlock, which stays in place untouched until task 9
-// swaps it in. The alert now owns the two legal verbs directly (§9: exactly
-// two verbs on a hold, never more) instead of leaving them to the gate bar.
-// Takes focus on mount (focus protocol: hold -> the alert block, ported
-// verbatim from SafetyBlock's own useEffect).
+// generation of the pre-redesign safety block it replaced in task 9. The
+// alert now owns the two legal verbs directly (§9: exactly two verbs on a
+// hold, never more) instead of leaving them to the gate bar. Takes focus on
+// mount (focus protocol: hold -> the alert block, ported verbatim from the
+// old block's own useEffect).
 export default function SafetyHold({
   reason, ruleId, ops, technical, onRegenerate, onRedirectSubmit,
 }: {

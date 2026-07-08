@@ -86,10 +86,11 @@ export default {
     extend: {
       height: { header: 'var(--header-height)' },
       maxWidth: { container: 'var(--container-max)' },
-      // Fixed pane widths on the 5px rhythm. The replaced spacing scale
-      // (0–9) drops Tailwind's default width steps, so panes name their
-      // widths here — a bare w-96/w-72 would be a silent no-op.
-      width: { steering: '390px', versions: '290px', timeline: '308px' },
+      // The timeline spine's fixed width. The replaced spacing scale (0–9)
+      // drops Tailwind's default width steps, so the pane names its width here
+      // — a bare w-96/w-72 would be a silent no-op. (The retired steering/
+      // versions panes' widths went with them in the direction-A redesign.)
+      width: { timeline: '308px' },
       zIndex: {
         sticky: '100',
         dropdown: '200',
