@@ -1,0 +1,228 @@
+# CapyCook fork kit — docker-compose (plan task 6.1).
+#
+# Plain `docker compose up` starts ONLY the CapyCook app: a single, keyless,
+# fully-functional stub-mode workbench (proposals, safety gate, versioning,
+# SQLite persistence). Everything under `profiles: [langfuse]` is opt-in and
+# never starts unless you ask for it with `--profile langfuse`.
+#
+#   Quickstart:   cp .env.example .env  &&  docker compose up
+#   Reach it at:  http://localhost:8080   (override host port: CAPYCOOK_HOST_PORT)
+#   Live model:   set DEEPSEEK_API_KEY (and LLM_BUDGET_USD) in .env
+#   Self-host telemetry:  docker compose --profile langfuse up   (see DEPLOY.md)
+#
+# See DEPLOY.md for the full walkthrough, platform notes, and the Langfuse
+# self-host wiring.
+
+services:
+  # ---------------------------------------------------------------------------
+  # CapyCook — the only service that runs on a plain `docker compose up`.
+  # ---------------------------------------------------------------------------
+  app:
+    build: .
+    image: capycook:dev
+    container_name: capycook
+    restart: unless-stopped
+    ports:
+      # host:container. The container ALWAYS listens on 8080 internally; change
+      # only the host side via CAPYCOOK_HOST_PORT (never 8098/8099 by default).
+      - "${CAPYCOOK_HOST_PORT:-8080}:8080"
+    # Secrets and the budget cap come from .env (DEEPSEEK_API_KEY, LANGFUSE_*,
+    # LLM_BUDGET_USD). Missing values are non-fatal — keyless = stub mode.
+    env_file:
+      - path: .env
+        required: false
+    # These WIN over anything in .env (compose precedence: environment beats
+    # env_file). Critical: .env ships host-relative paths (DB_PATH=./data/...,
+    # DATA_DIR=./data) tuned for `make run`; inside the distroless container the
+    # SQLite home is the /data volume and the read-only data assets are baked at
+    # /srv/data — so we pin both here and force the internal port to 8080.
+    environment:
+      PORT: "8080"
+      DB_PATH: /data/capycook.db
+      DATA_DIR: /srv/data
+    volumes:
+      # Named volume: the SQLite DB + WAL + the LLM budget-ledger sidecar
+      # (/data/capycook.db.budget.json) outlive any single container.
+      - capycook-data:/data
+
+  # ===========================================================================
+  # OPTIONAL: self-hosted Langfuse (OTel trace sink). Behind `profiles:
+  # [langfuse]`, so it NEVER starts on a plain `docker compose up`.
+  #
+  #   docker compose --profile langfuse up
+  #
+  # This stack mirrors Langfuse's own documented self-host compose
+  # (https://github.com/langfuse/langfuse/blob/main/docker-compose.yml,
+  # v3 line). The `${VAR:-default}` defaults below are Langfuse's INSECURE
+  # local-dev defaults — regenerate every secret before any non-local use
+  # (ENCRYPTION_KEY: `openssl rand -hex 32`). To point CapyCook at it, set in
+  # .env:  LANGFUSE_HOST=http://langfuse-web:3000  plus a project's public/
+  # secret keys (create them in the Langfuse UI, or seed via LANGFUSE_INIT_*).
+  # ===========================================================================
+  langfuse-web:
+    image: docker.io/langfuse/langfuse:3
+    profiles: [langfuse]
+    restart: always
+    depends_on: &langfuse-depends
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    ports:
+      - "${LANGFUSE_PORT:-3000}:3000"
+    environment:
+      <<: &langfuse-worker-env
+        DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+        SALT: ${SALT:-mysalt}
+        ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000} # CHANGEME — openssl rand -hex 32
+        TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
+        LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: ${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-false}
+        CLICKHOUSE_MIGRATION_URL: ${CLICKHOUSE_MIGRATION_URL:-clickhouse://clickhouse:9000}
+        CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+        CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+        CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse} # CHANGEME
+        CLICKHOUSE_CLUSTER_ENABLED: ${CLICKHOUSE_CLUSTER_ENABLED:-false}
+        LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${LANGFUSE_S3_EVENT_UPLOAD_BUCKET:-langfuse}
+        LANGFUSE_S3_EVENT_UPLOAD_REGION: ${LANGFUSE_S3_EVENT_UPLOAD_REGION:-auto}
+        LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID:-minio}
+        LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY:-miniosecret} # CHANGEME
+        LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: ${LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT:-http://minio:9000}
+        LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: ${LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE:-true}
+        LANGFUSE_S3_EVENT_UPLOAD_PREFIX: ${LANGFUSE_S3_EVENT_UPLOAD_PREFIX:-events/}
+        LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${LANGFUSE_S3_MEDIA_UPLOAD_BUCKET:-langfuse}
+        LANGFUSE_S3_MEDIA_UPLOAD_REGION: ${LANGFUSE_S3_MEDIA_UPLOAD_REGION:-auto}
+        LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID:-minio}
+        LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY:-miniosecret} # CHANGEME
+        LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: ${LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT:-http://localhost:9090}
+        LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: ${LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE:-true}
+        LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: ${LANGFUSE_S3_MEDIA_UPLOAD_PREFIX:-media/}
+        LANGFUSE_S3_BATCH_EXPORT_ENABLED: ${LANGFUSE_S3_BATCH_EXPORT_ENABLED:-false}
+        LANGFUSE_S3_BATCH_EXPORT_BUCKET: ${LANGFUSE_S3_BATCH_EXPORT_BUCKET:-langfuse}
+        LANGFUSE_S3_BATCH_EXPORT_PREFIX: ${LANGFUSE_S3_BATCH_EXPORT_PREFIX:-exports/}
+        LANGFUSE_S3_BATCH_EXPORT_REGION: ${LANGFUSE_S3_BATCH_EXPORT_REGION:-auto}
+        LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: ${LANGFUSE_S3_BATCH_EXPORT_ENDPOINT:-http://minio:9000}
+        LANGFUSE_S3_BATCH_EXPORT_EXTERNAL_ENDPOINT: ${LANGFUSE_S3_BATCH_EXPORT_EXTERNAL_ENDPOINT:-http://localhost:9090}
+        LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: ${LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID:-minio}
+        LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: ${LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY:-miniosecret} # CHANGEME
+        LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: ${LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE:-true}
+        REDIS_HOST: ${REDIS_HOST:-redis}
+        REDIS_PORT: ${REDIS_PORT:-6379}
+        REDIS_AUTH: ${REDIS_AUTH:-myredissecret} # CHANGEME
+        REDIS_TLS_ENABLED: ${REDIS_TLS_ENABLED:-false}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-mysecret} # CHANGEME
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-}
+      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:-}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:-}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-}
+
+  langfuse-worker:
+    image: docker.io/langfuse/langfuse-worker:3
+    profiles: [langfuse]
+    restart: always
+    depends_on: *langfuse-depends
+    ports:
+      - "127.0.0.1:3030:3030"
+    environment:
+      <<: *langfuse-worker-env
+
+  clickhouse:
+    image: docker.io/clickhouse/clickhouse-server
+    profiles: [langfuse]
+    restart: always
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse} # CHANGEME
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    ports:
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+
+  minio:
+    # Chainguard image (upstream's choice): bundles both `sh` (for the
+    # entrypoint below) and `mc` (for the healthcheck) — the stock
+    # docker.io/minio/minio image ships neither, so the healthcheck would hang.
+    image: cgr.dev/chainguard/minio
+    profiles: [langfuse]
+    restart: always
+    entrypoint: sh
+    # Creates the `langfuse` bucket on first boot, then starts the server.
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-miniosecret} # CHANGEME
+    ports:
+      - "9090:9000"
+      - "127.0.0.1:9091:9001"
+    volumes:
+      - langfuse_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+
+  redis:
+    image: docker.io/redis:7
+    profiles: [langfuse]
+    restart: always
+    command: >
+      --requirepass ${REDIS_AUTH:-myredissecret}
+      --maxmemory-policy noeviction
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - langfuse_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_AUTH:-myredissecret}", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+
+  postgres:
+    image: docker.io/postgres:${POSTGRES_VERSION:-17}
+    profiles: [langfuse]
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres # CHANGEME
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - langfuse_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  # CapyCook's durable state (default profile).
+  capycook-data:
+  # Langfuse self-host state (only created under `--profile langfuse`).
+  langfuse_postgres_data:
+  langfuse_clickhouse_data:
+  langfuse_clickhouse_logs:
+  langfuse_minio_data:
+  langfuse_redis_data:

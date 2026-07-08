@@ -170,3 +170,11 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   confirmed via structured prompt). seeds.json committed at 0a92e5541e9d22f2f7e54e93f91ed237546cb0d6; T1
   amendment draft SHA refreshed to that commit (seeds.json exists at it, per
   the draft's own checklist). Next: 5.5 demo GIFs + README, tag phase-5-ui.
+- **2026-07-07 · 6.1 fork kit; KitcheNette notice framing.** Compose ships app
+  (default) + langfuse profile (verified isolated). THIRD_PARTY_NOTICES lists
+  KitcheNette as "not bundled in this release" rather than attributing
+  un-shipped data — v0 vendors FlavorGraph only (milestone non-goal); no
+  distribution → no attribution obligation; entry flips to a real Apache-2.0
+  attribution if a future release vendors it. Cost-table sources (BLS/ERS,
+  public domain) added; safety rules noted as hand-authored from FSIS/CDC.
+  Oracle: clean-worktree `docker compose up` + only .env served the full loop.
