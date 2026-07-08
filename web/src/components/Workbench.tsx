@@ -566,12 +566,13 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
                 {verbPanels}
               </ProposedDraftView>
             ) : pending.length > 1 ? (
-              // Alternatives: a comparison radio group over what differs,
-              // the selected one rendered as the recipe diff.
-              <AlternativesPicker base={detail.draft} proposals={pending}
-                selectedId={selected?.id} onSelect={setSelectedProposalId}>
+              // Alternatives: two comparison cards (task 7 rewrite) — picking
+              // sets which proposal the footer gate bar targets. Verb panels
+              // render alongside for now; T9 finishes wiring this region.
+              <>
+                <AlternativesPicker base={detail.draft} proposals={pending} onPick={setSelectedProposalId} />
                 {verbPanels}
-              </AlternativesPicker>
+              </>
             ) : (
               <DraftPane draft={detail.draft} emptyNote={emptyNoteFor(detail.state, pending.length)}>
                 {verbPanels}
@@ -849,12 +850,18 @@ function OverridePrompt({ message, onConfirm, onCancel }: {
       aria-labelledby="override-heading" aria-describedby="override-message"
       onKeyDown={(e) => { if (e.key === 'Escape') onCancel() }}
       onCancel={onCancel} onClose={onCancel}
-      className="border border-warning bg-warning-surface p-3 space-y-2">
-      <div id="override-heading" className="uppercase font-medium text-warning">Safety warning</div>
+      className="border-2 border-critical bg-panel p-3 space-y-2">
+      <div id="override-heading" className="uppercase font-medium text-critical">Your edit trips a safety rule</div>
       <p id="override-message" className="text-ink">{message}</p>
       <div className="flex gap-1">
-        <button ref={backRef} type="button" onClick={onCancel} className={panelGhost}>Back</button>
-        <button type="button" onClick={onConfirm} className={panelGhost}>Proceed anyway</button>
+        <button ref={backRef} type="button" onClick={onCancel}
+          className="px-3 py-1 uppercase font-medium border border-ink bg-ink text-page transition hover:opacity-90">
+          Go back — I'll change it
+        </button>
+        <button type="button" onClick={onConfirm}
+          className="px-3 py-1 uppercase font-medium border border-critical bg-transparent text-critical transition hover:bg-critical hover:text-page">
+          Use it anyway
+        </button>
       </div>
     </dialog>
   )
