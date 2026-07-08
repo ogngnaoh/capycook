@@ -84,7 +84,7 @@ flowchart LR
     P --> G{Safety gate<br/>deterministic, hard-block}
     D --> G
     G -->|pass, deterministic + dial on| V[(Versioned draft<br/>SQLite + event log)]
-    G -->|pass, creative or dial off| H{Human gate<br/>accept · edit · regenerate<br/>redirect · take-over}
+    G -->|pass, creative or dial off| H{Human gate<br/>accept · edit · regenerate<br/>alternatives · redirect · take-over}
     G -->|block| X[ask-for-changes]
     H -->|accept / edit / take-over| V
     P -.->|OTel span| L[Langfuse traces]
@@ -93,7 +93,9 @@ flowchart LR
 The gate's live verb set is six (`accept · edit · regenerate · alternatives · redirect ·
 take_over`); PREREGISTRATION's frozen-five reporting taxonomy (`accept/edit/regenerate/
 reject/redirect`) is a stated eval roll-up, not a literal gate action — `reject` there maps
-to cancelling a move before it ever reaches the gate (see `internal/eval/mapping.go`).
+to cancelling a move before it ever reaches the gate (see `internal/eval/mapping.go`). One
+simplification: a blocked or gate-pending *deterministic* move re-enters the deterministic
+path on regenerate/redirect — the state diagram draws only the creative re-launch.
 
 ## How it works
 
