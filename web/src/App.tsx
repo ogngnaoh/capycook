@@ -58,16 +58,18 @@ function Home({ onNavigate, routeNonce }: { onNavigate: (to: string) => void; ro
   }, [routeNonce])
 
   return (
-    <div className="max-w-3xl mx-auto p-4 space-y-5">
+    <div className="max-w-3xl mx-auto px-4 py-8 space-y-9">
       <header className="h-header flex items-center border-b border-hairline">
         <h1 ref={headingRef} tabIndex={-1} className="uppercase font-medium text-sm focus:outline-none">
           CapyCook <span className="text-muted font-regular">— dish development workbench</span>
         </h1>
       </header>
-      <main className="space-y-5">
+      <main className="space-y-9">
         <SeedSetup onCreated={(d) => onNavigate(`/dishes/${d.id}`)} />
-        <section aria-labelledby="recent-dishes-heading" className="space-y-2">
-          <h2 id="recent-dishes-heading" className="uppercase text-muted">Recent dishes</h2>
+        <section aria-labelledby="recent-dishes-heading" className="space-y-3 border-t border-hairline pt-5">
+          <h2 id="recent-dishes-heading" className="text-2xs uppercase tracking-ui text-muted">
+            Pick up where you left off
+          </h2>
           {loadError && (
             <p className="text-muted">The dish list did not load — check the server and refresh.</p>
           )}
@@ -75,13 +77,13 @@ function Home({ onNavigate, routeNonce }: { onNavigate: (to: string) => void; ro
             <p className="text-muted">No dishes yet — start one above.</p>
           )}
           {dishes.length > 0 && (
-            <ul className="border-t border-hairline">
+            <ul className="space-y-2">
               {dishes.map((d) => (
                 <li key={d.id}>
                   <button onClick={() => onNavigate(`/dishes/${d.id}`)}
-                    className="w-full text-left px-2 py-2 border-b border-x border-hairline bg-page transition hover:bg-surface flex justify-between gap-2">
-                    <span className="truncate text-ink">{d.title}</span>
-                    <span className="font-mono text-2xs text-muted shrink-0">{new Date(d.updated_at).toLocaleString()}</span>
+                    className="w-full min-h-11 flex items-center justify-between gap-4 border border-hairline-strong bg-panel px-4 py-3 text-left transition hover:bg-surface">
+                    <span className="truncate font-medium text-ink">{d.title}</span>
+                    <span className="font-mono text-2xs text-faint shrink-0">{new Date(d.updated_at).toLocaleString()}</span>
                   </button>
                 </li>
               ))}

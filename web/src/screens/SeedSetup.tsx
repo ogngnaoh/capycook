@@ -43,9 +43,10 @@ const INITIAL: SeedFormValues = {
   dietary: '', equipment: '', onHand: '',
 }
 
-// Shared field styles: uppercase 12px labels over hairline controls.
-const labelCls = 'block uppercase text-muted'
-const inputCls = 'mt-1 w-full border border-hairline-strong bg-page p-1 text-ink normal-case placeholder:text-muted'
+// Shared field styles: uppercase 11px micro-labels over hairline-strong,
+// panel-backed controls (design 97-98, 109-122).
+const labelCls = 'block text-2xs uppercase tracking-ui text-muted mb-1'
+const inputCls = 'mt-1 w-full border border-hairline-strong bg-panel p-2 text-ink normal-case placeholder:text-muted'
 
 // SeedSetup is the dish-creation screen: a free-text seed plus the typed
 // constraint set (FDA Big-9 allergen multiselect as square checkbox chips,
@@ -109,21 +110,27 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
   }
 
   return (
-    <form onSubmit={onSubmit} data-testid="seed-setup"
-      className="border border-hairline bg-page p-4 space-y-4">
-      <h2 className="uppercase text-muted">Start a dish</h2>
+    <form onSubmit={onSubmit} data-testid="seed-setup" className="space-y-5">
+      <div>
+        <div className="text-2xs uppercase tracking-ui text-muted">Start a dish</div>
+        <h2 className="mt-2 mb-1 text-2xl font-bold">What do you feel like cooking?</h2>
+        <p className="max-w-prose text-md text-muted">
+          Bring an idea, a craving, or a leftover. CapyCook develops it with you one grounded
+          move at a time — and remembers every version so you can cook it, taste it, and improve it.
+        </p>
+      </div>
 
       {errors.length > 0 && (
         <div role="alert" tabIndex={-1} ref={summaryRef}
-          className="border border-critical bg-critical-surface p-2 text-critical focus:outline-none focus-visible:ring">
-          <h3 className="uppercase font-medium">There is a problem</h3>
-          <ul className="mt-1 list-disc list-inside">
+          className="border-2 border-critical bg-critical-surface p-3 focus:outline-none focus-visible:ring">
+          <h3 className="text-2xs font-bold uppercase tracking-ui text-critical">There is a problem</h3>
+          <ul className="mt-2 list-disc list-inside space-y-1">
             {errors.map((e, i) => (
               <li key={e.field || i}>
                 {e.field
-                  ? <a href={`#field-${e.field}`} className="underline"
+                  ? <a href={`#field-${e.field}`} className="text-critical underline"
                       onClick={(ev) => focusField(ev, e.field)}>{e.message}</a>
-                  : e.message}
+                  : <span className="text-critical">{e.message}</span>}
               </li>
             ))}
           </ul>
@@ -133,46 +140,40 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
       <div>
         <label className={labelCls}>
           Seed — what do you want to cook?
-          <textarea id="field-seed" value={values.seed} onChange={(e) => set('seed', e.target.value)} rows={2}
+          <textarea id="field-seed" value={values.seed} onChange={(e) => set('seed', e.target.value)} rows={3}
             aria-invalid={errorFor('seed') ? true : undefined}
             aria-describedby={errorFor('seed') ? 'field-seed-error' : undefined}
-            className={inputCls}
-            placeholder="e.g. a cozy one-pan chicken dinner" />
+            className={`${inputCls} min-h-[88px] resize-y text-md`}
+            placeholder="e.g. miso carbonara — umami-rich but silky, weeknight-fast" />
         </label>
         {errorFor('seed') && (
           <span id="field-seed-error" className="mt-1 block normal-case text-critical">{errorFor('seed')!.message}</span>
         )}
       </div>
 
-      <fieldset className="space-y-1">
-        <legend className={labelCls}>Allergens to avoid (FDA Big-9)</legend>
-        <div className="flex flex-wrap gap-1">
+      <fieldset className="space-y-2">
+        <legend className={labelCls}>
+          Anything to keep out? <span className="normal-case text-faint">(FDA Big-9)</span>
+        </legend>
+        <div className="flex flex-wrap gap-2">
           {BIG9_ALLERGENS.map((a) => {
             const on = values.allergens.includes(a)
-            // Target-size floor (task 14 / P8): the 10px square stays the visual
-            // signal, but the real checkbox is stretched invisibly over the whole
-            // chip so its hit area clears 24px — zero visual change at rest. The
-            // decorative square carries the checked color the input used to.
             return (
-              <label key={a}
-                className={`relative flex items-center gap-1 px-2 py-1 border cursor-pointer uppercase transition ${
-                  on ? 'border-hairline-strong bg-surface text-ink' : 'border-hairline text-muted hover:border-hairline-strong'}`}>
-                <input type="checkbox" checked={on} onChange={() => toggleAllergen(a)}
-                  className="absolute inset-0 m-0 h-full w-full cursor-pointer appearance-none opacity-0" />
-                <span aria-hidden="true"
-                  className={`w-2 h-2 border ${on ? 'bg-accent border-accent' : 'bg-page border-hairline-strong'}`} />
+              <button key={a} type="button" aria-pressed={on} onClick={() => toggleAllergen(a)}
+                className={`min-h-8 border px-3 py-2 text-2xs uppercase tracking-ui transition ${
+                  on ? 'border-accent bg-accent-soft text-ink' : 'border-hairline-strong bg-panel text-ink hover:border-accent'}`}>
                 {a}
-              </label>
+              </button>
             )
           })}
         </div>
       </fieldset>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-4">
         <label className={labelCls}>
           Cuisine
           <select value="western" disabled
-            className="mt-1 w-full border border-hairline-strong bg-surface p-1 text-muted normal-case">
+            className="mt-1 w-full border border-hairline bg-surface p-2 text-muted normal-case">
             {CUISINES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </label>
@@ -190,7 +191,7 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
               onChange={(e) => set('servings', e.target.value)}
               aria-invalid={errorFor('servings') ? true : undefined}
               aria-describedby={errorFor('servings') ? 'field-servings-error' : undefined}
-              className={inputCls} />
+              className={`${inputCls} font-mono`} />
           </label>
           {errorFor('servings') && (
             <span id="field-servings-error" className="mt-1 block normal-case text-critical">{errorFor('servings')!.message}</span>
@@ -198,7 +199,7 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-4">
         <label className={labelCls}>
           Dietary (comma-separated)
           <input value={values.dietary} onChange={(e) => set('dietary', e.target.value)}
@@ -219,10 +220,13 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
         </label>
       </div>
 
-      <button type="submit" disabled={submitting}
-        className="px-4 py-2 uppercase font-medium enabled:bg-accent enabled:text-on-accent disabled:bg-surface disabled:text-muted">
-        {submitting ? 'Starting…' : 'Start dish'}
-      </button>
+      <div className="flex items-center gap-3 pt-1">
+        <button type="submit" disabled={submitting}
+          className="min-h-11 border border-accent px-5 py-3 text-base font-medium uppercase tracking-ui enabled:bg-accent enabled:text-on-accent disabled:border-hairline-strong disabled:bg-surface disabled:text-muted">
+          {submitting ? 'Developing…' : 'Develop this dish →'}
+        </button>
+        <span className="text-2xs text-faint">or press Enter</span>
+      </div>
     </form>
   )
 }

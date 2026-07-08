@@ -24,7 +24,7 @@ test('submitting an empty form shows an error summary and does not call the API'
   const fetchMock = vi.fn()
   vi.stubGlobal('fetch', fetchMock)
   render(<SeedSetup onCreated={() => {}} />)
-  fireEvent.click(screen.getByRole('button', { name: /start dish/i }))
+  fireEvent.click(screen.getByRole('button', { name: /develop this dish/i }))
   const summary = await screen.findByRole('alert')
   expect(summary).toHaveTextContent(/there is a problem/i)
   expect(summary).toHaveTextContent(/enter a seed/i)
@@ -33,14 +33,14 @@ test('submitting an empty form shows an error summary and does not call the API'
 
 test('the error summary receives focus on a failed submit', async () => {
   render(<SeedSetup onCreated={() => {}} />)
-  fireEvent.click(screen.getByRole('button', { name: /start dish/i }))
+  fireEvent.click(screen.getByRole('button', { name: /develop this dish/i }))
   const summary = await screen.findByRole('alert')
   expect(summary).toHaveFocus()
 })
 
 test('each summary error is a link that moves focus to its field', async () => {
   render(<SeedSetup onCreated={() => {}} />)
-  fireEvent.click(screen.getByRole('button', { name: /start dish/i }))
+  fireEvent.click(screen.getByRole('button', { name: /develop this dish/i }))
   const link = await screen.findByRole('link', { name: /enter a seed/i })
   expect(link).toHaveAttribute('href', '#field-seed')
   fireEvent.click(link)
@@ -49,7 +49,7 @@ test('each summary error is a link that moves focus to its field', async () => {
 
 test('fields with errors get aria-invalid and aria-describedby pointing at an inline message', async () => {
   render(<SeedSetup onCreated={() => {}} />)
-  fireEvent.click(screen.getByRole('button', { name: /start dish/i }))
+  fireEvent.click(screen.getByRole('button', { name: /develop this dish/i }))
   await screen.findByRole('alert')
 
   const seed = screen.getByLabelText(/seed/i)
@@ -63,11 +63,22 @@ test('fields with errors get aria-invalid and aria-describedby pointing at an in
   expect(screen.getAllByRole('alert')).toHaveLength(1)
 })
 
-test('renders all nine FDA Big-9 allergens as a multiselect', () => {
+test('renders all nine FDA Big-9 allergens as toggle buttons, all off by default', () => {
   render(<SeedSetup onCreated={() => {}} />)
   for (const a of BIG9_ALLERGENS) {
-    expect(screen.getByRole('checkbox', { name: a })).toBeInTheDocument()
+    const btn = screen.getByRole('button', { name: a })
+    expect(btn).toBeInTheDocument()
+    expect(btn).toHaveAttribute('aria-pressed', 'false')
   }
+})
+
+test('clicking an allergen button toggles its aria-pressed state', () => {
+  render(<SeedSetup onCreated={() => {}} />)
+  const peanuts = screen.getByRole('button', { name: 'peanuts' })
+  fireEvent.click(peanuts)
+  expect(peanuts).toHaveAttribute('aria-pressed', 'true')
+  fireEvent.click(peanuts)
+  expect(peanuts).toHaveAttribute('aria-pressed', 'false')
 })
 
 test('a valid form posts typed constraints and reports the created dish', async () => {
@@ -78,13 +89,13 @@ test('a valid form posts typed constraints and reports the created dish', async 
   render(<SeedSetup onCreated={onCreated} />)
 
   fireEvent.change(screen.getByLabelText(/seed/i), { target: { value: 'a cozy chicken dinner' } })
-  fireEvent.click(screen.getByRole('checkbox', { name: 'milk' }))
-  fireEvent.click(screen.getByRole('checkbox', { name: 'peanuts' }))
+  fireEvent.click(screen.getByRole('button', { name: 'milk' }))
+  fireEvent.click(screen.getByRole('button', { name: 'peanuts' }))
   fireEvent.change(screen.getByLabelText(/skill/i), { target: { value: 'advanced' } })
   fireEvent.change(screen.getByLabelText(/servings/i), { target: { value: '4' } })
   fireEvent.change(screen.getByLabelText(/dietary/i), { target: { value: 'vegetarian, low sodium' } })
   fireEvent.change(screen.getByLabelText(/on hand/i), { target: { value: 'thyme' } })
-  fireEvent.click(screen.getByRole('button', { name: /start dish/i }))
+  fireEvent.click(screen.getByRole('button', { name: /develop this dish/i }))
 
   await waitFor(() => expect(onCreated).toHaveBeenCalledWith(created))
   const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
