@@ -1,24 +1,41 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { GateVerb } from '../types'
-import { MORE_VERBS, VERB_LABEL } from '../vocab'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import type { Draft, GateVerb, Op, Proposal } from '../types'
+import { list } from '../types'
+import { GATE_ANOTHER_LABEL, GATE_PROMPT, VERB_LABEL } from '../vocab'
 import { getShortcuts } from '../lib/shortcuts'
+import { opLineLabel } from '../lib/pathLabels'
 
-// While the safety gate blocks, only these two verbs exist (spec §4).
-const BLOCKED_VERBS: ReadonlyArray<GateVerb> = ['regenerate', 'redirect']
+// GateBar is the workbench's one non-negotiable control: every gate verb
+// dispatches through here. It speaks in modes, not states — decide (the
+// two front-line moves + the disclosure), another (the four revision/
+// mode-switch verbs), and three real editors (tweak/redirect/takeover) that
+// used to be separate panels bolted onto Workbench. Design markup lines
+// 424-486 + 908-921 (agent_docs/design/CapyCook-Redesign.dc.html).
+export type GateMode = 'decide' | 'another' | 'tweak' | 'redirect' | 'takeover'
 
-export type GateBarState = 'awaiting_gate' | 'proposing' | 'blocked'
+// Two hard-won behaviors carried over verbatim from the pre-redesign bar:
+//
+// (1) The in-flight lock is aria-disabled, never native `disabled`: a
+// natively-disabled focused button drops focus to <body> mid-dispatch and
+// the screen reader goes silent. aria-disabled keeps the control focusable
+// while a behavioral click-guard (the `locked` check inside `dispatch`)
+// stops re-fires. The opacity dim rides the aria-disabled variant; hover is
+// suppressed while locked since Tailwind has no aria-not-disabled.
+//
+// (2) The button rows are APG toolbars: one tab stop, roving tabindex,
+// Left/Right (wrap) + Home/End. This only applies to the decide/another
+// button rows — the tweak/redirect/takeover modes are real forms (a text
+// field plus two buttons), and hijacking Left/Right there would break
+// caret movement inside the input, so those keep plain tab order instead.
+const base = 'uppercase transition aria-disabled:opacity-40 leading-[1]'
+const primaryBtn = `${base} border border-accent bg-accent text-on-accent font-medium text-[12px] tracking-[0.06em] px-[18px] min-h-[44px] inline-flex items-center justify-center`
 
-// Ghost is the default voice — hairline chrome, fill-on-hover. Accept is the
-// one filled terracotta primary. The in-flight lock is aria-disabled, never
-// native `disabled` (brief P4 / audit #4): a natively-disabled focused button
-// drops focus to <body> mid-dispatch and the SR goes silent; aria-disabled
-// keeps the control focusable while the behavioral click-guard stops re-fires.
-// The opacity dim rides the aria-disabled variant; hover is suppressed while
-// locked (Tailwind has no aria-not-disabled, so it's a conditional class).
-const base = 'px-3 py-1 uppercase transition aria-disabled:opacity-40'
-const primary = `${base} bg-accent text-on-accent font-medium`
-const ghostBase = `${base} bg-transparent text-ink`
-const ghostHover = 'hover:bg-ink hover:text-page'
+function bigGhostBtn(locked: boolean) {
+  return `${base} border border-hairline-strong bg-panel text-ink font-medium text-[12px] tracking-[0.06em] px-[18px] py-[13px] min-h-[44px] ${locked ? '' : 'hover:bg-ink hover:text-page'}`
+}
+function smallGhostBtn(locked: boolean) {
+  return `${base} border border-hairline-strong bg-panel text-ink font-medium text-2xs tracking-[0.05em] px-[12px] py-[9px] min-h-[34px] ${locked ? '' : 'hover:bg-ink hover:text-page'}`
+}
 
 // The square spinner for in-flight dispatches; the global reduced-motion
 // rule stills it.
@@ -29,119 +46,183 @@ function Spinner() {
   )
 }
 
-// Which verbs' single-key shortcut is live per state (brief §5c): all six at
-// the pass, only Regenerate/Redirect on a hold.
-function shortcutVerbs(state: GateBarState): GateVerb[] {
-  return state === 'blocked' ? [...BLOCKED_VERBS] : ['accept', 'redirect', ...MORE_VERBS]
+// The kbd hint riding inside a button (design: `A`/`E`/`G`/`L`/`R`/`T` in
+// mono, dimmed). aria-hidden — the shortcut is carried to AT via
+// aria-keyshortcuts on the button itself, and only shown when the whole
+// feature is enabled (WCAG 2.1.4 — a hint for a dead key is a lie).
+function Hint({ letter }: { letter: string }) {
+  return <span aria-hidden="true" className="ml-1 font-mono opacity-50 normal-case">{letter}</span>
 }
 
-// Visible-hint order at the pass (brief P4): A · R · E · G · L · T.
-const HINT_ORDER: readonly GateVerb[] = ['accept', 'redirect', 'edit', 'regenerate', 'alternatives', 'take_over']
-
-// A shortcut stands down while the user is typing or inside a dialog — the
-// simplest honest scope (brief P4). The document listener is otherwise live
-// whenever the bar is mounted at the pass / on a hold.
-function isTypingContext(el: Element | null): boolean {
-  if (!el) return false
-  const tag = el.tagName
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
-  if ((el as HTMLElement).isContentEditable) return true
-  return Boolean(el.closest('[role="dialog"], dialog'))
+function editableValue(v: unknown): string {
+  if (typeof v === 'string') return v
+  return v === undefined ? '' : JSON.stringify(v)
 }
 
-// GateBar is the workbench footer control. At the pass it speaks two altitudes:
-// the decision pair up front — ACCEPT (the one filled primary) and ASK FOR
-// CHANGES (the redirect verb in plain words, slug demoted to silent mono) —
-// with the revision/mode-switch verbs (EDIT · REGENERATE · ALTERNATIVES · TAKE
-// OVER, verbatim names) behind a More ▾ disclosure. Cancel replaces the bar
-// while proposing; only Regenerate/Ask for changes exist while the safety gate
-// holds. It is an APG toolbar: one tab stop, roving tabindex, Left/Right (wrap)
-// + Home/End; single-key shortcuts (A · R · E · G · L · T) dispatch verbs
-// directly, scoped and remappable via the localStorage store.
-export default function GateBar({ state = 'awaiting_gate', onVerb, onCancel, disabled }: {
-  state?: GateBarState
-  onVerb?: (v: GateVerb) => void | Promise<void>
-  onCancel?: () => void | Promise<void>
+// parseEdited mirrors editableValue: string-valued ops stay raw text;
+// everything else round-trips through JSON (falling back to the raw string
+// when it no longer parses). Ported verbatim from the pre-redesign EditForm
+// (Workbench.tsx:672-679).
+function parseEdited(text: string, original: unknown): unknown {
+  if (typeof original === 'string') return text
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+function isTypingTarget(el: Element | null): boolean {
+  const tag = el?.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+}
+
+export default function GateBar({
+  proposal, draft, onAccept, onEditSubmit, onRegenerate, onAlternatives,
+  onRedirectSubmit, onTakeoverSubmit, disabled,
+}: {
+  proposal: Proposal
+  draft: Draft
+  onAccept: () => Promise<void> | void
+  onEditSubmit: (ops: Op[]) => Promise<void> | void
+  onRegenerate: () => Promise<void> | void
+  onAlternatives: () => Promise<void> | void
+  onRedirectSubmit: (steer: string) => Promise<void> | void
+  onTakeoverSubmit: (draft: Draft) => Promise<void> | void
   disabled?: boolean
 }) {
-  const [pending, setPending] = useState<string | null>(null)
-  const [moreOpen, setMoreOpen] = useState(false)
+  const [mode, setModeState] = useState<GateMode>('decide')
+  const [pending, setPending] = useState<GateVerb | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [shortcuts] = useState(getShortcuts)
-  const btnRefs = useRef<Array<HTMLButtonElement | null>>([])
   const locked = Boolean(disabled) || pending !== null
 
-  const dispatch = useCallback(async (key: string, run?: () => void | Promise<void>) => {
-    if (locked || !run) return
-    setMoreOpen(false)
+  const ops = list(proposal.change)
+  const [editValues, setEditValues] = useState<string[]>(
+    () => ops.map((op) => (op.op === 'remove' ? '' : editableValue(op.value))),
+  )
+  const [steerText, setSteerText] = useState('')
+  const [takeoverText, setTakeoverText] = useState('')
+  const [parseError, setParseError] = useState<string | null>(null)
+
+  // Opener refs: where focus lands when a mode reached from here closes.
+  // (Typed `| null` so TS treats `.current` as mutable — our own ref
+  // callbacks below assign into them directly.)
+  const tweakItRef = useRef<HTMLButtonElement | null>(null)
+  const tryAnotherRef = useRef<HTMLButtonElement | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+  const errorRef = useRef<HTMLParagraphElement>(null)
+  const btnRefs = useRef<Array<HTMLButtonElement | null>>([])
+
+  // dispatch runs one of the six verbs. A void return is instant (no lock);
+  // a promise locks the bar (aria-disabled + spinner) until it settles, and
+  // only a *successful* settle returns the bar to decide — mirroring the
+  // pre-redesign runGate, which only closed the open panel on success and
+  // left it open (so the cook's typed edit isn't lost) on failure.
+  const dispatch = useCallback((key: GateVerb, run: () => void | Promise<void>) => {
+    if (locked) return
     const result = run()
     if (result instanceof Promise) {
       setPending(key)
-      try {
-        await result
-      } finally {
-        setPending(null)
-      }
+      result.then(() => setModeState('decide')).finally(() => setPending(null))
+    } else {
+      setModeState('decide')
     }
   }, [locked])
 
-  // Scoped single-key shortcuts (brief §5c, WCAG 2.1.4). A document keydown
-  // listener, live only while the bar sits at the pass / on a hold and focus is
-  // not in a typing context; dispatches through the same locked-guarded path,
-  // so the More verbs fire without opening the disclosure. Disableable /
-  // remappable via the store — no bespoke UI needed.
+  const openMode = useCallback((next: GateMode) => {
+    if (locked) return
+    setModeState(next)
+  }, [locked])
+
+  const backToDecide = useCallback(() => {
+    if (locked) return
+    setModeState('decide')
+  }, [locked])
+
+  // Focus protocol (brief): entering a form mode focuses its first field;
+  // leaving any mode back to decide returns focus to whichever button
+  // opened that journey (Tweak it for tweak; Try another way for
+  // another/redirect/takeover, since Back/Cancel always jump straight to
+  // decide rather than one level up — matching the reference design's
+  // onGateBack, which is a single `gateMode:'decide'` setter everywhere).
+  const prevMode = useRef<GateMode>('decide')
+  useEffect(() => {
+    const leaving = prevMode.current
+    if (leaving === mode) return
+    prevMode.current = mode
+    if (mode === 'decide') {
+      setActiveIndex(0)
+      if (leaving === 'tweak') tweakItRef.current?.focus()
+      else tryAnotherRef.current?.focus()
+    } else if (mode === 'another') {
+      setActiveIndex(0)
+      btnRefs.current[0]?.focus()
+    } else {
+      formRef.current?.querySelector<HTMLElement>('input, textarea')?.focus()
+    }
+  }, [mode])
+
+  // Tweak/takeover/redirect fields re-seed fresh every time their mode
+  // opens (mirrors the reference design's onTweak/onTakeover handlers,
+  // which recompute editInput/takeoverInput at the moment the mode opens).
+  useEffect(() => {
+    if (mode === 'tweak') {
+      setEditValues(ops.map((op) => (op.op === 'remove' ? '' : editableValue(op.value))))
+    } else if (mode === 'redirect') {
+      setSteerText('')
+    } else if (mode === 'takeover') {
+      setTakeoverText(JSON.stringify(draft, null, 2))
+      setParseError(null)
+    }
+    // ops/draft are read fresh at the moment `mode` transitions; re-running
+    // this on every ops/draft identity change would stomp in-progress edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
+
+  useEffect(() => {
+    if (parseError) errorRef.current?.focus()
+  }, [parseError])
+
+  // Scoped single-key shortcuts (WCAG 2.1.4): the whole feature is
+  // disableable via getShortcuts().enabled. The listener is always live
+  // while the bar is mounted (Escape must work from any mode), but the
+  // letter verbs only fire in decide mode (port of design 908-921).
   useEffect(() => {
     if (!shortcuts.enabled) return
-    if (state !== 'awaiting_gate' && state !== 'blocked') return
-    const allowed = shortcutVerbs(state)
     function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as Element | null
+      if (isTypingTarget(target)) {
+        if (e.key === 'Escape') (target as HTMLElement).blur()
+        return
+      }
+      if (e.key === 'Escape') {
+        if (mode !== 'decide') backToDecide()
+        return
+      }
       if (e.ctrlKey || e.metaKey || e.altKey) return
-      if (isTypingContext(document.activeElement)) return
+      if (mode !== 'decide') return
       const key = e.key.toLowerCase()
-      const verb = allowed.find((v) => shortcuts.map[v]?.toLowerCase() === key)
-      if (!verb) return
-      e.preventDefault()
-      void dispatch(verb, onVerb && (() => onVerb(verb)))
+      if (key === shortcuts.map.accept) { e.preventDefault(); dispatch('accept', onAccept) }
+      else if (key === shortcuts.map.edit) { e.preventDefault(); openMode('tweak') }
+      else if (key === shortcuts.map.regenerate) { e.preventDefault(); dispatch('regenerate', onRegenerate) }
+      else if (key === shortcuts.map.alternatives) { e.preventDefault(); dispatch('alternatives', onAlternatives) }
+      else if (key === shortcuts.map.redirect) { e.preventDefault(); openMode('redirect') }
+      else if (key === shortcuts.map.take_over) { e.preventDefault(); openMode('takeover') }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [state, onVerb, dispatch, shortcuts])
+  }, [shortcuts, mode, dispatch, openMode, backToDecide, onAccept, onRegenerate, onAlternatives])
 
-  if (state === 'proposing') {
-    return (
-      <div data-testid="gate-bar" className="flex items-center gap-3">
-        <span className="uppercase text-muted">Proposing…</span>
-        <button type="button" aria-disabled={locked} onClick={() => void dispatch('cancel', onCancel)}
-          className={`${ghostBase} ${locked ? '' : ghostHover} border border-hairline`}>
-          {pending === 'cancel' && <Spinner />}Cancel
-        </button>
-      </div>
-    )
-  }
-
-  // Toolbar controls in tab order: the decision pair, More, then the revealed
-  // More verbs (at the pass); Regenerate/Redirect on a hold.
-  type Control = { kind: 'verb'; verb: GateVerb } | { kind: 'more' }
-  const controls: Control[] =
-    state === 'blocked'
-      ? BLOCKED_VERBS.map((verb) => ({ kind: 'verb', verb }))
-      : [
-          { kind: 'verb', verb: 'accept' },
-          { kind: 'verb', verb: 'redirect' },
-          { kind: 'more' },
-          ...(moreOpen ? MORE_VERBS.map((verb) => ({ kind: 'verb' as const, verb })) : []),
-        ]
-  const active = Math.min(activeIndex, controls.length - 1)
-
-  // Roving tabindex: Left/Right move focus and wrap; Home/End hit the ends.
-  function onToolbarKeyDown(e: React.KeyboardEvent) {
-    const n = controls.length
-    let next = active
+  // Roving tabindex over the current button row (decide: 3 controls,
+  // another: 5). Arrow keys only — Tab still moves to the one active stop.
+  function onToolbarKeyDown(e: React.KeyboardEvent, count: number) {
+    let next = activeIndex
     switch (e.key) {
-      case 'ArrowRight': next = (active + 1) % n; break
-      case 'ArrowLeft': next = (active - 1 + n) % n; break
+      case 'ArrowRight': next = (activeIndex + 1) % count; break
+      case 'ArrowLeft': next = (activeIndex - 1 + count) % count; break
       case 'Home': next = 0; break
-      case 'End': next = n - 1; break
+      case 'End': next = count - 1; break
       default: return
     }
     e.preventDefault()
@@ -149,58 +230,212 @@ export default function GateBar({ state = 'awaiting_gate', onVerb, onCancel, dis
     btnRefs.current[next]?.focus()
   }
 
-  function verbButton(verb: GateVerb, index: number, extra?: React.ReactNode) {
-    return (
-      <button key={verb} type="button"
-        ref={(el) => { btnRefs.current[index] = el }}
-        tabIndex={index === active ? 0 : -1}
-        aria-disabled={locked}
-        aria-keyshortcuts={shortcuts.enabled ? shortcuts.map[verb] : undefined}
-        onFocus={() => setActiveIndex(index)}
-        onClick={() => void dispatch(verb, onVerb && (() => onVerb(verb)))}
-        className={verb === 'accept' ? primary : `${ghostBase} ${locked ? '' : ghostHover}`}>
-        {pending === verb && <Spinner />}{VERB_LABEL[verb]}{extra}
-      </button>
-    )
+  function submitTweak(e: FormEvent) {
+    e.preventDefault()
+    if (locked) return
+    const nextOps = ops.map((op, i) => (op.op === 'remove' ? op : { ...op, value: parseEdited(editValues[i], op.value) }))
+    dispatch('edit', () => onEditSubmit(nextOps))
   }
 
-  const label = state === 'blocked'
-    ? 'Gate — respond to the safety hold'
-    : 'Gate — respond to the proposal'
+  function submitRedirect(e: FormEvent) {
+    e.preventDefault()
+    if (locked || steerText.trim() === '') return
+    dispatch('redirect', () => onRedirectSubmit(steerText.trim()))
+  }
 
-  // The visible key hint — decorative for AT (aria-keyshortcuts carries it
-  // semantically), built from the live map so a remap re-reads.
-  const hintVerbs = state === 'blocked' ? BLOCKED_VERBS : HINT_ORDER
-  const hint = shortcuts.enabled
-    ? `keys: ${hintVerbs.map((v) => shortcuts.map[v].toUpperCase()).join(' · ')}`
-    : null
+  function submitTakeover(e: FormEvent) {
+    e.preventDefault()
+    if (locked) return
+    try {
+      const parsed = JSON.parse(takeoverText) as Draft
+      setParseError(null)
+      dispatch('take_over', () => onTakeoverSubmit(parsed))
+    } catch {
+      setParseError('The draft is not valid JSON — fix the highlighted text and save again.')
+    }
+  }
 
   return (
-    <div data-testid="gate-bar">
-      <div role="toolbar" aria-label={label} onKeyDown={onToolbarKeyDown}
-        className="inline-flex flex-wrap border border-hairline divide-x divide-hairline bg-page">
-        {controls.map((c, i) => {
-          if (c.kind === 'more') {
-            return (
-              <button key="more" type="button"
-                ref={(el) => { btnRefs.current[i] = el }}
-                tabIndex={i === active ? 0 : -1}
-                aria-disabled={locked}
-                aria-expanded={moreOpen}
-                onFocus={() => setActiveIndex(i)}
-                onClick={() => { if (!locked) setMoreOpen((o) => !o) }}
-                className={`${ghostBase} ${locked ? '' : ghostHover}`}>
-                More<span aria-hidden="true"> ▾</span>
+    <div data-testid="gate-bar"
+      className="sticky bottom-0 z-sticky border-t border-hairline-strong bg-panel px-[26px] py-[12px]">
+      <div className="max-w-[840px] mx-auto">
+        {mode === 'decide' && (
+          <div className="flex items-center gap-[12px] flex-wrap">
+            <span className="text-[13px] text-muted">{GATE_PROMPT}</span>
+            <div className="flex-1 min-w-[10px]" />
+            <div role="toolbar" aria-label="Decide on this change"
+              onKeyDown={(e) => onToolbarKeyDown(e, 3)}
+              className="flex gap-[8px] flex-wrap">
+              <button type="button" data-verb="accept"
+                ref={(el) => { btnRefs.current[0] = el }}
+                tabIndex={activeIndex === 0 ? 0 : -1} aria-disabled={locked}
+                aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.accept : undefined}
+                onFocus={() => setActiveIndex(0)}
+                onClick={() => dispatch('accept', onAccept)}
+                className={primaryBtn}>
+                {pending === 'accept' && <Spinner />}{VERB_LABEL.accept}
+                {shortcuts.enabled && <Hint letter={shortcuts.map.accept.toUpperCase()} />}
               </button>
-            )
-          }
-          const extra = c.verb === 'redirect' ? (
-            <span aria-hidden="true" className="ml-1 font-mono text-2xs normal-case opacity-60">redirect</span>
-          ) : undefined
-          return verbButton(c.verb, i, extra)
-        })}
+              <button type="button" data-verb="edit"
+                ref={(el) => { btnRefs.current[1] = el; tweakItRef.current = el }}
+                tabIndex={activeIndex === 1 ? 0 : -1} aria-disabled={locked}
+                aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.edit : undefined}
+                onFocus={() => setActiveIndex(1)}
+                onClick={() => openMode('tweak')}
+                className={bigGhostBtn(locked)}>
+                {VERB_LABEL.edit}
+                {shortcuts.enabled && <Hint letter={shortcuts.map.edit.toUpperCase()} />}
+              </button>
+              <button type="button"
+                ref={(el) => { btnRefs.current[2] = el; tryAnotherRef.current = el }}
+                tabIndex={activeIndex === 2 ? 0 : -1} aria-disabled={locked} aria-expanded={false}
+                onFocus={() => setActiveIndex(2)}
+                onClick={() => openMode('another')}
+                className={bigGhostBtn(locked)}>
+                {GATE_ANOTHER_LABEL}<span aria-hidden="true"> ▾</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mode === 'another' && (
+          <div role="toolbar" aria-label="Decide on this change"
+            onKeyDown={(e) => onToolbarKeyDown(e, 5)}
+            className="cc-rise flex items-center gap-[10px] flex-wrap">
+            <span className="text-[12px] text-muted mr-1">{GATE_ANOTHER_LABEL} —</span>
+            <button type="button" data-verb="regenerate"
+              ref={(el) => { btnRefs.current[0] = el }}
+              tabIndex={activeIndex === 0 ? 0 : -1} aria-disabled={locked}
+              aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.regenerate : undefined}
+              onFocus={() => setActiveIndex(0)}
+              onClick={() => dispatch('regenerate', onRegenerate)}
+              className={smallGhostBtn(locked)}>
+              {pending === 'regenerate' && <Spinner />}{VERB_LABEL.regenerate}
+              {shortcuts.enabled && <Hint letter={shortcuts.map.regenerate.toUpperCase()} />}
+            </button>
+            <button type="button" data-verb="alternatives"
+              ref={(el) => { btnRefs.current[1] = el }}
+              tabIndex={activeIndex === 1 ? 0 : -1} aria-disabled={locked}
+              aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.alternatives : undefined}
+              onFocus={() => setActiveIndex(1)}
+              onClick={() => dispatch('alternatives', onAlternatives)}
+              className={smallGhostBtn(locked)}>
+              {pending === 'alternatives' && <Spinner />}{VERB_LABEL.alternatives}
+              {shortcuts.enabled && <Hint letter={shortcuts.map.alternatives.toUpperCase()} />}
+            </button>
+            <button type="button" data-verb="redirect"
+              ref={(el) => { btnRefs.current[2] = el }}
+              tabIndex={activeIndex === 2 ? 0 : -1} aria-disabled={locked}
+              aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.redirect : undefined}
+              onFocus={() => setActiveIndex(2)}
+              onClick={() => openMode('redirect')}
+              className={smallGhostBtn(locked)}>
+              {VERB_LABEL.redirect}
+              {shortcuts.enabled && <Hint letter={shortcuts.map.redirect.toUpperCase()} />}
+            </button>
+            <button type="button" data-verb="take_over"
+              ref={(el) => { btnRefs.current[3] = el }}
+              tabIndex={activeIndex === 3 ? 0 : -1} aria-disabled={locked}
+              aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.take_over : undefined}
+              onFocus={() => setActiveIndex(3)}
+              onClick={() => openMode('takeover')}
+              className={smallGhostBtn(locked)}>
+              {VERB_LABEL.take_over}
+              {shortcuts.enabled && <Hint letter={shortcuts.map.take_over.toUpperCase()} />}
+            </button>
+            <div className="flex-1" />
+            <button type="button"
+              ref={(el) => { btnRefs.current[4] = el }}
+              tabIndex={activeIndex === 4 ? 0 : -1} aria-disabled={locked}
+              onFocus={() => setActiveIndex(4)}
+              onClick={backToDecide}
+              className={smallGhostBtn(locked)}>
+              ← Back
+            </button>
+          </div>
+        )}
+
+        {mode === 'tweak' && (
+          <form ref={formRef} onSubmit={submitTweak} data-testid="tweak-form" className="cc-rise">
+            <label className="block text-[11px] tracking-[0.1em] uppercase text-muted mb-[6px]">
+              Tweak the concept before you keep it
+            </label>
+            <div className="flex flex-col gap-[10px] mb-[10px]">
+              {ops.length === 0 && <p className="text-muted">Nothing to tweak — this change has no fields.</p>}
+              {ops.map((op, i) => (
+                <label key={i} className="block text-muted">
+                  <span className="uppercase text-[11px]">{opLineLabel(op)}</span>
+                  <span className="ml-1 font-mono text-2xs opacity-60">{op.path}</span>
+                  {op.op === 'remove' ? (
+                    <span className="block text-muted">(removal — nothing to edit)</span>
+                  ) : (
+                    <input value={editValues[i] ?? ''} aria-disabled={locked}
+                      onChange={(e) => setEditValues((v) => v.map((x, j) => (j === i ? e.target.value : x)))}
+                      className="mt-1 w-full border border-accent bg-panel text-ink text-[14px] p-[11px] min-h-[44px]" />
+                  )}
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-[10px]">
+              <button type="submit" aria-disabled={locked} className={primaryBtn}>
+                {pending === 'edit' && <Spinner />}Keep with edit
+              </button>
+              <button type="button" aria-disabled={locked} onClick={backToDecide} className={smallGhostBtn(locked)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {mode === 'redirect' && (
+          <form ref={formRef} onSubmit={submitRedirect} data-testid="redirect-form" className="cc-rise">
+            <label htmlFor="gate-redirect-input"
+              className="block text-[11px] tracking-[0.1em] uppercase text-muted mb-[6px]">
+              Ask for a different change
+            </label>
+            <div className="flex gap-[10px]">
+              <input id="gate-redirect-input" value={steerText}
+                onChange={(e) => setSteerText(e.target.value)}
+                placeholder="e.g. keep the salt but add brightness instead"
+                aria-disabled={locked}
+                className="flex-1 border border-accent bg-panel text-ink text-[14px] p-[11px] min-h-[44px]" />
+              <button type="submit" disabled={steerText.trim() === ''} aria-disabled={locked} className={primaryBtn}>
+                {pending === 'redirect' && <Spinner />}Send
+              </button>
+              <button type="button" aria-disabled={locked} onClick={backToDecide} className={smallGhostBtn(locked)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {mode === 'takeover' && (
+          <form ref={formRef} onSubmit={submitTakeover} data-testid="takeover-form" className="cc-rise">
+            <label className="block text-[11px] tracking-[0.1em] uppercase text-muted mb-[6px]">
+              Edit the draft yourself
+            </label>
+            <textarea value={takeoverText} onChange={(e) => setTakeoverText(e.target.value)}
+              aria-label="Draft JSON" aria-disabled={locked}
+              aria-invalid={parseError ? true : undefined}
+              aria-describedby={parseError ? 'gate-takeover-error' : undefined}
+              className="w-full min-h-[80px] resize-y border border-accent bg-panel text-ink font-mono text-[12px] leading-[1.6] p-[11px]" />
+            {parseError && (
+              <p id="gate-takeover-error" role="alert" tabIndex={-1} ref={errorRef}
+                className="mt-1 text-critical focus:outline-none">
+                <span className="sr-only">Error: </span>{parseError}
+              </p>
+            )}
+            <div className="flex gap-[10px] mt-[10px]">
+              <button type="submit" aria-disabled={locked} className={primaryBtn}>
+                {pending === 'take_over' && <Spinner />}Save draft
+              </button>
+              <button type="button" aria-disabled={locked} onClick={backToDecide} className={smallGhostBtn(locked)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
       </div>
-      {hint && <p aria-hidden="true" className="mt-1 font-mono text-2xs text-muted normal-case">{hint}</p>}
     </div>
   )
 }

@@ -12,31 +12,41 @@ import type { GateVerb, MoveType } from './types'
 // Workbench header states. Renamed states carry a first-use gloss (plain
 // language, shown as subtitle/tooltip on first appearance).
 export const STATE_LABEL: Record<string, string> = {
-  idle: 'Bench ready',
-  proposing: 'Proposing…',
-  awaiting_gate: 'At the pass',
-  blocked: 'On hold — safety',
+  idle: 'Ready',
+  proposing: 'Thinking…',
+  awaiting_gate: 'Needs your call',
+  blocked: 'Safety hold',
 }
 
 export const STATE_GLOSS: Record<string, string> = {
-  idle: 'ready for the next move',
-  awaiting_gate: 'awaiting your decision',
-  blocked: 'a safety rule stopped this move',
+  idle: 'ready for your next idea',
+  awaiting_gate: 'a change is waiting on you',
+  blocked: 'a safety rule stopped this change',
 }
 
-// Gate verbs. Two levels at the pass: Accept + Ask for changes up front,
-// the revision/mode-switch verbs behind More ▾ with their verbatim names.
+// Gate verbs. The mode-based GateBar (task 6) speaks two altitudes: the
+// decision pair up front (Use it / Tweak it) plus "Try another way ▾" for
+// the four revision/mode-switch verbs.
 export const VERB_LABEL: Record<GateVerb, string> = {
-  accept: 'Accept',
-  edit: 'Edit',
+  accept: 'Use it',
+  edit: 'Tweak it',
   regenerate: 'Regenerate',
-  alternatives: 'Alternatives',
+  alternatives: 'Compare two options',
   redirect: 'Ask for changes',
-  take_over: 'Take over',
+  take_over: 'Edit it myself',
 }
 
-export const LEVEL_ONE_VERBS: readonly GateVerb[] = ['accept', 'redirect']
-export const MORE_VERBS: readonly GateVerb[] = ['edit', 'regenerate', 'alternatives', 'take_over']
+export const LEVEL_ONE_VERBS: readonly GateVerb[] = ['accept', 'edit']
+export const MORE_VERBS: readonly GateVerb[] = ['regenerate', 'alternatives', 'redirect', 'take_over']
+
+// GateBar decide-mode copy (task 6).
+export const GATE_PROMPT = 'Want this change?'
+export const GATE_ANOTHER_LABEL = 'Try another way'
+
+// Safety-hold verb copy (task 7's SafetyHold — only these two verbs exist
+// on a hold, in the hold's own register).
+export const BLOCKED_REGEN = 'Try a different way'
+export const BLOCKED_REDIRECT = 'Ask for a safer change'
 
 // Move types in cook vocabulary — plain label primary, slug secondary mono.
 export const MOVE_LABEL: Record<MoveType, string> = {

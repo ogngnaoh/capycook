@@ -1,5 +1,6 @@
 import { MOVE_TYPES } from './types'
 import {
+  BLOCKED_REDIRECT, BLOCKED_REGEN, GATE_ANOTHER_LABEL, GATE_PROMPT,
   LEVEL_ONE_VERBS, MORE_VERBS, MOVE_LABEL, STATE_GLOSS, STATE_LABEL,
   VERB_LABEL, shortRef, trialAlias, versionAlias,
 } from './vocab'
@@ -13,32 +14,48 @@ test('every move-type slug has a plain-language label with no slug leakage', () 
   }
 })
 
-test('every gate verb has a surface label; redirect reads as Ask for changes', () => {
+test('every gate verb has a surface label in the mode-based register', () => {
   const verbs = ['accept', 'edit', 'regenerate', 'alternatives', 'redirect', 'take_over'] as const
   for (const v of verbs) expect(VERB_LABEL[v], `missing label for ${v}`).toBeTruthy()
+  expect(VERB_LABEL.accept).toBe('Use it')
+  expect(VERB_LABEL.edit).toBe('Tweak it')
+  expect(VERB_LABEL.regenerate).toBe('Regenerate')
+  expect(VERB_LABEL.alternatives).toBe('Compare two options')
   expect(VERB_LABEL.redirect).toBe('Ask for changes')
-  expect(VERB_LABEL.accept).toBe('Accept')
+  expect(VERB_LABEL.take_over).toBe('Edit it myself')
 })
 
-test('gate levels partition the six verbs: accept + ask-for-changes up front, four behind More', () => {
-  expect(LEVEL_ONE_VERBS).toEqual(['accept', 'redirect'])
-  expect(MORE_VERBS).toEqual(['edit', 'regenerate', 'alternatives', 'take_over'])
+test('gate levels partition the six verbs: accept + tweak up front, four behind "Try another way"', () => {
+  expect(LEVEL_ONE_VERBS).toEqual(['accept', 'edit'])
+  expect(MORE_VERBS).toEqual(['regenerate', 'alternatives', 'redirect', 'take_over'])
   const all = [...LEVEL_ONE_VERBS, ...MORE_VERBS].sort()
   expect(all).toEqual(Object.keys(VERB_LABEL).sort())
 })
 
-test('renamed workbench states speak kitchen vocabulary and carry plain glosses', () => {
-  expect(STATE_LABEL.idle).toBe('Bench ready')
-  expect(STATE_LABEL.awaiting_gate).toBe('At the pass')
-  expect(STATE_LABEL.blocked).toBe('On hold — safety')
-  expect(STATE_LABEL.proposing).toBe('Proposing…')
+test('renamed workbench states speak the culinary-decision register and carry plain glosses', () => {
+  expect(STATE_LABEL.idle).toBe('Ready')
+  expect(STATE_LABEL.proposing).toBe('Thinking…')
+  expect(STATE_LABEL.awaiting_gate).toBe('Needs your call')
+  expect(STATE_LABEL.blocked).toBe('Safety hold')
   // Every renamed state carries a first-use gloss (call #4); the gloss is
   // plain language, so it never repeats the label.
   for (const state of ['idle', 'awaiting_gate', 'blocked'] as const) {
     expect(STATE_GLOSS[state], `missing gloss for ${state}`).toBeTruthy()
     expect(STATE_GLOSS[state]).not.toBe(STATE_LABEL[state])
   }
-  expect(STATE_GLOSS.awaiting_gate).toBe('awaiting your decision')
+  expect(STATE_GLOSS.idle).toBe('ready for your next idea')
+  expect(STATE_GLOSS.awaiting_gate).toBe('a change is waiting on you')
+  expect(STATE_GLOSS.blocked).toBe('a safety rule stopped this change')
+})
+
+test('the GateBar decide-mode prompt and disclosure label are fixed copy', () => {
+  expect(GATE_PROMPT).toBe('Want this change?')
+  expect(GATE_ANOTHER_LABEL).toBe('Try another way')
+})
+
+test('the safety hold offers only its two verbs, in the hold\'s own register', () => {
+  expect(BLOCKED_REGEN).toBe('Try a different way')
+  expect(BLOCKED_REDIRECT).toBe('Ask for a safer change')
 })
 
 test('version ids compact to the 8-char trial form, full ids pass through when short', () => {
