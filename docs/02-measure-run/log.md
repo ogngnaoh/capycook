@@ -1,0 +1,1 @@
+2026-07-08 — milestone reframed (spec committed 2ae9109): tiered verification replaces second labeler; discovered during planning: (1) claim-source vocabulary was never pinned — provenance is LLM free-text, pinned this milestone; (2) T1-amendment-draft requires user-pasted §9 entries (builder never edits the prereg); (3) claim_id embeds the arm — blinding needs opaque ids.
