@@ -475,12 +475,12 @@ replayed token-cadence **after** the safety screen passes.
 
 ## Phase 6 — Fork kit + hand-back (Gate D)
 
-- [ ] **6.1 fork kit** — Create `docker-compose.yml` (app + volume; optional
+- [x] **6.1 fork kit** (done 2026-07-07) — Create `docker-compose.yml` (app + volume; optional
   `langfuse` profile with its self-host stack), `DEPLOY.md` (fork → .env → compose up;
   platform notes), `THIRD_PARTY_NOTICES.md` (FoodOn CC-BY attribution, FlavorGraph/
   KitcheNette Apache-2.0, USDA CC0). Oracle: `docker compose up` from clean checkout
   + only `.env` serves the full loop. Commit.
-- [ ] **6.2 evidence + hand-back** — Re-run ALL phase oracles (suites, e2e script
+- [x] **6.2 evidence + hand-back** (done 2026-07-07; tag phase-6-handback) — Re-run ALL phase oracles (suites, e2e script
   local+container, eval dry-run, compose check); assemble
   `docs/01-end-to-end/evidence/README.md` (per-oracle outputs); final handoff.md
   ("Next: user reviews → merge e2e → master; then milestone 02: log T1 amendment,
