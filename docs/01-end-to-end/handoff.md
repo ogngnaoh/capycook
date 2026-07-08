@@ -1,11 +1,11 @@
 # Handoff — Milestone 01 (end-to-end build)
 
 ## Next session start here
-**Gate D is open.** The user reviews the outcome and decides the merge:
-`git checkout master && git merge e2e` (never done autonomously). After the
-merge: milestone 02 begins — USER logs the T1 amendment
-(docs/01-end-to-end/T1-amendment-draft.md, §9 of PREREGISTRATION), then
-operator sessions + the labeling campaign.
+**Milestone 01 is SHIPPED and merged** (Gate D cleared 2026-07-07; master at
+phase-6-handback). This folder is archive. Milestone 02 (measure-run) is
+active: its FIRST action is the USER logging the T1 amendment
+(docs/01-end-to-end/T1-amendment-draft.md → PREREGISTRATION §9), then
+operator sessions + the labeling campaign per PREREGISTRATION.
 
 ## Current state
 - Branch `e2e`, tags phase-1-skeleton … phase-6-handback. All six phases
@@ -18,6 +18,5 @@ operator sessions + the labeling campaign.
   temporary; restart per DEPLOY.md or `make run` with .env.
 
 ## Active concerns
-- Gate D pending — do not merge without the user.
 - Deferral ledger in log.md (2026-07-07 6.2 entry); none block the merge.
 - PREREGISTRATION.md untouched all milestone (diff-verified empty).

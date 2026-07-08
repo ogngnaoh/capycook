@@ -187,3 +187,8 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   move-failed/reconnect visuals uncapturable. Not vendored: KitcheNette
   (notice records non-distribution). USER actions pending: log T1 amendment
   at milestone-02 start; Gate D merge decision.
+- **2026-07-07 · Gate D CLEARED — merged.** User ruled "proceed to merge";
+  e2e fast-forwarded into master at 30eee3e (tag phase-6-handback). Milestone
+  01 shipped; milestone 02 (measure-run) now active. First milestone-02
+  action is the USER's: log the T1 amendment (T1-amendment-draft.md) into
+  PREREGISTRATION §9.
