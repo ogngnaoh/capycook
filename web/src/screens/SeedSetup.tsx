@@ -109,8 +109,10 @@ export default function SeedSetup({ onCreated }: { onCreated: (d: DishDetail) =>
     }
   }
 
+  // noValidate: the GOV.UK error summary owns validation — native HTML5
+  // constraint bubbles otherwise block submit before it runs.
   return (
-    <form onSubmit={onSubmit} data-testid="seed-setup" className="space-y-5">
+    <form onSubmit={onSubmit} noValidate data-testid="seed-setup" className="space-y-5">
       <div>
         <div className="text-2xs uppercase tracking-ui text-muted">Start a dish</div>
         <h2 className="mt-2 mb-1 text-2xl font-bold">What do you feel like cooking?</h2>
