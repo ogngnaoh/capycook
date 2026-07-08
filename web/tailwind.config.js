@@ -22,14 +22,17 @@ export default {
       current: 'currentColor',
       inherit: 'inherit',
       page: 'var(--color-page)',
+      panel: 'var(--color-panel)',
       surface: 'var(--color-surface)',
       ink: 'var(--color-ink)',
       muted: 'var(--color-muted)',
+      faint: 'var(--color-faint)',
       hairline: 'var(--color-border)',
       'hairline-strong': 'var(--color-border-strong)',
       accent: {
         DEFAULT: 'var(--color-accent)', // fills/active/focus only — not 12px text
         text: 'var(--color-accent-text)', // the AA terracotta for text/links
+        soft: 'var(--color-accent-soft)',
       },
       'on-accent': 'var(--color-on-accent)',
       info: { DEFAULT: 'var(--color-info)', surface: 'var(--color-info-surface)' },
@@ -86,7 +89,7 @@ export default {
       // Fixed pane widths on the 5px rhythm. The replaced spacing scale
       // (0–9) drops Tailwind's default width steps, so panes name their
       // widths here — a bare w-96/w-72 would be a silent no-op.
-      width: { steering: '390px', versions: '290px' },
+      width: { steering: '390px', versions: '290px', timeline: '308px' },
       zIndex: {
         sticky: '100',
         dropdown: '200',

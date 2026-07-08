@@ -71,7 +71,7 @@
   --shadow-none:   none;  /* no drop shadows — separate with borders + whitespace */
 
   /* ---------- LAYOUT ---------- */
-  --header-height:  60px;
+  --header-height:  54px;
   --container-max:  1440px;
   --grid-columns:   12;
   --grid-gutter:    var(--space-4);
@@ -105,19 +105,22 @@
   color-scheme: light;
 
   /* Warm neutrals (~90% of any view) */
-  --color-page:           #FAF9F5;  /* ivory page */
-  --color-surface:        #F0EFEA;  /* oat — subtle fills, hover, zebra */
-  --color-ink:            #191919;  /* slate — primary text, filled surfaces */
-  --color-muted:          #6E6A63;  /* warm muted — secondary / meta text */
-  --color-border:         #E8E6E0;  /* warm hairline dividers, ghost outline */
-  --color-border-strong:  #C9C5BC;  /* inputs, controls, disabled */
+  --color-page:           #FBF9F4;  /* ivory page */
+  --color-panel:          #FFFFFF;  /* white panels */
+  --color-surface:        #F4F0E8;  /* oat — subtle fills, hover, zebra */
+  --color-ink:            #1C1A17;  /* slate — primary text, filled surfaces */
+  --color-muted:          #6B6560;  /* warm muted — secondary / meta text */
+  --color-faint:          #9A938A;  /* faint — tertiary text */
+  --color-border:         #E7E1D6;  /* warm hairline dividers, ghost outline */
+  --color-border-strong:  #CEC6B7;  /* inputs, controls, disabled */
 
   /* Terracotta accent — fills, active states, focus. At most one hero
      block per view. 3.1:1 on ivory: fine for fills/focus, NOT for
      normal-size text — use --color-accent-text for that. */
-  --color-accent:       #CC785C;
+  --color-accent:       #C05A2C;
   --color-accent-text:  #A04E30;  /* AA (5.5:1) terracotta for text/links */
-  --color-on-accent:    #191919;  /* text on terracotta fills (5.4:1) */
+  --color-on-accent:    #FFFFFF;  /* text on terracotta fills (5.4:1) */
+  --color-accent-soft:  #F2E3D8;  /* soft accent background */
 
   /* Semantic status set — Acne values kept verbatim. Surfaces only
      behind alerts/badges/chips; color never the only signal.
@@ -126,8 +129,8 @@
      text-warning for ≥ 16px/bold.) */
   --color-info:             #0018A8;
   --color-info-surface:     #EAEDFB;
-  --color-success:          #007701;
-  --color-success-surface:  #E5F5E0;
+  --color-success:          #2C6E49;
+  --color-success-surface:  #E7F0E8;
   --color-warning:          #B36200;
   --color-warning-surface:  #FBEED9;
   --color-critical:         #C4271C;
@@ -153,26 +156,29 @@
   :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    --color-page:           #1E1C19;  /* warm near-black page */
-    --color-surface:        #282520;  /* dark oat surface */
-    --color-ink:            #F0EEE9;  /* warm off-white text */
-    --color-muted:          #A8A297;
-    --color-border:         #3A362F;
-    --color-border-strong:  #57524A;
+    --color-page:           #16130E;  /* warm near-black page */
+    --color-panel:          #201C15;  /* dark panels */
+    --color-surface:        #26211A;  /* dark oat surface */
+    --color-ink:            #ECE5D8;  /* warm off-white text */
+    --color-muted:          #A79E90;
+    --color-faint:          #7C7364;
+    --color-border:         #322C22;
+    --color-border-strong:  #443C2E;
 
-    --color-accent:       #CC785C;  /* fills keep the same terracotta */
+    --color-accent:       #D2794D;  /* fills keep the same terracotta */
     --color-accent-text:  #D98E73;  /* lighter tint — AA (6.5:1) on dark */
-    --color-on-accent:    #191919;
+    --color-on-accent:    #17130E;
+    --color-accent-soft:  #33261C;  /* soft accent background */
 
     /* Semantic dark companions — tuned for AA on the warm near-black */
     --color-info:             #8FA1F2;
     --color-info-surface:     #20263E;
-    --color-success:          #5FB44E;
-    --color-success-surface:  #1F2E1A;
-    --color-warning:          #E3A04F;
-    --color-warning-surface:  #332614;
-    --color-critical:         #F2705F;
-    --color-critical-surface: #38201C;
+    --color-success:          #7FB894;
+    --color-success-surface:  #1E2A20;
+    --color-warning:          #E0A552;
+    --color-warning-surface:  #2A2114;
+    --color-critical:         #E58A7F;
+    --color-critical-surface: #2E1A17;
   }
 }
 
@@ -180,23 +186,26 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --color-page:           #1E1C19;
-  --color-surface:        #282520;
-  --color-ink:            #F0EEE9;
-  --color-muted:          #A8A297;
-  --color-border:         #3A362F;
-  --color-border-strong:  #57524A;
+  --color-page:           #16130E;
+  --color-panel:          #201C15;
+  --color-surface:        #26211A;
+  --color-ink:            #ECE5D8;
+  --color-muted:          #A79E90;
+  --color-faint:          #7C7364;
+  --color-border:         #322C22;
+  --color-border-strong:  #443C2E;
 
-  --color-accent:       #CC785C;
+  --color-accent:       #D2794D;
   --color-accent-text:  #D98E73;
-  --color-on-accent:    #191919;
+  --color-on-accent:    #17130E;
+  --color-accent-soft:  #33261C;
 
   --color-info:             #8FA1F2;
   --color-info-surface:     #20263E;
-  --color-success:          #5FB44E;
-  --color-success-surface:  #1F2E1A;
-  --color-warning:          #E3A04F;
-  --color-warning-surface:  #332614;
-  --color-critical:         #F2705F;
-  --color-critical-surface: #38201C;
+  --color-success:          #7FB894;
+  --color-success-surface:  #1E2A20;
+  --color-warning:          #E0A552;
+  --color-warning-surface:  #2A2114;
+  --color-critical:         #E58A7F;
+  --color-critical-surface: #2E1A17;
 }

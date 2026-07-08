@@ -58,4 +58,13 @@
   .skip-link:focus {
     left: 0.5rem;
   }
+
+  /* Diff tints (design lines 1009-1024): green wash + 3px inset spine. */
+  .row-add    { background: var(--color-success-surface); box-shadow: inset 3px 0 var(--color-success); }
+  .row-change { background: var(--color-success-surface); box-shadow: inset 3px 0 var(--color-accent); }
+  .cc-rise { animation: cc-rise .18s ease both; }
 }
+
+@keyframes cc-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes cc-spin { to { transform: rotate(360deg); } }
+@keyframes cc-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
