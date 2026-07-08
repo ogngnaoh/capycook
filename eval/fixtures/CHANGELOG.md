@@ -14,3 +14,10 @@ Every change to the versioned benchmark set is logged here (PREREGISTRATION
   20260706, 18% target rate, stratified per arm, min 1 —
   `internal/eval/labels.go`). Instruments and documentation only — this
   directory still holds no seeds, no labels, no data.
+- **2026-07-07** — `seeds.json` v1 RATIFIED at Gate C (user: all 13, incl.
+  bench-12 basil-pesto + tree-nuts allergen stress seed, explicitly
+  confirmed). Copied verbatim from
+  `docs/01-end-to-end/proposed-benchmark-seeds.json`; 13 seeds × 5 moves ×
+  3 arms ≈ 195 claims; dev-seed disjointness test-enforced
+  (`internal/eval/seeds_test.go`). The benchmark set is now locked — changes
+  from here require a PREREGISTRATION §9 amendment.
