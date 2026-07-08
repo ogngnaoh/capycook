@@ -117,6 +117,10 @@ compound-sharing signal — see the system prompt). Cite one as
 - thyme (score 0.91)
 - lemon (score 0.84)
 - hazelnut (score 0.77)
+
+When a flavor_rationale claim rests on this evidence, its provenance field
+takes the bare ref string (e.g. "pairing:basil", "fdc:171077",
+"foodon:FOODON_03411343").
 [END ARM-DEPENDENT EVIDENCE]
 
 ## Steering thread (oldest first; most recent last)

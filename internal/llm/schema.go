@@ -50,7 +50,7 @@ const proposalSchemaJSON = `{
             "type": "object",
             "properties": {
               "claim": {"type": "string"},
-              "provenance": {"type": ["string", "null"]},
+              "provenance": {"type": ["string", "null"], "description": "null, or exactly one of: pairing:<ingredient> | fdc:<fdc_id> | foodon:<foodon_id>, copied from supplied evidence"},
               "cuisine_context": {"type": "string"}
             },
             "required": ["claim", "provenance", "cuisine_context"],

@@ -11,6 +11,11 @@ resolution). Cite one as {source: "usda-fdc", ref: "fdc:<fdc_id>", date: ""}
 or {source: "foodon", ref: "<foodon_id>", date: ""}:
 {{range .Resolutions}}- {{.Canonical}}: fdc_id={{orNull .FDCID}}, foodon_id={{orNull .FoodOnID}}
 {{end}}{{- end -}}
+{{- if or .Pairings .Resolutions}}
+When a flavor_rationale claim rests on this evidence, its provenance field
+takes the bare ref string (e.g. "pairing:basil", "fdc:171077",
+"foodon:FOODON_03411343").
+{{- end -}}
 {{- else -}}
 No grounding evidence is supplied for this run. Cite nothing: every flavor
 claim must carry a null provenance and be listed in unverified.

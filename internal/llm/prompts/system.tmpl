@@ -18,6 +18,10 @@ Respond with one complete proposal that satisfies ALL of the following:
   copying source, ref, and date exactly as the evidence presents them; use ""
   for a date the evidence does not supply. Never invent a source, ref, or
   date.
+- flavor_rationale[].provenance: when a flavor claim is backed by supplied
+  evidence, set provenance to exactly one machine-checkable ref, copied from
+  the evidence: "pairing:<ingredient>" (FlavorGraph pairing), "fdc:<fdc_id>"
+  (USDA), or "foodon:<foodon_id>" (FoodOn). Any other string is invalid.
 - Honest [unverified] handling: when a claim cannot be backed by supplied
   evidence, leave its provenance null and list the claim text in unverified.
   An honest unverified entry is correct behavior; a fabricated citation is

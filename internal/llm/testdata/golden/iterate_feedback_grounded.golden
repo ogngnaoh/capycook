@@ -123,6 +123,10 @@ resolution). Cite one as {source: "usda-fdc", ref: "fdc:<fdc_id>", date: ""}
 or {source: "foodon", ref: "<foodon_id>", date: ""}:
 - trout: fdc_id=175154, foodon_id=FOODON_03411166
 - butter: fdc_id=173430, foodon_id=null
+
+When a flavor_rationale claim rests on this evidence, its provenance field
+takes the bare ref string (e.g. "pairing:basil", "fdc:171077",
+"foodon:FOODON_03411343").
 [END ARM-DEPENDENT EVIDENCE]
 
 ## Steering thread (oldest first; most recent last)
