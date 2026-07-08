@@ -1,6 +1,10 @@
 /bin/
 .env
 
+# SQLite home (real operator data — never committed; privacy/pre-push guard)
+data/*.db
+data/*.db-*
+
 # eval harness output (unlabeled claim exports; the versioned instruments
 # live in eval/fixtures/)
 eval/out/
