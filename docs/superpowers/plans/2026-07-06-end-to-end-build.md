@@ -459,7 +459,8 @@ replayed token-cadence **after** the safety screen passes.
     hold, 24px floor closed. Desktop pixel-identical (max-md additive only).
     Convergence checks: pb-150px clearance; DraftPane step-chip wrap at ~360px.
     ALL 15 BRIEF TASKS LANDED (193 tests, 24 files).
-  - [ ] **Convergence rerun**: vendor shot script into `web/tools/` +
+  - [x] **Convergence rerun** (done 2026-07-07; visual verdict: CONVERGED —
+    user "looks good" at re-presented Gate C; seeds ruled separately): vendor shot script into `web/tools/` +
     `puppeteer-core` devDep (reverses logged scratchpad-only decision — log why;
     rescued copy in session scratchpad), adapt to renamed controls, extend for new
     states (narrow viewport, Technical view on/off, More ▾ open, safety hold w/

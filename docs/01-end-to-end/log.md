@@ -158,3 +158,10 @@ Append-only. Dated rationale entries: the *why* a diff can't show, dead ends, go
   from under the next session. `web/tools/shots.mjs` (adapted to the redesigned IA:
   TrialStrip, two-level gate, renamed verbs, narrow RailTabs) + `web/tools/README.md`
   now live in-repo, with `puppeteer-core` a `web/` devDependency.
+- **2026-07-07 · Gate C re-presented: visuals CONVERGED.** All 15 redirect tasks
+  landed; 56-shot evidence set (23 desktop + 5 narrow × both themes) presented
+  via artifact gallery; user verdict "looks good". Convergence sweep also
+  surfaced + fixed two defects (SPA deep-link 301 loop in web/serve.go; narrow
+  header overflow). Seed ratification asked as its own explicit decision —
+  PREREGISTRATION discipline: a casual approval must not silently lock the
+  benchmark set.
