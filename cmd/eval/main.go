@@ -7,10 +7,9 @@
 // everything into paste-ready markdown on stdout plus a JSON document).
 //
 // Phase-4 rails the CLI enforces rather than merely documents: exported
-// claims are UNLABELED (labels only ever come from human raters); benchmark
-// seeds default to the UNRATIFIED draft with a printed warning until Gate C
-// ratifies eval/fixtures/seeds.json; gate dynamics fold run_kind=operator
-// events only and always carry the explicit N + single-operator caveat.
+// claims carry no human labels (label_r1/label_r2 empty at export); seeds
+// resolve to the Gate-C-ratified eval/fixtures/seeds.json (2026-07-07),
+// falling back to the archived draft only if the fixture is missing;
 package main
 
 import (
