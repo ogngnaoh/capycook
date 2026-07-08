@@ -83,7 +83,7 @@ H2 operator sessions run in the background throughout S3–S6 (real usage, not a
 
 ## Exit criteria
 
-- PREREGISTRATION §9 carries one dated amendment; body untouched; CI frozen-doc guard still green.
+- PREREGISTRATION §9 carries the reframe amendment + the T1 instrument-pin entries (two user gates — the T1 pin machinery was discovered at planning); body untouched; CI frozen-doc guard still green.
 - `go test ./...` green including the new verifier; judge writes only `label_r2`; blinding verified by test; verifier↔author blind-check agreement reported at S3 exit.
 - Results table filled per §7a with explicit denominators; **pre-adjudication** κ + confusion matrix reported (any adjudicated author-final set clearly labeled as such, not as the reliability figure); findings paragraph present; H3b null (if it lands) framed as confirmed prediction.
 - README: surgery items done, 8 GIFs + 3 diagrams render on GitHub, hero + badges live, no stale claims.
