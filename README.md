@@ -1,5 +1,12 @@
 # CapyCook — Dish Development Workbench
 
+<!-- badges resolve after first push (D7: publish gate) -->
+[![CI](https://github.com/ogngnaoh/capycook/actions/workflows/ci.yml/badge.svg)](https://github.com/ogngnaoh/capycook/actions/workflows/ci.yml)
+![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Go 1.26 stdlib backend · React/Vite/Tailwind workbench · SQLite · swappable LLM edge (DeepSeek or deterministic stub) · OTel→Langfuse tracing · hand-rolled pre-registered eval harness.
+
 > **Status:** built & demoable (keyless stub mode); eval campaign in progress — methodology pre-registered & frozen before any data ([docs/PREREGISTRATION.md](docs/PREREGISTRATION.md), 2026-07-01).
 
 **CapyCook** is an open-source, self-hostable **human-in-the-loop workbench** for cooks
@@ -71,6 +78,26 @@ accept/edit/reject dynamics of the gate — which hold their meaning whatever th
 supporting, openly-hedged experiment, the eval asks whether grounding a model in a (contested,
 2011-lineage, Western-cuisine) flavor-pairing signal actually beats just asking a strong 2026
 LLM — and reports the real answer, including a null.
+
+### Where to sample the code
+
+| Package | What it is |
+|---|---|
+| `internal/orchestrator` | the move/gate state machine — proposals, safety screen, versioning |
+| `internal/eval` | pre-registered eval harness: 3-arm runner, labeling kit, κ, rates |
+| `internal/llm` | swappable model edge: DeepSeek client, deterministic stub, prompt pack |
+| `internal/grounding` | FlavorGraph pairing + USDA/FoodOn entity resolution |
+| `internal/services` | deterministic side: nutrition/cost recompute, allergen + safety gate |
+| `internal/store` / `internal/eventlog` | SQLite persistence · append-only event log (H2 telemetry) |
+| `internal/httpapi` / `internal/transport` | HTTP API + SSE stream to the workbench |
+| `internal/draft` / `internal/proposal` | dish-draft model + proposal/citation wire types |
+| `internal/telemetry` / `internal/config` | OTel→Langfuse seam · env config |
+
+`cmd/eval` is the harness CLI over `internal/eval`: `run` (scripted 3-arm runner), `replay`
+(H2 gate-dynamics report), `rates` (§7a rates), `kappa` (Cohen's κ + confusion matrix), and
+`report` (paste-ready markdown + JSON) subcommands. `web/` is the React/Vite/Tailwind
+workbench frontend — the timeline-spine, dish-stage, intent-bar, gate-as-decision UI that
+renders the SSE stream and drives moves through the gate.
 
 ## Methodology
 
@@ -158,6 +185,18 @@ Prior art the design situates against: IBM Chef Watson; FoodPuzzle (KDD'25); Foo
 the ChatGPT-plus-companions default that is the real incumbent. Full treatment in
 [`DESIGN.md`](DESIGN.md) §3.
 
+## Safety
+
+**The safety gate is an engineering guardrail, not food-safety advice.** It is a *narrow,
+deliberately incomplete* deterministic check — an anaerobic-preservation blocklist, minimum
+cook-temperature floors, and an allergen match against the constraints you enter. It exists to
+demonstrate domain-hazard modeling and to stop a few well-known hazardous patterns; it does **not**
+certify a dish as safe, and absence of a block does **not** mean a recipe is safe to cook or eat.
+Allergen handling depends on the constraints you provide and on correct ingredient identity, and
+cannot account for cross-contamination or trace ingredients. **Always apply your own judgment and
+standard food-safety practice — verify temperatures, storage, and allergens before serving.** See
+DESIGN §8.7 for the gate's scope and its documented limits.
+
 ## Self-hosting & telemetry (honesty note)
 
 CapyCook is designed to run entirely on your own machine with **no external calls beyond the LLM
@@ -172,18 +211,6 @@ you configure**:
 - **Data:** dishes and trials live in a local SQLite file (`DB_PATH`); the vendored FlavorGraph /
   USDA / FoodOn subsets under `data/` are read-only. There is no analytics, account system, or
   phone-home.
-
-## Safety
-
-**The safety gate is an engineering guardrail, not food-safety advice.** It is a *narrow,
-deliberately incomplete* deterministic check — an anaerobic-preservation blocklist, minimum
-cook-temperature floors, and an allergen match against the constraints you enter. It exists to
-demonstrate domain-hazard modeling and to stop a few well-known hazardous patterns; it does **not**
-certify a dish as safe, and absence of a block does **not** mean a recipe is safe to cook or eat.
-Allergen handling depends on the constraints you provide and on correct ingredient identity, and
-cannot account for cross-contamination or trace ingredients. **Always apply your own judgment and
-standard food-safety practice — verify temperatures, storage, and allergens before serving.** See
-DESIGN §8.7 for the gate's scope and its documented limits.
 
 ## Documents
 
