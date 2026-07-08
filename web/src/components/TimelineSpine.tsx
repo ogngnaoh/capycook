@@ -64,7 +64,7 @@ export default function TimelineSpine({ nodes, summary, nextHint, technical, onV
               ) : (
                 <button type="button" onClick={() => onView(node.id)}
                   aria-current={node.isCurrent ? 'true' : undefined}
-                  className={`${cardBase} ${node.isViewing ? 'border-accent bg-surface' : 'border-hairline bg-panel'}`}>
+                  className={`${cardBase} cursor-pointer ${node.isViewing ? 'border-accent bg-surface' : 'border-hairline bg-panel'}`}>
                   <TimelineCardBody node={node} technical={technical} highlighted={highlighted} />
                 </button>
               )}
@@ -99,7 +99,7 @@ function TimelineCardBody({ node, technical, highlighted }: {
   return (
     <>
       <div className="flex flex-wrap items-center gap-[8px]">
-        <span className={`font-semibold uppercase leading-none tracking-[0.04em] ${highlighted ? 'text-accent-text' : 'text-muted'}`}>
+        <span className={`font-medium uppercase leading-[1] tracking-[0.04em] ${highlighted ? 'text-accent-text' : 'text-muted'}`}>
           {node.head}
         </span>
         {node.cooked && (
