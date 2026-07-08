@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/acne-design-system-adc861a8-7673-4c6a-85cb-806c1f887f88/fonts/fonts.css">
+<link rel="stylesheet" href="_ds/acne-design-system-adc861a8-7673-4c6a-85cb-806c1f887f88/tokens.css">
+<link rel="stylesheet" href="_ds/acne-design-system-adc861a8-7673-4c6a-85cb-806c1f887f88/base.css">
+<link rel="stylesheet" href="_ds/acne-design-system-adc861a8-7673-4c6a-85cb-806c1f887f88/components.css">
+<link rel="stylesheet" href="_ds/acne-design-system-adc861a8-7673-4c6a-85cb-806c1f887f88/styles.css">
+<style>
+  html,body{margin:0;padding:0;background:#100D09;}
+  .cc-root{
+    --cc-bg:#FBF9F4;--cc-panel:#FFFFFF;--cc-panel-2:#F4F0E8;--cc-ink:#1C1A17;--cc-muted:#6B6560;--cc-faint:#9A938A;
+    --cc-line:#E7E1D6;--cc-line-strong:#CEC6B7;--cc-accent:#C05A2C;--cc-accent-ink:#FFFFFF;--cc-accent-soft:#F2E3D8;
+    --cc-add:#2C6E49;--cc-add-bg:#E7F0E8;--cc-warn:#B36200;--cc-warn-bg:#FBEED9;--cc-crit:#C4271C;--cc-crit-bg:#FBE4E1;
+    background:var(--cc-bg);color:var(--cc-ink);font-family:var(--font-sans);min-height:100vh;
+  }
+  .cc-root[data-theme="dark"]{
+    --cc-bg:#16130E;--cc-panel:#201C15;--cc-panel-2:#26211A;--cc-ink:#ECE5D8;--cc-muted:#A79E90;--cc-faint:#7C7364;
+    --cc-line:#322C22;--cc-line-strong:#443C2E;--cc-accent:#D2794D;--cc-accent-ink:#17130E;--cc-accent-soft:#33261C;
+    --cc-add:#7FB894;--cc-add-bg:#1E2A20;--cc-warn:#E0A552;--cc-warn-bg:#2A2114;--cc-crit:#E58A7F;--cc-crit-bg:#2E1A17;
+  }
+  .cc-root a{color:var(--cc-accent);text-decoration:none;}
+  .cc-root a:hover{color:var(--cc-ink);text-decoration:underline;}
+  .cc-root *{box-sizing:border-box;}
+  .cc-root :focus-visible{outline:2px solid var(--cc-accent);outline-offset:2px;}
+  .cc-root ::selection{background:var(--cc-accent-soft);}
+  .cc-skip{position:absolute;left:-999px;top:8px;z-index:60;background:var(--cc-ink);color:var(--cc-bg);padding:8px 14px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;}
+  .cc-skip:focus{left:8px;}
+  .cc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+  .cc-scroll::-webkit-scrollbar{width:9px;height:9px;}
+  .cc-scroll::-webkit-scrollbar-thumb{background:var(--cc-line-strong);}
+  .cc-scroll::-webkit-scrollbar-track{background:transparent;}
+  .cc-root[data-narrow="1"] .cc-head{max-width:440px;margin:0 auto;height:auto!important;padding:8px 14px!important;flex-wrap:wrap;row-gap:8px;}
+  .cc-root[data-narrow="1"] .cc-wb{display:flex!important;flex-direction:column;max-width:440px;margin:0 auto;min-height:0!important;border-left:1px solid var(--cc-line);border-right:1px solid var(--cc-line);}
+  .cc-root[data-narrow="1"] .cc-stage-sec{order:-1;overflow:visible!important;max-height:none!important;}
+  .cc-root[data-narrow="1"] .cc-tl{position:static!important;max-height:none!important;overflow:visible!important;border-right:none!important;border-top:1px solid var(--cc-line);}
+  .cc-root[data-narrow="1"] .cc-nb{max-width:440px!important;}
+  .cc-root[data-narrow="1"] .cc-jrow{grid-template-columns:60px 1fr!important;}
+  @keyframes cc-blink{0%,100%{opacity:1;}50%{opacity:0;}}
+  @keyframes cc-spin{to{transform:rotate(360deg);}}
+  @keyframes cc-rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  .cc-rise{animation:cc-rise .18s ease both;}
+  @media (prefers-reduced-motion: reduce){.cc-anim,.cc-rise{animation:none!important;}}
+</style>
+</helmet>
+<div class="cc-root" data-theme="{{ themeAttr }}" data-narrow="{{ narrowAttr }}" style="position:relative;">
+  <a class="cc-skip" href="#cc-stage">Skip to the dish</a>
+  <a class="cc-skip" href="#cc-gate">Skip to the decision</a>
+  <div class="cc-sr" aria-live="polite" role="status">{{ liveMsg }}</div>
+
+  <!-- ======================= TOP CHROME ======================= -->
+  <header class="cc-head" style="position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:16px;height:54px;padding:0 18px;border-bottom:1px solid var(--cc-line);background:var(--cc-panel);">
+    <button onClick="{{ onGoIntake }}" title="Your dishes" style="border:1px solid var(--cc-line-strong);background:transparent;color:var(--cc-ink);font:500 11px/1 var(--font-sans);letter-spacing:.1em;text-transform:uppercase;padding:8px 11px;cursor:pointer;min-height:32px;">Dishes</button>
+    <div style="display:flex;align-items:baseline;gap:10px;min-width:0;">
+      <span style="font-weight:700;letter-spacing:.02em;">CapyCook</span>
+      <span style="color:var(--cc-faint);">/</span>
+      <span style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34ch;">{{ dishTitle }}</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border:1px solid var(--cc-line-strong);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--cc-muted);white-space:nowrap;"><span style="{{ statePillDot }}"></span>{{ stateLabel }}</span>
+    </div>
+    <div style="flex:1;"></div>
+    <div class="cc-cluster" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+      <div role="group" aria-label="Design direction" style="display:inline-flex;border:1px solid var(--cc-line-strong);">
+        <button onClick="{{ onDirA }}" style="{{ dirABtn }}">A · Timeline</button>
+        <button onClick="{{ onDirB }}" style="{{ dirBBtn }}">B · Notebook</button>
+      </div>
+      <button onClick="{{ onAutonomy }}" title="Auto-apply safe deterministic steps (scale, unit convert, recompute)" style="{{ autoBtn }}"><span style="{{ autoDot }}"></span>Auto-apply safe steps</button>
+      <button onClick="{{ onTechnical }}" title="Show the engineering underneath" style="{{ techBtn }}">Technical view</button>
+      <button onClick="{{ onNarrow }}" title="Preview the narrow-screen layout" style="{{ narrowBtn }}">{{ narrowLabel }}</button>
+      <button onClick="{{ onTheme }}" title="Toggle light / dark" style="border:1px solid var(--cc-line-strong);background:transparent;color:var(--cc-ink);font:500 11px/1 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;padding:8px 10px;cursor:pointer;min-height:32px;">{{ themeLabel }}</button>
+    </div>
+  </header>
+
+  <sc-if value="{{ stubBanner }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 18px;background:var(--cc-accent-soft);border-bottom:1px solid var(--cc-line);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--cc-accent);"><span style="font-family:var(--font-mono);">stub mode</span><span style="color:var(--cc-muted);">— demo data, no model key · budget $0.00 / $5.00</span></div>
+  </sc-if>
+
+  <!-- ======================= INTAKE ======================= -->
+  <sc-if value="{{ isIntake }}" hint-placeholder-val="{{ true }}">
+    <main class="cc-rise" style="max-width:760px;margin:0 auto;padding:44px 22px 90px;">
+      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--cc-muted);">Start a dish</div>
+      <h1 style="font-size:34px;font-weight:700;letter-spacing:-.01em;margin:10px 0 6px;line-height:1.1;">What do you feel like cooking?</h1>
+      <p style="font-size:16px;line-height:1.5;color:var(--cc-muted);margin:0 0 26px;max-width:52ch;">Bring an idea, a craving, or a leftover. CapyCook develops it with you one grounded move at a time — and remembers every version so you can cook it, taste it, and improve it.</p>
+
+      <sc-if value="{{ seedError }}" hint-placeholder-val="{{ true }}">
+        <div class="cc-rise" role="alert" tabindex="-1" style="border:2px solid var(--cc-crit);background:var(--cc-crit-bg);padding:14px 16px;margin-bottom:18px;">
+          <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-crit);font-weight:700;">There is a problem</div>
+          <a href="#cc-seed" style="display:inline-block;margin-top:8px;color:var(--cc-crit);text-decoration:underline;font-size:14px;">Enter a seed — say what you want to cook.</a>
+        </div>
+      </sc-if>
+      <label for="cc-seed" style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:8px;">The idea</label>
+      <textarea id="cc-seed" value="{{ seedInput }}" onInput="{{ onSeedInput }}" placeholder="e.g. miso carbonara — umami-rich but silky, weeknight-fast" style="width:100%;min-height:88px;resize:vertical;border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-sans);font-size:16px;line-height:1.5;padding:14px;"></textarea>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:26px 0 10px;">
+        <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);">Anything to keep out? <span style="color:var(--cc-faint);">(FDA Big-9)</span></span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <sc-for list="{{ allergenChips }}" as="a" hint-placeholder-count="9">
+          <button onClick="{{ a.onToggle }}" aria-pressed="{{ a.on }}" style="{{ a.style }}">{{ a.label }}</button>
+        </sc-for>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:26px;">
+        <div>
+          <label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:7px;">Cuisine</label>
+          <div style="border:1px solid var(--cc-line);background:var(--cc-panel-2);color:var(--cc-muted);padding:11px 12px;font-size:13px;">western <span style="color:var(--cc-faint);font-size:11px;">· v0</span></div>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:7px;">Skill</label>
+          <div style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);padding:11px 12px;font-size:13px;">intermediate</div>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:7px;">Serves</label>
+          <div style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);padding:11px 12px;font-size:13px;font-family:var(--font-mono);">2</div>
+        </div>
+      </div>
+
+      <div style="margin-top:30px;display:flex;gap:12px;align-items:center;">
+        <button onClick="{{ onStartSeed }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;padding:15px 26px;cursor:pointer;min-height:44px;">Develop this dish →</button>
+        <span style="font-size:12px;color:var(--cc-faint);">or press Enter</span>
+      </div>
+
+      <div style="margin-top:52px;border-top:1px solid var(--cc-line);padding-top:20px;">
+        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:12px;">Pick up where you left off</div>
+        <button onClick="{{ onStart }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);padding:15px 16px;cursor:pointer;text-align:left;">
+          <span style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+            <span style="font-weight:600;">Miso Carbonara</span>
+            <span style="font-size:12px;color:var(--cc-muted);">Trial 3 · you cooked Trial 2 and left tasting notes · a rework is waiting</span>
+          </span>
+          <span style="font-size:11px;font-family:var(--font-mono);color:var(--cc-faint);white-space:nowrap;">Thu 6:03p</span>
+        </button>
+      </div>
+    </main>
+  </sc-if>
+
+  <!-- ======================= WORKBENCH — DIRECTION A ======================= -->
+  <sc-if value="{{ showDirA }}" hint-placeholder-val="{{ true }}">
+  <main class="cc-wb" style="display:grid;grid-template-columns:308px 1fr;min-height:calc(100vh - 55px);">
+
+    <!-- TIMELINE SPINE -->
+    <aside id="cc-timeline" class="cc-scroll cc-tl" aria-label="Development timeline" style="border-right:1px solid var(--cc-line);background:var(--cc-panel);overflow:auto;max-height:calc(100vh - 55px);position:sticky;top:55px;">
+      <div style="padding:16px 18px 10px;border-bottom:1px solid var(--cc-line);position:sticky;top:0;background:var(--cc-panel);z-index:2;">
+        <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--cc-muted);">The line of development</div>
+        <div style="font-size:12px;color:var(--cc-faint);margin-top:4px;">{{ timelineSummary }}</div>
+      </div>
+      <div style="padding:6px 0 30px;">
+        <sc-for list="{{ timeline }}" as="v" hint-placeholder-count="3">
+          <div style="position:relative;padding:2px 16px 2px 40px;">
+            <div style="{{ v.railStyle }}"></div>
+            <div style="{{ v.dotStyle }}"></div>
+            <button onClick="{{ v.onView }}" aria-current="{{ v.ariaCurrent }}" style="{{ v.cardStyle }}">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font:600 12px/1 var(--font-sans);letter-spacing:.04em;text-transform:uppercase;color:{{ v.headColor }};">{{ v.head }}</span>
+                <sc-if value="{{ v.cooked }}" hint-placeholder-val="{{ true }}"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--cc-accent);color:var(--cc-accent);padding:1px 6px;">Cooked</span></sc-if>
+                <sc-if value="{{ v.branch }}" hint-placeholder-val="{{ true }}"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);border:1px solid var(--cc-line-strong);padding:1px 6px;">Branch</span></sc-if>
+              </div>
+              <div style="font-weight:600;margin-top:5px;">{{ v.label }}</div>
+              <div style="font-size:12px;line-height:1.5;color:var(--cc-muted);margin-top:3px;">{{ v.note }}</div>
+              <sc-if value="{{ v.cookNote }}" hint-placeholder-val="a note">
+                <div style="margin-top:8px;padding:8px 10px;background:var(--cc-panel-2);border-left:2px solid var(--cc-accent);font-size:12px;line-height:1.5;"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-accent);display:block;margin-bottom:2px;">You cooked it —</span>“{{ v.cookNote }}”</div>
+              </sc-if>
+              <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+                <span style="font-size:11px;font-family:var(--font-mono);color:var(--cc-faint);">{{ v.when }}</span>
+                <sc-if value="{{ v.technical }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px;font-family:var(--font-mono);color:var(--cc-faint);">{{ v.verId }} · {{ v.move }}</span></sc-if>
+              </div>
+              <sc-if value="{{ v.canPromote }}" hint-placeholder-val="{{ true }}">
+                <span onClick="{{ v.onPromote }}" role="button" tabindex="0" style="display:inline-block;margin-top:8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--cc-line-strong);padding:5px 9px;color:var(--cc-ink);cursor:pointer;">Promote to trunk</span>
+              </sc-if>
+            </button>
+          </div>
+        </sc-for>
+        <div style="position:relative;padding:8px 16px 2px 40px;">
+          <div style="position:absolute;left:23px;top:-6px;width:2px;height:22px;background:repeating-linear-gradient(var(--cc-line-strong) 0 3px,transparent 3px 7px);"></div>
+          <div style="position:absolute;left:18px;top:16px;width:12px;height:12px;border:1px dashed var(--cc-line-strong);border-radius:50%;"></div>
+          <div style="font-size:12px;color:var(--cc-faint);padding-top:12px;">{{ nextHint }}</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- STAGE -->
+    <section id="cc-stage" class="cc-scroll cc-stage-sec" style="overflow:auto;max-height:calc(100vh - 55px);">
+      <div style="max-width:840px;margin:0 auto;padding:20px 26px 40px;">
+
+        <!-- TRUST STRIP -->
+        <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--cc-line);margin-bottom:20px;">
+          <span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-faint);">How sure —</span>
+          <span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;"><span style="width:8px;height:8px;background:var(--cc-add);border-radius:50%;"></span>Nutrition <strong style="font-weight:600;">USDA-verified</strong></span>
+          <span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;"><span style="width:8px;height:8px;background:var(--cc-warn);border-radius:50%;"></span>Cost <strong style="font-weight:600;">approximate</strong></span>
+          <span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;"><span style="width:8px;height:8px;border:1.5px solid var(--cc-muted);border-radius:50%;"></span>{{ unverifiedCount }} flavor claim <strong style="font-weight:600;">unverified</strong></span>
+        </div>
+
+        <!-- SNAPSHOT BANNER -->
+        <sc-if value="{{ isSnapshot }}" hint-placeholder-val="{{ true }}">
+          <div class="cc-rise" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:11px 14px;border:1px solid var(--cc-line-strong);background:var(--cc-panel-2);margin-bottom:18px;">
+            <span style="font-size:12px;color:var(--cc-muted);">Viewing a past trial — <strong style="color:var(--cc-ink);font-weight:600;">{{ snapshotName }}</strong>, read-only.</span>
+            <button onClick="{{ onBackCurrent }}" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 11px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:8px 12px;cursor:pointer;min-height:32px;">Back to current</button>
+          </div>
+        </sc-if>
+
+        <!-- PROPOSING (streaming) -->
+        <sc-if value="{{ isProposing }}" hint-placeholder-val="{{ true }}">
+          <div class="cc-rise" style="border:1px solid var(--cc-accent);background:var(--cc-accent-soft);padding:16px 18px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <span class="cc-anim" style="width:13px;height:13px;border:2px solid var(--cc-accent);border-top-color:transparent;border-radius:50%;display:inline-block;animation:cc-spin .7s linear infinite;"></span>
+              <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-accent);">Working on your idea</span>
+              <div style="flex:1;"></div>
+              <button onClick="{{ onCancel }}" style="border:1px solid var(--cc-accent);background:transparent;color:var(--cc-accent);font:500 11px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:7px 12px;cursor:pointer;min-height:30px;">Stop</button>
+            </div>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:var(--cc-ink);">{{ streamText }}<span class="cc-anim" style="display:inline-block;width:8px;height:17px;background:var(--cc-accent);vertical-align:-2px;margin-left:2px;animation:cc-blink 1s step-start infinite;"></span></p>
+          </div>
+        </sc-if>
+
+        <!-- SAFETY HOLD (blocked) -->
+        <sc-if value="{{ isBlocked }}" hint-placeholder-val="{{ true }}">
+          <div id="cc-gate" class="cc-rise" role="alert" tabindex="-1" style="border:2px solid var(--cc-crit);background:var(--cc-crit-bg);padding:18px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-crit);font-weight:700;">Safety hold — this change was stopped</span>
+            </div>
+            <p style="margin:12px 0 0;font-size:15px;line-height:1.6;color:var(--cc-ink);">{{ blockedReason }}</p>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--cc-crit);">
+              <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-crit);margin-bottom:8px;">What it would have added</div>
+              <sc-for list="{{ blockedOps }}" as="op" hint-placeholder-count="2">
+                <div style="font-size:13px;line-height:1.5;color:var(--cc-muted);text-decoration:line-through;text-decoration-color:var(--cc-crit);padding:3px 0;">{{ op.text }}</div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ technical }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-top:10px;font-size:11px;font-family:var(--font-mono);color:var(--cc-crit);">rule_id: {{ blockedRule }}</div>
+            </sc-if>
+            <div class="cc-cluster" style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
+              <button onClick="{{ onRegen }}" style="border:1px solid var(--cc-ink);background:var(--cc-ink);color:var(--cc-bg);font:600 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:12px 18px;cursor:pointer;min-height:40px;">Try a different way</button>
+              <button onClick="{{ onRedirect }}" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:12px 18px;cursor:pointer;min-height:40px;">Ask for a safer change</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ALTERNATIVES PICKER -->
+        <sc-if value="{{ isAlt }}" hint-placeholder-val="{{ true }}">
+          <div class="cc-rise" style="margin-bottom:20px;">
+            <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:6px;">Two ways to go — pick one to develop</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+              <sc-for list="{{ altCards }}" as="alt" hint-placeholder-count="2">
+                <button onClick="{{ alt.onPick }}" style="{{ alt.style }}">
+                  <div style="display:flex;align-items:center;gap:8px;"><span style="width:22px;height:22px;border:1px solid currentColor;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;">{{ alt.letter }}</span><span style="font-weight:600;">{{ alt.title }}</span></div>
+                  <p style="margin:10px 0 0;font-size:13px;line-height:1.55;color:var(--cc-muted);">{{ alt.blurb }}</p>
+                  <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;">
+                    <sc-for list="{{ alt.changes }}" as="c" hint-placeholder-count="3">
+                      <span style="font-size:12px;color:var(--cc-ink);"><span style="{{ c.mark }}">{{ c.sign }}</span> {{ c.t }}</span>
+                    </sc-for>
+                  </div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- PROPOSAL HEADER (awaiting single) -->
+        <sc-if value="{{ isProposalHead }}" hint-placeholder-val="{{ true }}">
+          <div class="cc-rise" style="margin-bottom:18px;">
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+              <h2 style="font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0;">Here's the change I'd make</h2>
+              <sc-if value="{{ technical }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px;font-family:var(--font-mono);color:var(--cc-faint);">{{ proposalMoveType }} · conf {{ proposalConf }}</span></sc-if>
+            </div>
+            <p style="margin:10px 0 0;font-size:15px;line-height:1.65;color:var(--cc-ink);max-width:64ch;">{{ proposalRationale }}</p>
+            <sc-if value="{{ hasCitations }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;">
+                <sc-for list="{{ citations }}" as="c" hint-placeholder-count="2">
+                  <span style="font-size:11px;color:var(--cc-muted);border:1px solid var(--cc-line);padding:4px 8px;">{{ c.source }} · {{ c.ref }}</span>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- ===== THE DISH CARD (data-driven by viewDraft) ===== -->
+        <article style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);">
+          <div style="padding:20px 22px 16px;border-bottom:1px solid var(--cc-line);">
+            <sc-if value="{{ conceptChanged }}" hint-placeholder-val="{{ true }}">
+              <span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-add);border:1px solid var(--cc-add);padding:1px 6px;margin-bottom:8px;display:inline-block;">Reworked</span>
+            </sc-if>
+            <h3 style="font-size:24px;font-weight:700;letter-spacing:-.01em;margin:0;">{{ vd.title }}</h3>
+            <p style="{{ conceptStyle }}">{{ vd.concept }}</p>
+            <sc-if value="{{ conceptChanged }}" hint-placeholder-val="a prior concept">
+              <p style="margin:4px 0 0;font-size:13px;line-height:1.5;color:var(--cc-faint);text-decoration:line-through;">{{ vd.conceptFrom }}</p>
+            </sc-if>
+            <div style="display:flex;flex-wrap:wrap;gap:0;margin-top:14px;border:1px solid var(--cc-line);">
+              <div style="{{ dashCell }}"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);">Serves</span><span style="font-family:var(--font-mono);font-size:16px;">{{ vd.serves }}</span></div>
+              <div style="{{ dashCell }}"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);">Cost / serving</span><span style="font-family:var(--font-mono);font-size:16px;">{{ vd.perServing }} <span style="font-size:11px;color:var(--cc-warn);">approx</span></span></div>
+              <div style="{{ dashCell }}"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);">Calories</span><span style="font-family:var(--font-mono);font-size:16px;">{{ vd.kcal }}</span></div>
+              <div style="{{ dashCellSodium }}"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);">Sodium / serving</span><span style="font-family:var(--font-mono);font-size:16px;">{{ vd.sodium }}<sc-if value="{{ sodiumChanged }}" hint-placeholder-val="a prior value"><span style="font-size:11px;color:var(--cc-add);"> ↓ from {{ vd.sodiumFrom }}</span></sc-if></span></div>
+            </div>
+          </div>
+
+          <!-- Ingredients -->
+          <div style="padding:16px 22px;border-bottom:1px solid var(--cc-line);">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:8px;">Ingredients</div>
+            <sc-for list="{{ vd.ingredients }}" as="ing" hint-placeholder-count="7">
+              <div style="{{ ing.rowStyle }}">
+                <span style="font-family:var(--font-mono);font-size:13px;color:var(--cc-muted);text-align:right;white-space:nowrap;">{{ ing.qtyUnit }}</span>
+                <span style="font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">{{ ing.name }}
+                  <sc-if value="{{ ing.isChange }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px;font-family:var(--font-mono);color:var(--cc-faint);text-decoration:line-through;">{{ ing.fromLabel }}</span></sc-if>
+                  <sc-if value="{{ ing.isAdd }}" hint-placeholder-val="{{ true }}"><span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--cc-add);border:1px solid var(--cc-add);padding:0 5px;">New</span></sc-if>
+                </span>
+                <sc-if value="{{ ing.technical }}" hint-placeholder-val="{{ true }}">
+                  <span style="display:flex;gap:5px;justify-content:flex-end;">{{ ing.idChips }}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- Steps -->
+          <div style="padding:16px 22px;border-bottom:1px solid var(--cc-line);">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:10px;">Method</div>
+            <sc-for list="{{ vd.steps }}" as="st" hint-placeholder-count="5">
+              <div style="{{ st.rowStyle }}">
+                <span style="font-family:var(--font-mono);font-size:13px;color:var(--cc-accent);">{{ st.n }}</span>
+                <div>
+                  <div style="font-size:14px;line-height:1.55;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">{{ st.text }}
+                    <span style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--cc-faint);border:1px solid var(--cc-line-strong);padding:0 5px;">{{ st.technique }}</span>
+                    <sc-if value="{{ st.hasTemp }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px;font-family:var(--font-mono);color:var(--cc-warn);">{{ st.temp }}</span></sc-if>
+                    <sc-if value="{{ st.isAdd }}" hint-placeholder-val="{{ true }}"><span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--cc-add);border:1px solid var(--cc-add);padding:0 5px;">New</span></sc-if>
+                  </div>
+                  <div style="font-size:12px;line-height:1.5;color:var(--cc-muted);margin-top:3px;">{{ st.why }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- Flavor rationale -->
+          <div style="padding:16px 22px;border-bottom:1px solid var(--cc-line);">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:10px;">Why it works</div>
+            <sc-for list="{{ vd.flavor }}" as="fl" hint-placeholder-count="3">
+              <div style="{{ fl.rowStyle }}">
+                <span style="font-size:14px;line-height:1.55;">{{ fl.claim }}</span>
+                <sc-if value="{{ fl.grounded }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px;color:var(--cc-add);white-space:nowrap;">✓ {{ fl.provenance }}</span></sc-if>
+                <sc-if value="{{ fl.unverified }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--cc-muted);border:1px solid var(--cc-muted);padding:0 6px;white-space:nowrap;">unverified</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- Cost + nutrition detail (final / expanded) -->
+          <sc-if value="{{ showDetail }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--cc-line);">
+              <div style="padding:16px 22px;border-right:1px solid var(--cc-line);">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="width:8px;height:8px;background:var(--cc-warn);border-radius:50%;"></span><span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);">Cost — approximate</span></div>
+                <div style="font-family:var(--font-mono);font-size:14px;">{{ vd.costTotal }} total · {{ vd.perServing }} / serving</div>
+                <div style="font-size:12px;color:var(--cc-warn);margin-top:6px;line-height:1.5;">{{ vd.costMissing }}</div>
+              </div>
+              <div style="padding:16px 22px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="width:8px;height:8px;background:var(--cc-add);border-radius:50%;"></span><span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);">Nutrition — USDA-verified</span></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;font-family:var(--font-mono);font-size:12px;color:var(--cc-muted);">
+                  <span>protein {{ vd.protein }}</span><span>carbs {{ vd.carbs }}</span>
+                  <span>fat {{ vd.fat }}</span><span>fiber {{ vd.fiber }}</span>
+                  <span>sat fat {{ vd.satfat }}</span><span>sugar {{ vd.sugar }}</span>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- Station card (constraints) -->
+          <div style="padding:14px 22px;background:var(--cc-panel-2);">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-faint);margin-bottom:8px;">Cooking for</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              <sc-for list="{{ stationChips }}" as="s" hint-placeholder-count="5">
+                <span style="font-size:12px;border:1px solid var(--cc-line-strong);padding:4px 9px;color:var(--cc-ink);"><span style="color:var(--cc-faint);">{{ s.k }}</span> {{ s.v }}</span>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Technical: raw ops -->
+          <sc-if value="{{ showOps }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px 22px;border-top:1px solid var(--cc-line);background:var(--cc-panel-2);">
+              <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-faint);margin-bottom:8px;">Structured diff · JSON-Pointer ops</div>
+              <sc-for list="{{ proposalOps }}" as="op" hint-placeholder-count="4">
+                <div style="font-family:var(--font-mono);font-size:12px;line-height:1.7;color:var(--cc-muted);"><span style="color:var(--cc-accent);">{{ op.op }}</span> {{ op.path }} <span style="color:var(--cc-ink);">{{ op.val }}</span></div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </article>
+
+        <!-- COOK THIS (on a settled/current recipe) -->
+        <sc-if value="{{ showCookRow }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:16px;padding:14px 16px;border:1px solid var(--cc-line);background:var(--cc-panel);">
+            <span style="font-size:13px;color:var(--cc-muted);">Cooked this version? Tell CapyCook how it went and it'll rework against exactly this one.</span>
+            <button onClick="{{ onCook }}" style="border:1px solid var(--cc-accent);background:transparent;color:var(--cc-accent);font:600 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:11px 16px;cursor:pointer;min-height:40px;">I cooked this →</button>
+          </div>
+        </sc-if>
+
+        <!-- TASTING NOTES capture -->
+        <sc-if value="{{ showTasting }}" hint-placeholder-val="{{ true }}">
+          <div class="cc-rise" style="margin-top:16px;padding:16px 18px;border:1px solid var(--cc-accent);background:var(--cc-accent-soft);">
+            <label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-accent);margin-bottom:8px;">Tasting notes — what worked, what to change?</label>
+            <textarea value="{{ tastingInput }}" onInput="{{ onTastingInput }}" placeholder="e.g. silky, but too salty by the end — more umami without more salt" style="width:100%;min-height:70px;resize:vertical;border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-sans);font-size:14px;line-height:1.5;padding:11px;"></textarea>
+            <div style="display:flex;gap:10px;margin-top:12px;">
+              <button onClick="{{ onSubmitTasting }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:11px 18px;cursor:pointer;min-height:40px;">Rework from these notes</button>
+              <button onClick="{{ onCancelTasting }}" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:11px 16px;cursor:pointer;min-height:40px;">Cancel</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- INTENT BAR (idle) -->
+        <sc-if value="{{ showIntent }}" hint-placeholder-val="{{ true }}">
+          <div id="cc-steer" class="cc-rise" style="margin-top:20px;padding:16px 18px;border:1px solid var(--cc-line-strong);background:var(--cc-panel);">
+            <label for="cc-intent" style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:8px;">What do you want to try next?</label>
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <input id="cc-intent" value="{{ intentInput }}" onInput="{{ onIntentInput }}" onKeyDown="{{ onIntentKey }}" placeholder="make it cheaper · add a crunchy element · what pairs with miso?" style="flex:1;border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-sans);font-size:15px;padding:12px 13px;min-height:44px;" />
+              <button onClick="{{ onIntentSend }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:0 20px;cursor:pointer;min-height:44px;white-space:nowrap;">Try it →</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;">
+              <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);">Just the math —</span>
+              <sc-for list="{{ deterministicChips }}" as="d" hint-placeholder-count="3">
+                <button onClick="{{ d.onClick }}" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 11px/1 var(--font-sans);letter-spacing:.04em;padding:8px 11px;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;gap:6px;">{{ d.label }}<sc-if value="{{ d.auto }}" hint-placeholder-val="{{ true }}"><span style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--cc-add);">auto</span></sc-if></button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- GATE BAR (awaiting single) -->
+      <sc-if value="{{ showGate }}" hint-placeholder-val="{{ true }}">
+        <div id="cc-gate" role="toolbar" tabindex="-1" onKeyDown="{{ onToolbarKey }}" aria-label="Decide on this change" style="position:sticky;bottom:0;z-index:30;border-top:1px solid var(--cc-line-strong);background:var(--cc-panel);padding:12px 26px;">
+          <div style="max-width:840px;margin:0 auto;">
+            <sc-if value="{{ gateDecide }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <span style="font-size:13px;color:var(--cc-muted);">Want this change?</span>
+                <div style="flex:1;min-width:10px;"></div>
+                <div class="cc-cluster" style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button onClick="{{ onUse }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:13px 22px;cursor:pointer;min-height:44px;">Use it <span style="opacity:.6;font-family:var(--font-mono);">A</span></button>
+                  <button onClick="{{ onTweak }}" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:13px 18px;cursor:pointer;min-height:44px;">Tweak it <span style="opacity:.5;font-family:var(--font-mono);">E</span></button>
+                  <button onClick="{{ onAnother }}" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:13px 18px;cursor:pointer;min-height:44px;">Try another way ▾</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ gateAnother }}" hint-placeholder-val="{{ true }}">
+              <div class="cc-rise" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span style="font-size:12px;color:var(--cc-muted);margin-right:4px;">Another way —</span>
+                <button onClick="{{ onRegen }}" style="{{ ghostBtn }}">Regenerate <span style="opacity:.5;font-family:var(--font-mono);">G</span></button>
+                <button onClick="{{ onCompare }}" style="{{ ghostBtn }}">Compare two options <span style="opacity:.5;font-family:var(--font-mono);">L</span></button>
+                <button onClick="{{ onRedirect }}" style="{{ ghostBtn }}">Ask for changes <span style="opacity:.5;font-family:var(--font-mono);">R</span></button>
+                <button onClick="{{ onTakeover }}" style="{{ ghostBtn }}">Edit it myself <span style="opacity:.5;font-family:var(--font-mono);">T</span></button>
+                <div style="flex:1;"></div>
+                <button onClick="{{ onGateBack }}" style="{{ ghostBtn }}">← Back</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ gateTweak }}" hint-placeholder-val="{{ true }}">
+              <div class="cc-rise">
+                <label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:6px;">Tweak the concept before you keep it</label>
+                <div style="display:flex;gap:10px;">
+                  <input value="{{ editInput }}" onInput="{{ onEditInput }}" style="flex:1;border:1px solid var(--cc-accent);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-sans);font-size:14px;padding:11px;min-height:44px;" />
+                  <button onClick="{{ onApplyEdit }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:0 18px;cursor:pointer;min-height:44px;">Keep with edit</button>
+                  <button onClick="{{ onGateBack }}" style="{{ ghostBtn }}">Cancel</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ gateRedirect }}" hint-placeholder-val="{{ true }}">
+              <div class="cc-rise">
+                <label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:6px;">Ask for a different change</label>
+                <div style="display:flex;gap:10px;">
+                  <input value="{{ redirectInput }}" onInput="{{ onRedirectInput }}" placeholder="e.g. keep the salt but add brightness instead" style="flex:1;border:1px solid var(--cc-accent);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-sans);font-size:14px;padding:11px;min-height:44px;" />
+                  <button onClick="{{ onSendRedirect }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:0 18px;cursor:pointer;min-height:44px;">Send</button>
+                  <button onClick="{{ onGateBack }}" style="{{ ghostBtn }}">Cancel</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ gateTakeover }}" hint-placeholder-val="{{ true }}">
+              <div class="cc-rise">
+                <label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:6px;">Edit the draft yourself</label>
+                <textarea value="{{ takeoverInput }}" onInput="{{ onTakeoverInput }}" style="width:100%;min-height:80px;resize:vertical;border:1px solid var(--cc-accent);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-mono);font-size:12px;line-height:1.6;padding:11px;"></textarea>
+                <div style="display:flex;gap:10px;margin-top:10px;">
+                  <button onClick="{{ onSaveTakeover }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:11px 18px;cursor:pointer;min-height:44px;">Save draft</button>
+                  <button onClick="{{ onGateBack }}" style="{{ ghostBtn }}">Cancel</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+    </section>
+  </main>
+  </sc-if>
+
+  <!-- ======================= WORKBENCH — DIRECTION B — THE COOK'S NOTEBOOK ======================= -->
+  <sc-if value="{{ showDirB }}" hint-placeholder-val="{{ true }}">
+    <!-- sticky "dish now" strip -->
+    <div style="position:sticky;top:54px;z-index:20;background:var(--cc-panel);border-bottom:1px solid var(--cc-line);padding:11px 22px;">
+      <div style="max-width:820px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-faint);white-space:nowrap;">The dish now</span>
+        <span style="font-weight:700;">{{ dishNowTitle }}</span>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--cc-muted);">{{ dishNowMeta }}</span>
+        <div style="flex:1;"></div>
+        <button onClick="{{ onBExpand }}" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 11px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:9px 12px;cursor:pointer;min-height:32px;">{{ bRecipeToggle }}</button>
+      </div>
+    </div>
+
+    <main id="cc-stage" class="cc-nb" style="max-width:820px;margin:0 auto;padding:22px 22px 60px;">
+
+      <!-- expandable full recipe -->
+      <sc-if value="{{ bExpanded }}" hint-placeholder-val="{{ true }}">
+        <article class="cc-rise" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);margin-bottom:24px;">
+          <div style="padding:18px 20px 14px;border-bottom:1px solid var(--cc-line);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+            <div>
+              <h3 style="font-size:20px;font-weight:700;margin:0;">{{ vd.title }}</h3>
+              <p style="margin:6px 0 0;font-size:14px;line-height:1.5;color:var(--cc-muted);">{{ vd.concept }}</p>
+            </div>
+            <sc-if value="{{ isSnapshot }}" hint-placeholder-val="{{ true }}"><button onClick="{{ onBackCurrent }}" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 11px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:8px 11px;cursor:pointer;white-space:nowrap;min-height:32px;">Back to now</button></sc-if>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;border-bottom:1px solid var(--cc-line);">
+            <div style="{{ dashCell }}"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);">Serves</span><span style="font-family:var(--font-mono);font-size:15px;">{{ vd.serves }}</span></div>
+            <div style="{{ dashCell }}"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);">Cost / serving</span><span style="font-family:var(--font-mono);font-size:15px;">{{ vd.perServing }} <span style="font-size:10px;color:var(--cc-warn);">approx</span></span></div>
+            <div style="{{ dashCell }}"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);">Calories</span><span style="font-family:var(--font-mono);font-size:15px;">{{ vd.kcal }}</span></div>
+            <div style="{{ dashCellSodium }}"><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);">Sodium</span><span style="font-family:var(--font-mono);font-size:15px;">{{ vd.sodium }}</span></div>
+          </div>
+          <div style="padding:14px 20px;border-bottom:1px solid var(--cc-line);">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:8px;">Ingredients</div>
+            <sc-for list="{{ vd.ingredients }}" as="ing" hint-placeholder-count="7">
+              <div style="{{ ing.rowStyle }}">
+                <span style="font-family:var(--font-mono);font-size:13px;color:var(--cc-muted);text-align:right;">{{ ing.qtyUnit }}</span>
+                <span style="font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">{{ ing.name }}<sc-if value="{{ ing.isAdd }}" hint-placeholder-val="{{ true }}"><span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--cc-add);border:1px solid var(--cc-add);padding:0 5px;">New</span></sc-if></span>
+                <span></span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="padding:14px 20px;">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:8px;">Method</div>
+            <sc-for list="{{ vd.steps }}" as="st" hint-placeholder-count="5">
+              <div style="{{ st.rowStyle }}">
+                <span style="font-family:var(--font-mono);font-size:13px;color:var(--cc-accent);">{{ st.n }}</span>
+                <div><div style="font-size:14px;line-height:1.5;">{{ st.text }}</div><div style="font-size:12px;color:var(--cc-muted);margin-top:2px;">{{ st.why }}</div></div>
+              </div>
+            </sc-for>
+          </div>
+        </article>
+      </sc-if>
+
+      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:6px;">The development — start to now</div>
+      <p style="font-size:13px;color:var(--cc-faint);margin:0 0 20px;max-width:60ch;line-height:1.5;">One continuous record. Everything CapyCook proposed, everything you decided, and every time you cooked it — read top to bottom.</p>
+
+      <!-- HISTORY ENTRIES -->
+      <div style="position:relative;">
+        <sc-for list="{{ journalHistory }}" as="e" hint-placeholder-count="5">
+          <div style="display:grid;grid-template-columns:88px 1fr;gap:16px;padding-bottom:20px;">
+            <div style="text-align:right;padding-top:2px;">
+              <div style="font-family:var(--font-mono);font-size:11px;color:var(--cc-faint);">{{ e.when }}</div>
+            </div>
+            <div style="{{ e.entryStyle }}">
+              <div style="font-size:14px;"><span style="font-weight:700;color:{{ e.whoColor }};">{{ e.who }}</span> <span style="color:var(--cc-ink);">{{ e.verb }}</span></div>
+              <div style="font-size:14px;line-height:1.6;color:var(--cc-muted);margin-top:5px;">{{ e.body }}</div>
+              <sc-if value="{{ e.hasView }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ e.onView }}" style="margin-top:9px;border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 11px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:7px 11px;cursor:pointer;min-height:30px;">View {{ e.vLabel }} recipe</button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+
+        <!-- ACTIVE TAIL: PROPOSING -->
+        <sc-if value="{{ isProposing }}" hint-placeholder-val="{{ true }}">
+          <div class="cc-rise" style="display:grid;grid-template-columns:88px 1fr;gap:16px;padding-bottom:20px;">
+            <div style="text-align:right;padding-top:2px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--cc-accent);">now</div></div>
+            <div style="border:1px solid var(--cc-accent);background:var(--cc-accent-soft);padding:14px 16px;">
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;"><span class="cc-anim" style="width:12px;height:12px;border:2px solid var(--cc-accent);border-top-color:transparent;border-radius:50%;display:inline-block;animation:cc-spin .7s linear infinite;"></span><span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-accent);">CapyCook is working</span><div style="flex:1;"></div><button onClick="{{ onCancel }}" style="border:1px solid var(--cc-accent);background:transparent;color:var(--cc-accent);font:500 11px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:6px 11px;cursor:pointer;min-height:30px;">Stop</button></div>
+              <p style="margin:0;font-size:14px;line-height:1.6;">{{ streamText }}<span class="cc-anim" style="display:inline-block;width:7px;height:15px;background:var(--cc-accent);vertical-align:-2px;margin-left:2px;animation:cc-blink 1s step-start infinite;"></span></p>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ACTIVE TAIL: SAFETY HOLD -->
+        <sc-if value="{{ isBlocked }}" hint-placeholder-val="{{ true }}">
+          <div id="cc-gate" class="cc-rise" role="alert" tabindex="-1" style="display:grid;grid-template-columns:88px 1fr;gap:16px;padding-bottom:20px;">
+            <div style="text-align:right;padding-top:2px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--cc-crit);">now</div></div>
+            <div style="border:2px solid var(--cc-crit);background:var(--cc-crit-bg);padding:16px;">
+              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-crit);font-weight:700;">Safety hold — CapyCook stopped this one</div>
+              <p style="margin:11px 0 0;font-size:14px;line-height:1.6;">{{ blockedReason }}</p>
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--cc-crit);">
+                <sc-for list="{{ blockedOps }}" as="op" hint-placeholder-count="2">
+                  <div style="font-size:13px;color:var(--cc-muted);text-decoration:line-through;text-decoration-color:var(--cc-crit);padding:2px 0;">{{ op.text }}</div>
+                </sc-for>
+              </div>
+              <div class="cc-cluster" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+                <button onClick="{{ onRegen }}" style="border:1px solid var(--cc-ink);background:var(--cc-ink);color:var(--cc-bg);font:600 12px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:11px 16px;cursor:pointer;min-height:40px;">Try a different way</button>
+                <button onClick="{{ onRedirect }}" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 12px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:11px 16px;cursor:pointer;min-height:40px;">Ask for a safer change</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ACTIVE TAIL: ALTERNATIVES -->
+        <sc-if value="{{ isAlt }}" hint-placeholder-val="{{ true }}">
+          <div class="cc-rise" style="display:grid;grid-template-columns:88px 1fr;gap:16px;padding-bottom:20px;">
+            <div style="text-align:right;padding-top:2px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--cc-accent);">now</div></div>
+            <div>
+              <div style="font-size:14px;margin-bottom:10px;"><span style="font-weight:700;color:var(--cc-muted);">CapyCook</span> offered two ways to go — pick one to develop.</div>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <sc-for list="{{ altCards }}" as="alt" hint-placeholder-count="2">
+                  <button onClick="{{ alt.onPick }}" style="display:block;text-align:left;cursor:pointer;border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);padding:14px 16px;">
+                    <div style="display:flex;align-items:center;gap:8px;"><span style="width:20px;height:20px;border:1px solid currentColor;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;">{{ alt.letter }}</span><span style="font-weight:600;">{{ alt.title }}</span></div>
+                    <p style="margin:8px 0 0;font-size:13px;line-height:1.55;color:var(--cc-muted);">{{ alt.blurb }}</p>
+                    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:x;gap:4px 14px;">
+                      <sc-for list="{{ alt.changes }}" as="c" hint-placeholder-count="3"><span style="font-size:12px;"><span style="{{ c.mark }}">{{ c.sign }}</span> {{ c.t }}</span></sc-for>
+                    </div>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ACTIVE TAIL: THE GATE (awaiting single) -->
+        <sc-if value="{{ isProposalHead }}" hint-placeholder-val="{{ true }}">
+          <div id="cc-gate" class="cc-rise" tabindex="-1" style="display:grid;grid-template-columns:88px 1fr;gap:16px;padding-bottom:20px;">
+            <div style="text-align:right;padding-top:2px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--cc-accent);">now</div></div>
+            <div style="border:1px solid var(--cc-accent);background:var(--cc-panel);">
+              <div style="padding:16px 18px;border-bottom:1px solid var(--cc-line);">
+                <div style="font-size:14px;"><span style="font-weight:700;color:var(--cc-muted);">CapyCook</span> proposes a change<sc-if value="{{ technical }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px;font-family:var(--font-mono);color:var(--cc-faint);"> · {{ proposalMoveType }} · conf {{ proposalConf }}</span></sc-if></div>
+                <p style="margin:9px 0 0;font-size:15px;line-height:1.65;color:var(--cc-ink);">{{ proposalRationale }}</p>
+                <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px 16px;">
+                  <sc-for list="{{ proposalChanges }}" as="c" hint-placeholder-count="4"><span style="font-size:13px;"><span style="{{ c.mark }}">{{ c.sign }}</span>{{ c.t }}</span></sc-for>
+                </div>
+                <button onClick="{{ onBExpand }}" style="margin-top:12px;background:none;border:none;color:var(--cc-accent);cursor:pointer;font:500 12px/1 var(--font-sans);letter-spacing:.03em;padding:0;text-decoration:underline;">{{ bSeeOnRecipe }}</button>
+              </div>
+              <!-- decision -->
+              <div id="cc-gate-b" role="toolbar" tabindex="-1" onKeyDown="{{ onToolbarKey }}" aria-label="Decide on this change" style="padding:12px 18px;">
+                <sc-if value="{{ gateDecide }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <span style="font-size:13px;color:var(--cc-muted);">Keep it?</span><div style="flex:1;"></div>
+                    <button onClick="{{ onUse }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:12px 20px;cursor:pointer;min-height:44px;">Use it <span style="opacity:.6;font-family:var(--font-mono);">A</span></button>
+                    <button onClick="{{ onTweak }}" style="{{ ghostBtn }}min-height:44px;">Tweak it <span style="opacity:.5;font-family:var(--font-mono);">E</span></button>
+                    <button onClick="{{ onAnother }}" style="{{ ghostBtn }}min-height:44px;">Try another way ▾</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ gateAnother }}" hint-placeholder-val="{{ true }}">
+                  <div class="cc-rise" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-size:12px;color:var(--cc-muted);">Another way —</span>
+                    <button onClick="{{ onRegen }}" style="{{ ghostBtn }}">Regenerate G</button>
+                    <button onClick="{{ onCompare }}" style="{{ ghostBtn }}">Compare two options L</button>
+                    <button onClick="{{ onRedirect }}" style="{{ ghostBtn }}">Ask for changes R</button>
+                    <button onClick="{{ onTakeover }}" style="{{ ghostBtn }}">Edit it myself T</button>
+                    <div style="flex:1;"></div><button onClick="{{ onGateBack }}" style="{{ ghostBtn }}">← Back</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ gateTweak }}" hint-placeholder-val="{{ true }}">
+                  <div class="cc-rise" style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <input value="{{ editInput }}" onInput="{{ onEditInput }}" style="flex:1;min-width:200px;border:1px solid var(--cc-accent);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-sans);font-size:14px;padding:11px;min-height:44px;" />
+                    <button onClick="{{ onApplyEdit }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:0 16px;cursor:pointer;min-height:44px;">Keep with edit</button>
+                    <button onClick="{{ onGateBack }}" style="{{ ghostBtn }}min-height:44px;">Cancel</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ gateRedirect }}" hint-placeholder-val="{{ true }}">
+                  <div class="cc-rise" style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <input value="{{ redirectInput }}" onInput="{{ onRedirectInput }}" placeholder="e.g. keep the salt but add brightness instead" style="flex:1;min-width:200px;border:1px solid var(--cc-accent);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-sans);font-size:14px;padding:11px;min-height:44px;" />
+                    <button onClick="{{ onSendRedirect }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:0 16px;cursor:pointer;min-height:44px;">Send</button>
+                    <button onClick="{{ onGateBack }}" style="{{ ghostBtn }}min-height:44px;">Cancel</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ gateTakeover }}" hint-placeholder-val="{{ true }}">
+                  <div class="cc-rise">
+                    <textarea value="{{ takeoverInput }}" onInput="{{ onTakeoverInput }}" style="width:100%;min-height:76px;resize:vertical;border:1px solid var(--cc-accent);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-mono);font-size:12px;line-height:1.6;padding:11px;"></textarea>
+                    <div style="display:flex;gap:10px;margin-top:10px;"><button onClick="{{ onSaveTakeover }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:11px 16px;cursor:pointer;min-height:44px;">Save draft</button><button onClick="{{ onGateBack }}" style="{{ ghostBtn }}min-height:44px;">Cancel</button></div>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ACTIVE TAIL: TASTING -->
+        <sc-if value="{{ showTasting }}" hint-placeholder-val="{{ true }}">
+          <div class="cc-rise" style="display:grid;grid-template-columns:88px 1fr;gap:16px;padding-bottom:20px;">
+            <div style="text-align:right;padding-top:2px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--cc-accent);">now</div></div>
+            <div style="border:1px solid var(--cc-accent);background:var(--cc-accent-soft);padding:16px;">
+              <label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-accent);margin-bottom:8px;">How did it turn out?</label>
+              <textarea value="{{ tastingInput }}" onInput="{{ onTastingInput }}" placeholder="e.g. silky, but too salty by the end — more umami without more salt" style="width:100%;min-height:70px;resize:vertical;border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-sans);font-size:14px;line-height:1.5;padding:11px;"></textarea>
+              <div style="display:flex;gap:10px;margin-top:12px;"><button onClick="{{ onSubmitTasting }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:11px 16px;cursor:pointer;min-height:40px;">Rework from these notes</button><button onClick="{{ onCancelTasting }}" style="{{ ghostBtn }}min-height:40px;">Cancel</button></div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ACTIVE TAIL: COMPOSE (idle) -->
+        <sc-if value="{{ bStateReady }}" hint-placeholder-val="{{ true }}">
+          <div id="cc-steer" class="cc-rise" style="display:grid;grid-template-columns:88px 1fr;gap:16px;">
+            <div style="text-align:right;padding-top:2px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--cc-accent);">now</div></div>
+            <div style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);padding:16px;">
+              <sc-if value="{{ showCookRow }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--cc-line);">
+                  <span style="font-size:13px;color:var(--cc-muted);">Made this one? Leave tasting notes and rework against exactly it.</span>
+                  <button onClick="{{ onCook }}" style="border:1px solid var(--cc-accent);background:transparent;color:var(--cc-accent);font:600 12px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:10px 14px;cursor:pointer;min-height:40px;">I cooked this →</button>
+                </div>
+              </sc-if>
+              <label for="cc-intent-b" style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cc-muted);margin-bottom:8px;">What do you want to try next?</label>
+              <div style="display:flex;gap:10px;">
+                <input id="cc-intent-b" value="{{ intentInput }}" onInput="{{ onIntentInput }}" onKeyDown="{{ onIntentKey }}" placeholder="make it cheaper · add a crunchy element · what pairs with miso?" style="flex:1;border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font-family:var(--font-sans);font-size:15px;padding:12px 13px;min-height:44px;" />
+                <button onClick="{{ onIntentSend }}" style="border:1px solid var(--cc-accent);background:var(--cc-accent);color:var(--cc-accent-ink);font:600 12px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:0 18px;cursor:pointer;min-height:44px;white-space:nowrap;">Try it →</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;">
+                <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--cc-faint);">Just the math —</span>
+                <sc-for list="{{ deterministicChips }}" as="d" hint-placeholder-count="3"><button onClick="{{ d.onClick }}" style="border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 11px/1 var(--font-sans);letter-spacing:.04em;padding:8px 11px;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;gap:6px;">{{ d.label }}<sc-if value="{{ d.auto }}" hint-placeholder-val="{{ true }}"><span style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--cc-add);">auto</span></sc-if></button></sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </main>
+  </sc-if>
+
+  <!-- ======================= 409 OVERRIDE MODAL ======================= -->
+  <sc-if value="{{ showOverride }}" hint-placeholder-val="{{ true }}">
+    <div role="dialog" aria-modal="true" aria-label="Safety confirmation" style="position:fixed;inset:0;z-index:50;background:rgba(20,15,10,.55);display:flex;align-items:center;justify-content:center;padding:22px;">
+      <div class="cc-rise" style="max-width:520px;width:100%;border:2px solid var(--cc-crit);background:var(--cc-panel);padding:22px;">
+        <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cc-crit);font-weight:700;">Your edit trips a safety rule</div>
+        <p style="margin:12px 0 0;font-size:15px;line-height:1.6;color:var(--cc-ink);">{{ overrideReason }}</p>
+        <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
+          <button onClick="{{ onCancelOverride }}" style="border:1px solid var(--cc-ink);background:var(--cc-ink);color:var(--cc-bg);font:600 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:12px 18px;cursor:pointer;min-height:44px;">Go back — I'll change it</button>
+          <button onClick="{{ onConfirmOverride }}" style="border:1px solid var(--cc-crit);background:transparent;color:var(--cc-crit);font:500 12px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:12px 18px;cursor:pointer;min-height:44px;">Use it anyway</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- TOAST -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="a toast">
+    <div class="cc-rise" style="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:55;background:var(--cc-ink);color:var(--cc-bg);padding:11px 18px;font-size:12px;letter-spacing:.03em;">{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:720},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;a&quot;,&quot;options&quot;:[&quot;a&quot;,&quot;b&quot;],&quot;tsType&quot;:&quot;'a'|'b'&quot;,&quot;section&quot;:&quot;Prototype&quot;,&quot;label&quot;:&quot;Direction&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;light&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;tsType&quot;:&quot;'light'|'dark'&quot;,&quot;section&quot;:&quot;Prototype&quot;,&quot;label&quot;:&quot;Theme&quot;},&quot;openTo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;gate&quot;,&quot;options&quot;:[&quot;gate&quot;,&quot;recipe&quot;,&quot;alternatives&quot;,&quot;safety-hold&quot;,&quot;intake&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;,&quot;label&quot;:&quot;Open to&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    const ing=(name,qty,unit,fdc,foodon)=>({name,qty,unit,fdc_id:fdc,foodon_id:foodon});
+    const step=(text,technique,temp,why)=>({text,technique,internal_temp_c:temp,why});
+    const claim=(c,p)=>({claim:c,provenance:p,cuisine_context:'western'});
+    const clone=(o)=>JSON.parse(JSON.stringify(o));
+
+    // ---- current cooked version (Trial 2) ----
+    this.draftT2={
+      title:'Miso Carbonara',
+      concept:'A silky weeknight carbonara with white miso standing in for some of the salt — deeper savor, same speed.',
+      ingredients:[
+        ing('Spaghetti',180,'g','168915','FOODON_03311838'),
+        ing('Egg yolks',4,'whole','173424','FOODON_03411287'),
+        ing('Whole egg',1,'whole','173423','FOODON_00001274'),
+        ing('Guanciale, diced',90,'g',null,'FOODON_03411160'),
+        ing('Pecorino Romano, grated',45,'g','171893','FOODON_03310739'),
+        ing('White miso',15,'g','174321','FOODON_03414602'),
+        ing('Black pepper, coarse',3,'g','170931','FOODON_03411149'),
+      ],
+      steps:[
+        step('Boil spaghetti in lightly salted water until al dente; reserve a cup of pasta water.','boil',null,'Miso and pecorino are salty — keep the water light.'),
+        step('Render guanciale in a cold skillet over medium until crisp, then kill the heat.','render',null,'Starting cold draws the fat out without scorching.'),
+        step('Whisk the yolks, whole egg, pecorino and miso into a smooth paste.','emulsify',null,'A pre-mixed paste emulsifies faster off the heat.'),
+        step('Toss hot pasta into the fat, then the egg paste, loosening with pasta water until glossy.','emulsify',63,'Off-heat tossing keeps the sauce creamy, never scrambled.'),
+        step('Finish with a heavy crack of black pepper.','finish',null,'Pepper\u2019s heat cuts the richness.'),
+      ],
+      flavor_rationale:[
+        claim('Miso\u2019s glutamates read as savory depth, letting you pull back on added salt.','Modernist Cuisine \u00b7 umami synergy'),
+        claim('Guanciale\u2019s cured funk carries the dish more than pancetta would.','western charcuterie tradition'),
+      ],
+      constraints:{dietary:[],allergens:['peanuts','tree nuts'],equipment:['large pot','skillet'],skill:'intermediate',servings:2,on_hand:['eggs','pecorino','black pepper'],cuisine:'western'},
+      analysis:{
+        cost:{total_usd:4.79,per_serving_usd:2.40,approximate:true,missing:['Guanciale, diced']},
+        nutrition:{calories:642,protein_g:26,fat_g:34,sat_fat_g:12,carbs_g:62,fiber_g:3,sugar_g:3,sodium_mg:980,unverified:[]},
+      },
+    };
+
+    // ---- Trial 1 (lighter, no miso) for snapshot ----
+    this.draftT1=clone(this.draftT2);
+    this.draftT1.concept='A quick carbonara base — guanciale, egg, and pecorino, before the miso experiment.';
+    this.draftT1.ingredients.splice(5,1); // no miso
+    this.draftT1.ingredients[4].qty=55;
+    this.draftT1.flavor_rationale=[claim('Guanciale\u2019s cured funk carries the dish more than pancetta would.','western charcuterie tradition')];
+    this.draftT1.analysis=clone(this.draftT2.analysis);
+    this.draftT1.analysis.nutrition.sodium_mg=1015;
+    this.draftT1.steps.splice(2,1);
+
+    // ---- REWORK proposal preview (Trial 3) ----
+    const rw=clone(this.draftT2);
+    rw.concept='A silky weeknight carbonara that leans on toasted miso and shiitake for umami \u2014 so it tastes richer with less added salt.';
+    rw._conceptFrom=this.draftT2.concept;
+    rw.ingredients[4].qty=35; rw.ingredients[4]._diff='change'; rw.ingredients[4]._from='45 g';
+    rw.ingredients[5].qty=10; rw.ingredients[5]._diff='change'; rw.ingredients[5]._from='15 g';
+    rw.ingredients.push(Object.assign(ing('Dried shiitake powder',6,'g','168423','FOODON_03411347'),{_diff:'add'}));
+    rw.steps.splice(2,0,Object.assign(step('Bloom the shiitake powder in the rendered guanciale fat for 30 seconds until fragrant.','bloom',null,'Toasting wakes up the guanylate and kills any raw, dusty note.'),{_diff:'add'}));
+    rw.flavor_rationale.push(Object.assign(claim('Toasted shiitake\u2019s guanylate multiplies the miso glutamate \u2014 more savor with no extra salt.',null),{_diff:'add'}));
+    rw.analysis=clone(this.draftT2.analysis);
+    rw.analysis.nutrition.sodium_mg=742; rw.analysis.nutrition._sodiumFrom=980;
+    rw.analysis.cost.total_usd=5.03; rw.analysis.cost.per_serving_usd=2.52;
+    this.PROP_REWORK={
+      id:'pr_9f2a',move_id:'mv_57',move_type:'iterate_feedback',headline:'Rework from tasting notes',
+      _rationaleFull:'You said Trial 2 tasted too salty. Rather than just cutting seasoning, I\u2019m trading some of it for umami you can\u2019t get from salt: I\u2019ll pull the pecorino and white miso back a little and bloom a spoonful of toasted dried-shiitake powder into the rendered fat. The shiitake\u2019s guanylate stacks with the glutamate already in the miso and cheese, so the dish reads richer and more savory while the sodium actually drops from about 980 to 740 mg a serving.',
+      citations:[{source:'USDA FoodData Central',ref:'shiitake, dried \u2014 168423',date:'2024'},{source:'Umami Information Center',ref:'glutamate\u2013guanylate synergy',date:'2019'}],
+      confidence:0.72,unverified:['synergy magnitude in this dish'],
+      safety:{status:'pass',reasons:null,rule_ids:null},
+      suggested_next:['technique_step','ingredient_change','nutrition_recompute'],
+      _preview:rw,
+      _changes:[{k:'change',t:'Concept \u2014 deeper umami, less salt'},{k:'change',t:'Pecorino 45 \u2192 35 g'},{k:'change',t:'White miso 15 \u2192 10 g'},{k:'add',t:'Dried shiitake powder 6 g'},{k:'add',t:'New step \u2014 bloom the shiitake'},{k:'change',t:'Sodium 980 \u2192 740 mg / serving'}],
+      change:[
+        {op:'replace',path:'/concept',val:'\u201c\u2026toasted miso and shiitake\u2026\u201d'},
+        {op:'replace',path:'/ingredients/4/qty',val:'35'},
+        {op:'replace',path:'/ingredients/5/qty',val:'10'},
+        {op:'add',path:'/ingredients/-',val:'shiitake powder 6 g'},
+        {op:'add',path:'/steps/2',val:'bloom step'},
+        {op:'add',path:'/flavor_rationale/-',val:'synergy claim (unverified)'},
+      ],
+    };
+
+    // ---- CRUNCH proposal ----
+    const cr=clone(this.draftT2);
+    cr.concept='A silky weeknight carbonara finished with a peppery pangrattato for crunch.';
+    cr._conceptFrom=this.draftT2.concept;
+    cr.ingredients.push(Object.assign(ing('Coarse breadcrumbs',20,'g','174987','FOODON_00002681'),{_diff:'add'}));
+    cr.steps.push(Object.assign(step('Toast the breadcrumbs in a spoon of guanciale fat with pepper; scatter over at the pass.','toast',null,'Crunch and a second hit of cured pork.'),{_diff:'add'}));
+    cr.flavor_rationale.push(Object.assign(claim('A crisp topping gives an all-soft dish textural contrast in every bite.','Salt Fat Acid Heat \u2014 texture'),{_diff:'add'}));
+    cr.analysis=clone(this.draftT2.analysis); cr.analysis.nutrition.sodium_mg=1005; cr.analysis.nutrition._sodiumFrom=980;
+    this.PROP_CRUNCH={
+      id:'pr_cr3',move_id:'mv_58',move_type:'technique_step',headline:'Add a crunchy element',
+      _rationaleFull:'A silky carbonara is all soft texture, so a crisp element makes every bite feel more finished. I\u2019ll toast coarse breadcrumbs in a little of the guanciale fat with black pepper \u2014 pangrattato \u2014 and scatter it at the pass. It adds crunch and a second hit of that cured-pork flavor without touching the sauce.',
+      citations:[{source:'Salt Fat Acid Heat',ref:'texture contrast',date:'2017'}],
+      confidence:0.81,unverified:null,safety:{status:'pass',reasons:null,rule_ids:null},
+      suggested_next:['ingredient_change','flavor_direction','cost_recompute'],
+      _preview:cr,
+      _changes:[{k:'add',t:'Coarse breadcrumbs 20 g'},{k:'add',t:'New step \u2014 toast pangrattato'},{k:'add',t:'Flavor note (grounded)'}],
+      change:[{op:'add',path:'/ingredients/-',val:'breadcrumbs 20 g'},{op:'add',path:'/steps/-',val:'toast pangrattato'},{op:'add',path:'/flavor_rationale/-',val:'texture claim'}],
+    };
+
+    // ---- KOMBU proposal (alternative B) ----
+    const kb=clone(this.draftT2);
+    kb.concept='A silky weeknight carbonara that leans on a kombu-dashi reduction for clean, salt-free umami.';
+    kb._conceptFrom=this.draftT2.concept;
+    kb.ingredients[5].qty=12; kb.ingredients[5]._diff='change'; kb.ingredients[5]._from='15 g';
+    kb.ingredients.push(Object.assign(ing('Kombu dashi, reduced',15,'ml',null,'FOODON_03414500'),{_diff:'add'}));
+    kb.steps[2]._diff='change'; kb.steps[2].text='Whisk the yolks, whole egg, pecorino, miso and reduced dashi into a smooth paste.';
+    kb.flavor_rationale.push(Object.assign(claim('Kombu is almost pure glutamate, so a spoon of concentrated dashi deepens savor with no sodium hit.','Umami Information Center'),{_diff:'add'}));
+    kb.analysis=clone(this.draftT2.analysis); kb.analysis.nutrition.sodium_mg=804; kb.analysis.nutrition._sodiumFrom=980;
+    kb.analysis.cost.missing=['Guanciale, diced','Kombu dashi, reduced'];
+    this.PROP_KOMBU={
+      id:'pr_kb4',move_id:'mv_59',move_type:'ingredient_change',headline:'Kombu-dashi reduction',
+      _rationaleFull:'Another way to chase umami without salt: a quick kombu-dashi reduction stirred into the egg paste. Kombu is almost pure glutamate, so a tablespoon of concentrated dashi deepens the savory base and adds a clean oceanic note, while letting you keep the pecorino where it is.',
+      citations:[{source:'Umami Information Center',ref:'kombu glutamate',date:'2019'}],
+      confidence:0.7,unverified:null,safety:{status:'pass',reasons:null,rule_ids:null},
+      suggested_next:['technique_step','nutrition_recompute'],
+      _preview:kb,
+      _changes:[{k:'change',t:'White miso 15 \u2192 12 g'},{k:'add',t:'Kombu dashi, reduced 15 ml'},{k:'change',t:'Emulsify step note'}],
+      change:[{op:'replace',path:'/ingredients/5/qty',val:'12'},{op:'add',path:'/ingredients/-',val:'kombu dashi 15 ml'},{op:'replace',path:'/steps/2/text',val:'\u2026reduced dashi\u2026'}],
+    };
+
+    // ---- GARLIC-OIL proposal (blocks) ----
+    this.PROP_GARLIC={
+      id:'pr_g5',move_id:'mv_60',move_type:'technique_step',headline:'A mellow garlic-oil finish',
+      _rationaleFull:'To deepen the base I looked at a mellow garlic oil to finish the dish \u2014 steeping crushed garlic in room-temperature oil for a couple of days, then drizzling it over at the end for a sweet, low background note.',
+      _blocks:true,
+      _blocked:{
+        reason:'A room-temperature garlic-in-oil infusion is a low-acid, oxygen-free environment that supports Clostridium botulinum toxin formation. Refrigerate homemade garlic or herb oils and use within 4 days, or acidify per a tested recipe.',
+        ruleId:'anaerobic-garlic-oil',
+        ops:[
+          {text:'+ Ingredient: Garlic cloves \u00d7 4, submerged in oil'},
+          {text:'+ Step: hold the garlic-in-oil at room temperature for two days to infuse'},
+        ],
+      },
+    };
+
+    // ---- versions / timeline ----
+    this.versions=[
+      {id:'ver_1a3f',n:1,label:'First draft',move:'seed_expand',when:'Mon 6:12p',note:'Expanded \u201cmiso carbonara\u201d into a workable base \u2014 guanciale, yolks, pecorino.',cooked:false,branch:false,draft:this.draftT1},
+      {id:'ver_2b7c',n:2,label:'Umami push',move:'flavor_direction',when:'Tue 7:40p',note:'Added white miso and tightened the off-heat emulsion.',cooked:true,cookNote:'Silky and glossy \u2014 but too salty by the last few bites.',branch:false,draft:this.draftT2},
+    ];
+
+    this.state={
+      screen:'workbench',direction:null,theme:null,narrow:false,autonomy:true,technical:false,bExpanded:false,
+      dishState:'awaiting_gate',
+      currentVersionId:'ver_2b7c',
+      viewVersionId:null,
+      gateMode:'decide',
+      proposal:this.PROP_REWORK,
+      proposals:null,
+      pendingIsRework:true,
+      blocked:null,
+      streamText:'',liveMsg:'A rework is waiting for your decision.',toast:'',
+      seedInput:'',intentInput:'',tastingInput:'',editInput:'',redirectInput:'',takeoverInput:'',
+      showTasting:false,cookTargetId:null,
+      overrideReason:null,seedError:false,
+      allergensAvoid:['peanuts','tree nuts'],
+      trialCounter:2,
+    };
+    const P=this.props||{};
+    if(P.openTo==='intake') this.state.screen='intake';
+    else if(P.openTo==='recipe'){ this.state.dishState='idle'; this.state.proposal=null; this.state.pendingIsRework=false; }
+    else if(P.openTo==='alternatives'){ this.state.proposals=[this.PROP_REWORK,this.PROP_KOMBU]; }
+    else if(P.openTo==='safety-hold'){ this.state.dishState='blocked'; this.state.blocked=this.PROP_GARLIC._blocked; this.state.proposal=null; this.state.pendingIsRework=false; }
+    this._t=null;
+    this.onKey=this.onKey.bind(this);
+  }
+
+  componentDidMount(){ document.addEventListener('keydown',this.onKey); }
+  componentWillUnmount(){ document.removeEventListener('keydown',this.onKey); clearInterval(this._t); clearTimeout(this._toastT); }
+
+  reduced(){ try{return window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;} }
+  set(p){ this.setState(p); }
+  flash(msg){ this.set({toast:msg}); clearTimeout(this._toastT); this._toastT=setTimeout(()=>this.set({toast:''}),2600); }
+
+  onKey(e){
+    const tag=(e.target&&e.target.tagName)||''; if(/INPUT|TEXTAREA|SELECT/.test(tag)) { if(e.key==='Escape'){e.target.blur();} return; }
+    const s=this.state;
+    if(e.key==='Escape'){ if(s.gateMode!=='decide') this.set({gateMode:'decide'}); return; }
+    if(s.dishState==='awaiting_gate'&&!s.proposals&&s.gateMode==='decide'){
+      const k=e.key.toLowerCase();
+      if(k==='a'){this.gate('accept');} else if(k==='e'){this.set({gateMode:'tweak',editInput:this.state.proposal._preview.concept});}
+      else if(k==='g'){this.gate('regenerate');} else if(k==='l'){this.gate('alternatives');}
+      else if(k==='r'){this.set({gateMode:'redirect'});} else if(k==='t'){this.set({gateMode:'takeover',takeoverInput:this.takeoverJson()});}
+    } else if(s.dishState==='blocked'){
+      const k=e.key.toLowerCase();
+      if(k==='g'){this.gate('regenerate');} else if(k==='r'){this.set({gateMode:'redirect'});}
+    }
+  }
+
+  takeoverJson(){ const d=this.currentDraft(); return JSON.stringify({title:d.title,concept:d.concept,servings:d.constraints.servings},null,2); }
+
+  // ---- streaming ----
+  startStream(prop){
+    this.set({dishState:'proposing',streamText:'',proposal:null,proposals:null,gateMode:'decide',intentInput:'',liveMsg:'Working on your idea\u2026'});
+    const words=(prop._rationaleFull||'').split(' ');
+    if(this.reduced()){ this.set({streamText:prop._rationaleFull}); this.finishStream(prop); return; }
+    let i=0; clearInterval(this._t);
+    this._t=setInterval(()=>{
+      i+=2; this.set({streamText:words.slice(0,i).join(' ')});
+      if(i>=words.length){ clearInterval(this._t); this.finishStream(prop); }
+    },42);
+  }
+  finishStream(prop){
+    if(prop._blocks){ this.set({dishState:'blocked',blocked:prop._blocked,gateMode:'decide',liveMsg:'A safety rule stopped this change \u2014 review it in the hold below.'}); this.focusGate(); return; }
+    this.set({dishState:'awaiting_gate',proposal:prop,streamText:prop._rationaleFull,pendingIsRework:prop.move_type==='iterate_feedback',liveMsg:'A change is ready \u2014 here\u2019s what would change, and why.'});
+    this.focusGate();
+  }
+  focusGate(){ setTimeout(()=>{ try{var el=document.getElementById('cc-gate'); if(el&&el.focus) el.focus();}catch(e){} },100); }
+  onToolbarKey(e){ if(!/^Arrow/.test(e.key)) return; var btns=[].slice.call(e.currentTarget.querySelectorAll('button')); if(!btns.length) return; var i=btns.indexOf(document.activeElement); e.preventDefault(); if(i<0){btns[0].focus();return;} var fwd=e.key==='ArrowRight'||e.key==='ArrowDown'; var n=fwd?(i+1)%btns.length:(i-1+btns.length)%btns.length; btns[n].focus(); }
+  onStartSeed(){ if(!(this.state.seedInput||'').trim()){ this.set({seedError:true,liveMsg:'There is a problem \u2014 enter a seed to start a dish.'}); setTimeout(()=>{var el=document.getElementById('cc-seed'); if(el) el.focus();},60); return; } this.set({screen:'workbench',seedError:false,liveMsg:'Started a new dish.'}); }
+  onCancel(){ clearInterval(this._t); this.set({dishState:'idle',streamText:'',liveMsg:'Cancelled. The bench is ready.'}); }
+
+  proposeFromIntent(text){
+    const t=(text||'').toLowerCase(); let p;
+    if(/garlic.*oil|oil.*garlic|infuse|room temp|confit/.test(t)) p=this.PROP_GARLIC;
+    else if(/crunch|crisp|texture|topping|breadcrumb/.test(t)) p=this.PROP_CRUNCH;
+    else if(/salt|umami|savor|savour|deep/.test(t)) p=this.PROP_REWORK;
+    else p=this.PROP_CRUNCH;
+    this.startStream(p);
+  }
+
+  // ---- gate verbs ----
+  gate(verb){
+    const s=this.state;
+    if(verb==='accept'){ this.acceptProposal(s.proposal); }
+    else if(verb==='edit'){ this.set({gateMode:'tweak',editInput:s.proposal._preview.concept}); }
+    else if(verb==='regenerate'){ if(s.dishState==='blocked'){ this.startStream(this.PROP_REWORK); } else { this.startStream(s.proposal||this.PROP_REWORK); } }
+    else if(verb==='alternatives'){ this.set({proposals:[this.PROP_REWORK,this.PROP_KOMBU],gateMode:'decide',liveMsg:'Two options to compare \u2014 pick one to develop.'}); }
+    else if(verb==='redirect'){ this.set({gateMode:'redirect'}); }
+    else if(verb==='take_over'){ this.set({gateMode:'takeover',takeoverInput:this.takeoverJson()}); }
+  }
+  acceptProposal(prop,label){
+    const n=this.state.trialCounter+1;
+    const ver={id:'ver_'+Math.random().toString(16).slice(2,6),n,label:label||(prop&&prop.headline)||'Change',move:(prop&&prop.move_type)||'edit',when:'Thu 6:07p',note:this.acceptNote(prop),cooked:false,branch:false,draft:prop?prop._preview:this.currentDraft()};
+    this.versions=[...this.versions,ver];
+    this.set({dishState:'idle',proposal:null,proposals:null,gateMode:'decide',currentVersionId:ver.id,viewVersionId:null,trialCounter:n,pendingIsRework:false,liveMsg:'Trial '+n+' saved to the line of development.'});
+    this.flash('Trial '+n+' saved \u2014 now the current version');
+  }
+  acceptNote(prop){ if(!prop) return 'Saved your hand edit.'; if(prop.move_type==='iterate_feedback') return 'Cut salt, added toasted shiitake for umami.'; if(prop.headline) return prop.headline+' \u2014 accepted.'; return 'Accepted.'; }
+
+  pickAlt(prop){ this.set({proposal:prop,proposals:null,gateMode:'decide',liveMsg:'Developing that option \u2014 here\u2019s the change and why.'}); }
+  onApplyEdit(){ const p=this.state.proposal; if(p){ const pp=JSON.parse(JSON.stringify(p)); pp._preview.concept=this.state.editInput; this.acceptProposal(pp,'Your tweak'); } }
+  onSendRedirect(){ const t=this.state.redirectInput; this.set({redirectInput:''}); this.proposeFromIntent(t); }
+  onSaveTakeover(){ const t=(this.state.takeoverInput||'').toLowerCase(); if(/garlic/.test(t)&&/oil/.test(t)&&/(room|two day|infus)/.test(t)){ this.set({overrideReason:this.PROP_GARLIC._blocked.reason}); return; } this.acceptProposal(null,'Hand edit'); }
+  onConfirmOverride(){ this.set({overrideReason:null}); this.acceptProposal(null,'Hand edit (override)'); this.flash('Saved with safety override'); }
+  onCancelOverride(){ this.set({overrideReason:null}); }
+
+  // ---- deterministic ----
+  deterministic(kind){
+    if(this.state.autonomy){ this.flash(this.detLabel(kind)+' \u2014 applied automatically (safe step)'); this.set({liveMsg:this.detLabel(kind)+' applied automatically.'}); }
+    else { this.flash(this.detLabel(kind)+' \u2014 needs your OK (auto-apply is off)'); }
+  }
+  detLabel(k){ return k==='scale'?'Scaled to 4 servings':k==='units'?'Converted to ounces':'Recomputed cost & nutrition'; }
+
+  // ---- cook / tasting ----
+  onCook(){ this.set({showTasting:true,tastingInput:'',liveMsg:'Add tasting notes to rework this version.'}); setTimeout(()=>{const el=document.querySelector('textarea');},0); }
+  onSubmitTasting(){ const t=this.state.tastingInput; const cur=this.versions.find(v=>v.id===this.state.currentVersionId); if(cur){cur.cooked=true; cur.cookNote=t||'Cooked it.';} this.set({showTasting:false}); this.startStream(this.PROP_REWORK); }
+  onCancelTasting(){ this.set({showTasting:false}); }
+
+  // ---- versions ----
+  promote(id){ const v=this.versions.find(x=>x.id===id); this.set({currentVersionId:id,viewVersionId:null}); this.flash('Promoted Trial '+(v?v.n:'')+' to the trunk'); }
+  viewTrial(id){ this.set({viewVersionId:id,liveMsg:'Viewing a past trial, read-only.'}); }
+  backCurrent(){ this.set({viewVersionId:null,liveMsg:'Back to the current draft.'}); }
+
+  // ---- helpers ----
+  currentDraft(){ const v=this.versions.find(x=>x.id===this.state.currentVersionId); return v?v.draft:this.draftT2; }
+  fmtMoney(n){ return '$'+Number(n).toFixed(2); }
+
+  buildView(draft,opts){
+    opts=opts||{};
+    const tech=this.state.technical;
+    const diff=!!opts.diff;
+    const money=(n)=>'$'+Number(n).toFixed(2);
+    const ings=(draft.ingredients||[]).map(i=>{
+      const changed=diff&&i._diff==='change',add=diff&&i._diff==='add';
+      let rowStyle='display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:baseline;padding:7px 10px;border-bottom:1px solid var(--cc-line);';
+      if(add) rowStyle+='background:var(--cc-add-bg);box-shadow:inset 3px 0 var(--cc-add);';
+      else if(changed) rowStyle+='background:var(--cc-add-bg);box-shadow:inset 3px 0 var(--cc-accent);';
+      const chips=[]; if(i.fdc_id) chips.push('fdc:'+i.fdc_id); if(i.foodon_id) chips.push('foodon:'+i.foodon_id.replace('FOODON_',''));
+      return {name:i.name,qtyUnit:i.qty+' '+i.unit,isChange:changed,isAdd:add,fromLabel:i._from||'',technical:tech,idChips:chips.map(c=>c).join('  '),rowStyle};
+    });
+    const steps=(draft.steps||[]).map((s,idx)=>{
+      const add=diff&&s._diff==='add';
+      let rowStyle='display:grid;grid-template-columns:20px 1fr;gap:12px;padding:8px 10px;border-bottom:1px solid var(--cc-line);';
+      if(add) rowStyle+='background:var(--cc-add-bg);box-shadow:inset 3px 0 var(--cc-add);';
+      return {n:idx+1,text:s.text,technique:s.technique,why:s.why,hasTemp:s.internal_temp_c!=null,temp:(s.internal_temp_c!=null?s.internal_temp_c+'\u00b0C':''),isAdd:add,rowStyle};
+    });
+    const flavor=(draft.flavor_rationale||[]).map(f=>{
+      const add=diff&&f._diff==='add';
+      let rowStyle='display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:7px 10px;border-bottom:1px solid var(--cc-line);';
+      if(add) rowStyle+='background:var(--cc-add-bg);box-shadow:inset 3px 0 var(--cc-add);';
+      return {claim:f.claim,grounded:!!f.provenance,unverified:!f.provenance,provenance:f.provenance||'',rowStyle};
+    });
+    const nut=draft.analysis.nutrition, cost=draft.analysis.cost;
+    return {
+      title:draft.title,concept:draft.concept,conceptFrom:draft._conceptFrom||'',
+      serves:draft.constraints.servings,perServing:money(cost.per_serving_usd),costTotal:money(cost.total_usd),
+      kcal:nut.calories+' kcal',sodium:nut.sodium_mg+' mg',sodiumFrom:(nut._sodiumFrom||'')+' mg',
+      protein:nut.protein_g+' g',fat:nut.fat_g+' g',satfat:nut.sat_fat_g+' g',carbs:nut.carbs_g+' g',fiber:nut.fiber_g+' g',sugar:nut.sugar_g+' g',
+      costMissing:(cost.missing&&cost.missing.length)?('Excludes '+cost.missing.join(', ')+' \u2014 no price on file.'):'All ingredients priced.',
+      ingredients:ings,steps,flavor,
+    };
+  }
+
+  renderVals(){
+    const s=this.state, S=s.dishState;
+    const dir=s.direction||(this.props&&this.props.direction)||'a';
+    const theme=s.theme||(this.props&&this.props.theme)||'light';
+    const isSnapshot=!!s.viewVersionId;
+    const snap=isSnapshot?this.versions.find(v=>v.id===s.viewVersionId):null;
+    const proposal=s.proposal;
+    const isAlt=!!s.proposals;
+    const isAwaiting=S==='awaiting_gate';
+    const isProposing=S==='proposing';
+    const isBlocked=S==='blocked';
+    const isIdle=S==='idle';
+    // which draft is on stage
+    let baseDraft;
+    if(isSnapshot) baseDraft=snap.draft;
+    else if(isAwaiting&&proposal&&!isAlt) baseDraft=proposal._preview;
+    else baseDraft=this.currentDraft();
+    const vd=this.buildView(baseDraft,{diff:isAwaiting&&!!proposal&&!isAlt});
+    const conceptChanged=isAwaiting&&proposal&&!isAlt&&!!baseDraft._conceptFrom;
+    const sodiumChanged=isAwaiting&&proposal&&!isAlt&&baseDraft.analysis.nutrition._sodiumFrom!=null;
+
+    // header
+    const stateMap={idle:'Ready',proposing:'Thinking\u2026',awaiting_gate:'Needs your call',blocked:'Safety hold'};
+    const dotMap={idle:'var(--cc-add)',proposing:'var(--cc-accent)',awaiting_gate:'var(--cc-accent)',blocked:'var(--cc-crit)'};
+    const statePillDot='width:7px;height:7px;border-radius:50%;background:'+dotMap[S];
+
+    // timeline
+    const cur=this.state.currentVersionId;
+    const nodes=[...this.versions];
+    // pending rework node
+    if(s.pendingIsRework&&isAwaiting&&proposal&&proposal.move_type==='iterate_feedback'){
+      nodes.push({id:'__pending',n:this.state.trialCounter+1,label:'Rework from tasting notes',move:'iterate_feedback',when:'now',note:'Cutting salt, adding toasted shiitake for umami.',pending:true});
+    }
+    const timeline=nodes.map((v,i)=>{
+      const isPending=!!v.pending, isCur=v.id===cur&&!isPending, isViewing=v.id===s.viewVersionId;
+      const last=i===nodes.length-1;
+      const dotColor=isPending?'var(--cc-accent)':isCur?'var(--cc-accent)':'var(--cc-line-strong)';
+      const dotFill=isPending?'transparent':isCur?'var(--cc-accent)':'var(--cc-panel)';
+      let cardStyle='display:block;width:100%;text-align:left;cursor:'+(isPending?'default':'pointer')+';border:1px solid '+((isViewing||isPending)?'var(--cc-accent)':'var(--cc-line)')+';background:'+(isPending?'var(--cc-accent-soft)':isViewing?'var(--cc-panel-2)':'var(--cc-panel)')+';padding:11px 13px;color:var(--cc-ink);';
+      return {
+        n:v.n,label:v.label,note:v.note,when:v.when,move:v.move,verId:v.id,
+        head:isPending?('Trial '+v.n+' \u2014 your decision'):('Trial '+v.n),
+        headColor:(isPending||isCur)?'var(--cc-accent)':'var(--cc-muted)',
+        cooked:!!v.cooked,branch:!!v.branch,cookNote:v.cookNote||'',
+        cardStyle,
+        dotStyle:'position:absolute;left:17px;top:12px;width:13px;height:13px;border-radius:50%;border:2px solid '+dotColor+';background:'+dotFill+';z-index:2;',
+        railStyle:'position:absolute;left:22px;top:'+(i===0?'12px':'-6px')+';bottom:'+(last?'auto':'-6px')+';height:'+(last?'18px':'auto')+';width:2px;background:var(--cc-line-strong);',
+        ariaCurrent:isCur?'true':'false',
+        technical:this.state.technical,
+        canPromote:!isPending&&v.id!==cur,
+        onView:isPending?(()=>{}):(()=>this.viewTrial(v.id)),
+        onPromote:()=>this.promote(v.id),
+      };
+    });
+
+    // gate modes
+    const gm=s.gateMode;
+    const showGate=isAwaiting&&!isAlt;
+    const ghostBtn='border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);font:500 11px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:9px 12px;cursor:pointer;min-height:34px;';
+
+    // trust
+    const uv=(baseDraft.flavor_rationale||[]).filter(f=>!f.provenance).length;
+
+    // station chips
+    const c=baseDraft.constraints;
+    const stationChips=[
+      {k:'skill',v:c.skill},{k:'serves',v:c.servings},
+      {k:'avoid',v:(s.allergensAvoid.length?s.allergensAvoid.join(', '):'\u2014')},
+      {k:'equipment',v:(c.equipment||[]).join(', ')},{k:'on hand',v:(c.on_hand||[]).join(', ')},
+    ];
+
+    // alternatives cards
+    const altCards=isAlt?s.proposals.map((p,idx)=>({
+      letter:idx===0?'A':'B',title:p.headline,blurb:p._rationaleFull.slice(0,120)+'\u2026',
+      style:'display:block;text-align:left;cursor:pointer;border:1px solid var(--cc-line-strong);background:var(--cc-panel);color:var(--cc-ink);padding:16px;',
+      changes:p._changes.map(ch=>({t:ch.t,sign:ch.k==='add'?'+':'\u2192',mark:'color:'+(ch.k==='add'?'var(--cc-add)':'var(--cc-accent)')+';font-family:var(--font-mono);'})),
+      onPick:()=>this.pickAlt(p),
+    })):[];
+
+    // allergen chips (intake)
+    const BIG9=['milk','eggs','fish','crustacean shellfish','tree nuts','peanuts','wheat','soybeans','sesame'];
+    const allergenChips=BIG9.map(a=>{
+      const on=s.allergensAvoid.includes(a);
+      return {label:a,on:on?'true':'false',
+        style:'border:1px solid '+(on?'var(--cc-accent)':'var(--cc-line-strong)')+';background:'+(on?'var(--cc-accent-soft)':'var(--cc-panel)')+';color:var(--cc-ink);font:500 11px/1 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;padding:9px 12px;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;gap:7px;',
+        onToggle:()=>{const set=new Set(s.allergensAvoid); on?set.delete(a):set.add(a); this.set({allergensAvoid:[...set]});}};
+    });
+
+    // deterministic chips
+    const deterministicChips=[
+      {label:'Scale to 4',auto:s.autonomy,onClick:()=>this.deterministic('scale')},
+      {label:'To ounces',auto:s.autonomy,onClick:()=>this.deterministic('units')},
+      {label:'Recompute cost',auto:s.autonomy,onClick:()=>this.deterministic('cost')},
+    ];
+
+    // header toggle button styles
+    const seg=(active)=>'border:none;background:'+(active?'var(--cc-ink)':'transparent')+';color:'+(active?'var(--cc-bg)':'var(--cc-muted)')+';font:500 11px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:8px 11px;cursor:pointer;min-height:32px;';
+    const chromeToggle=(active)=>'border:1px solid '+(active?'var(--cc-accent)':'var(--cc-line-strong)')+';background:'+(active?'var(--cc-accent-soft)':'transparent')+';color:'+(active?'var(--cc-accent)':'var(--cc-ink)')+';font:500 11px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;gap:6px;';
+
+    // ---- Direction B: notebook journal ----
+    const seedText='miso carbonara \u2014 umami-rich but silky, weeknight-fast';
+    const journalHistory=[
+      {icon:'\u25C6',when:'Mon 6:10p',who:'You',verb:'started this dish',body:'\u201c'+seedText+'\u201d',tint:true,verId:'',vLabel:''},
+      {icon:'\u2192',when:'Mon 6:12p',who:'CapyCook',verb:'drafted a base',body:'Expanded the idea into a workable carbonara \u2014 guanciale, yolks, pecorino, and a little white miso.',tint:false,verId:'ver_1a3f',vLabel:'Trial 1'},
+      {icon:'\u25C6',when:'Tue 7:38p',who:'You',verb:'asked for more umami',body:'\u201cpush the savory depth \u2014 it can take more\u201d',tint:true,verId:'',vLabel:''},
+      {icon:'\u2192',when:'Tue 7:40p',who:'CapyCook',verb:'made the umami push',body:'Added white miso and tightened the off-heat emulsion. Saved as Trial 2.',tint:false,verId:'ver_2b7c',vLabel:'Trial 2'},
+      {icon:'\u25CF',when:'Wed 8:15p',who:'You',verb:'cooked Trial 2',body:'\u201cSilky and glossy \u2014 but too salty by the last few bites.\u201d',tint:true,cook:true,verId:'',vLabel:''},
+    ].map(e=>Object.assign({},e,{
+      entryStyle:e.tint?('padding:11px 14px;background:var(--cc-panel-2);border-left:2px solid '+(e.cook?'var(--cc-accent)':'var(--cc-line-strong)')+';'):'',
+      whoColor:e.who==='You'?'var(--cc-accent)':'var(--cc-muted)',
+      hasView:!!e.verId,
+      onView:e.verId?(()=>this.set({viewVersionId:e.verId,bExpanded:true,liveMsg:'Viewing '+e.vLabel+', read-only.'})):(()=>{}),
+    }));
+    const cd=this.currentDraft();
+    const dishNowTitle=cd.title;
+    const dishNowMeta='Trial '+this.state.trialCounter+'  \u00b7  $'+cd.analysis.cost.per_serving_usd.toFixed(2)+'/serving  \u00b7  '+cd.analysis.nutrition.sodium_mg+' mg sodium';
+
+    return {
+      themeAttr:theme,
+      narrowAttr:s.narrow?'1':'0',
+      dishTitle:this.currentDraft().title,
+      stateLabel:stateMap[S],statePillDot,
+      stubBanner:true,
+      // screens
+      isIntake:s.screen==='intake',
+      showDirA:s.screen==='workbench'&&dir==='a',
+      showDirB:s.screen==='workbench'&&dir==='b',
+      // toggles
+      dirABtn:seg(dir==='a'),dirBBtn:seg(dir==='b'),
+      autoBtn:chromeToggle(s.autonomy),autoDot:'width:7px;height:7px;border-radius:50%;background:'+(s.autonomy?'var(--cc-add)':'var(--cc-faint)'),
+      techBtn:chromeToggle(s.technical),narrowBtn:chromeToggle(s.narrow),narrowLabel:s.narrow?'Wide':'Narrow',
+      themeLabel:theme==='dark'?'\u2600 Light':'\u263e Dark',
+      technical:s.technical,
+      // states
+      isProposing,isBlocked,isSnapshot,isAlt,
+      isProposalHead:isAwaiting&&!isAlt&&!!proposal,
+      showIntent:isIdle&&!isSnapshot&&!s.showTasting,
+      showGate,
+      showCookRow:(isIdle||isSnapshot)&&!s.showTasting,
+      showTasting:s.showTasting,
+      showDetail:isIdle||isSnapshot,
+      showOps:s.technical&&isAwaiting&&!isAlt&&!!proposal,
+      // gate modes
+      gateDecide:showGate&&gm==='decide',gateAnother:showGate&&gm==='another',gateTweak:showGate&&gm==='tweak',gateRedirect:(showGate&&gm==='redirect')||(isBlocked&&gm==='redirect'),gateTakeover:showGate&&gm==='takeover',
+      ghostBtn,
+      // stage data
+      vd,conceptChanged,conceptStyle:'margin:8px 0 0;font-size:15px;line-height:1.5;color:'+(conceptChanged?'var(--cc-add)':'var(--cc-muted)')+';'+(conceptChanged?'background:var(--cc-add-bg);display:inline;padding:1px 4px;':''),
+      sodiumChanged,
+      dashCell:'flex:1;min-width:120px;padding:10px 13px;border-right:1px solid var(--cc-line);display:flex;flex-direction:column;gap:3px;',
+      dashCellSodium:'flex:1;min-width:120px;padding:10px 13px;display:flex;flex-direction:column;gap:3px;'+(sodiumChanged?'background:var(--cc-add-bg);':''),
+      unverifiedCount:uv,
+      stationChips,
+      // proposal head
+      proposalRationale:isProposing?s.streamText:(proposal?proposal._rationaleFull:''),
+      proposalMoveType:proposal?proposal.move_type:'',proposalConf:proposal?Math.round(proposal.confidence*100)+'%':'',
+      hasCitations:!!(proposal&&proposal.citations&&proposal.citations.length),citations:proposal&&proposal.citations?proposal.citations:[],
+      proposalOps:proposal&&proposal.change?proposal.change:[],
+      streamText:s.streamText,
+      // blocked
+      blockedReason:s.blocked?s.blocked.reason:'',blockedRule:s.blocked?s.blocked.ruleId:'',blockedOps:s.blocked?s.blocked.ops:[],
+      // snapshot
+      snapshotName:snap?('Trial '+snap.n+' \u00b7 '+snap.label):'',
+      // alt
+      altCards,
+      // timeline
+      timeline,timelineSummary:'Trial '+this.state.trialCounter+' \u00b7 you cooked Trial 2',nextHint:isIdle?'Say what to try next below \u2014 that becomes Trial '+(this.state.trialCounter+1)+'.':'Resolve the change above to add the next trial.',
+      // intake
+      seedInput:s.seedInput,allergenChips,
+      // inputs
+      intentInput:s.intentInput,tastingInput:s.tastingInput,editInput:s.editInput,redirectInput:s.redirectInput,takeoverInput:s.takeoverInput,
+      deterministicChips,
+      // override
+      showOverride:!!s.overrideReason,overrideReason:s.overrideReason||'',
+      toast:s.toast,liveMsg:s.liveMsg,
+      // direction B
+      journalHistory,dishNowTitle,dishNowMeta,bExpanded:s.bExpanded,
+      bRecipeToggle:s.bExpanded?'Hide recipe':'View full recipe',
+      bSeeOnRecipe:s.bExpanded?'Hide the full recipe \u25B4':'See exactly what changes on the recipe \u25BE',
+      onBExpand:()=>this.set({bExpanded:!s.bExpanded}),
+      bGateDecide:dir==='b'&&isAwaiting&&!isAlt&&s.gateMode==='decide',
+      bStateReady:isIdle&&!isSnapshot,
+      proposalChanges:(proposal&&proposal._changes)?proposal._changes.map(c=>({t:c.t,sign:c.k==='add'?'+':'\u2192',mark:'color:'+(c.k==='add'?'var(--cc-add)':'var(--cc-accent)')+';font-family:var(--font-mono);font-weight:700;margin-right:4px;'})):[],
+      proposalHeadline:proposal?proposal.headline:'',
+      // handlers
+      onGoIntake:()=>this.set({screen:'intake',liveMsg:'Your dishes.'}),
+      onStart:()=>this.set({screen:'workbench',liveMsg:'Opened Miso Carbonara.'}),
+      onStartSeed:()=>this.onStartSeed(),
+      onToolbarKey:(e)=>this.onToolbarKey(e),
+      seedError:s.seedError,
+      onSeedInput:(e)=>this.set({seedInput:e.target.value,seedError:false}),
+      onDirA:()=>this.set({direction:'a'}),onDirB:()=>this.set({direction:'b'}),
+      onTheme:()=>this.set({theme:theme==='dark'?'light':'dark'}),
+      onAutonomy:()=>this.set({autonomy:!s.autonomy}),
+      onTechnical:()=>this.set({technical:!s.technical}),
+      onNarrow:()=>this.set({narrow:!s.narrow}),
+      onIntentInput:(e)=>this.set({intentInput:e.target.value}),
+      onIntentKey:(e)=>{if(e.key==='Enter'){this.proposeFromIntent(this.state.intentInput);}},
+      onIntentSend:()=>this.proposeFromIntent(this.state.intentInput),
+      onCancel:()=>this.onCancel(),
+      onUse:()=>this.gate('accept'),onTweak:()=>this.gate('edit'),onAnother:()=>this.set({gateMode:'another'}),
+      onRegen:()=>this.gate('regenerate'),onCompare:()=>this.gate('alternatives'),onRedirect:()=>this.set({gateMode:'redirect'}),onTakeover:()=>this.gate('take_over'),
+      onGateBack:()=>this.set({gateMode:'decide'}),
+      onEditInput:(e)=>this.set({editInput:e.target.value}),onApplyEdit:()=>this.onApplyEdit(),
+      onRedirectInput:(e)=>this.set({redirectInput:e.target.value}),onSendRedirect:()=>this.onSendRedirect(),
+      onTakeoverInput:(e)=>this.set({takeoverInput:e.target.value}),onSaveTakeover:()=>this.onSaveTakeover(),
+      onConfirmOverride:()=>this.onConfirmOverride(),onCancelOverride:()=>this.onCancelOverride(),
+      onCook:()=>this.onCook(),onTastingInput:(e)=>this.set({tastingInput:e.target.value}),onSubmitTasting:()=>this.onSubmitTasting(),onCancelTasting:()=>this.onCancelTasting(),
+      onBackCurrent:()=>this.backCurrent(),
+    };
+  }
+}
+</script>
+</body>
+</html>
