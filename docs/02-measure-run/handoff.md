@@ -1,18 +1,26 @@
 # Handoff — milestone 02 (measure-run)
 
 ## Next session start here
-
-Execute Task 9 of `docs/superpowers/plans/2026-07-08-milestone-02-measure-run.md` — write `docs/02-measure-run/amendment-labeling-draft.md` (Amendment 1 prepared text, user-pasted). Task 10 (USER GATE 1) follows.
+S5 is a **user-gated spend** slice — plan it before running. The literal first live action:
+```
+export DEEPSEEK_API_KEY=<key>  CAPYCOOK_LIVE_TEST=1
+go run ./cmd/eval run --arm=all --live        # ~$0.6, budget hard-stop at LLM_BUDGET_USD (default 10)
+```
+Then trace to Langfuse (set LANGFUSE_* in .env), export the blinded R1 sheet
+(`go run ./cmd/eval export-labels --blind --claims=<the 3 claims_*.jsonl> --map=...`),
+run the judge (`go run ./cmd/eval judge --claims=<merged> --live`), and the
+Tier-1 blind-check (`blind-check` / `blind-check-score`). See milestone.md notes (f)/(g).
 
 ## Current state
-
-- Branch: `measure-run` (off `master`, unpushed — spec D7 holds the push).
-- Tasks 1–7 (S1: hygiene, archive reorg, README surgery, Mermaid diagrams) shipped.
-- Task 8 (S2: this milestone-doc materialization) landing now.
-- Task 9 (Amendment 1 draft) and Task 10 (USER GATE 1 — paste into PREREGISTRATION §9) not started.
+- Branch `measure-run`, **not pushed** (D7 holds all pushes until Results fill).
+- S1–S4 shipped and review-clean (plan Tasks 1–22; ledger `.superpowers/sdd/progress.md`).
+- PREREGISTRATION §9 carries both entries: Amendment 1 (tiered verification, 2026-07-08) + T1 instrument freeze / FoodPuzzle deferral (2026-07-09), both user-pasted. Instruments pinned at `08903cb`; `git diff 08903cb..HEAD` over the 7 pinned paths is empty.
+- Eval kit complete: Tier-1 verifier, runner integration, `label_tier1` slot, blinded R1 kit (opaque ids + map), blind-check sample+score, judge R2 client + `eval judge` CLI (live-gated, budget-metered, idempotent). `make test`/`vet`/`build` all green.
+- Stub dry-run: 39 claims/arm, Tier-1 100% (stub artifact — see note (g)).
+- Final whole-branch review pending as the last step of this session.
 
 ## Active concerns
-
-- Tier-1 coverage flag: if the S3 verifier anchors far fewer claims than expected, author Tier-2 labeling hours grow — flag explicitly at S3 exit.
-- Two user gates pending: Task 10 (Amendment 1 paste) and Task 23 (T1 instrument-pin paste) — builder never edits `docs/PREREGISTRATION.md` directly.
-- Judge model id/pricing/JSON-mode behavior verified 2026-07-08 against live docs; legacy alias deprecation lands 2026-07-24 — re-check if S4/S5 slip past that date.
+- **Tier-1 live coverage unknown** (note g) — determines author labeling hours; read the per-arm coverage line at the live run.
+- **Verify-before-build at S5**: re-check `deepseek-v4-flash` id + pricing against live api-docs (Amendment 1 committed to this); confirm live provenance tokens are lowercase/whitespace-free or Tier-1 coverage silently drops.
+- Adjudication must write the author-final value into `label_r1` before `rates` runs — `FinalLabel()` can't distinguish raw vs adjudicated R1 (Task 13 carried note).
+- S5–S8 not yet planned in bite-sized detail (plan at S5 start).
