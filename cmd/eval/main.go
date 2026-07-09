@@ -36,6 +36,7 @@ import (
 	"github.com/ogngnaoh/capycook/internal/orchestrator"
 	"github.com/ogngnaoh/capycook/internal/services"
 	"github.com/ogngnaoh/capycook/internal/store"
+	"github.com/ogngnaoh/capycook/internal/telemetry"
 )
 
 // Default instrument and data locations, relative to the repo root (the
@@ -239,7 +240,7 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	deps, cleanup, err := buildDeps(*db, *dataDir, edge)
+	deps, cleanup, err := buildDeps(*db, *dataDir, edge, *live, stdout)
 	if err != nil {
 		return err
 	}
@@ -337,15 +338,50 @@ func budgetUSD() float64 {
 	return 10
 }
 
-// buildDeps wires the same real deterministic services + grounding cmd/server
-// uses (minus telemetry) over the committed data/ assets, with the given LLM
-// edge, onto the SQLite store at dbPath.
-func buildDeps(dbPath, dataDir string, edge llm.LLM) (orchestrator.Deps, func(), error) {
+// buildDeps wires the same real deterministic services + grounding + tracer
+// cmd/server uses over the committed data/ assets, with the given LLM edge,
+// onto the SQLite store at dbPath. Live campaign runs (traced=true) export
+// OTel→OTLP/HTTP→Langfuse when all three LANGFUSE_* env vars are set
+// (milestone-02 spec Part 2: "runs traced"); missing keys fall back to the
+// no-op, non-fatal. Stub runs never export — dry-run spans in the real
+// Langfuse project would mix harness noise into operator traces, the same
+// separation the event log's run_kind enforces. The active mode is always
+// printed — never inferred from silence.
+func buildDeps(dbPath, dataDir string, edge llm.LLM, traced bool, stdout io.Writer) (orchestrator.Deps, func(), error) {
 	st, err := store.Open(dbPath)
 	if err != nil {
 		return orchestrator.Deps{}, nil, err
 	}
-	cleanup := func() { st.Close() }
+	tracer := telemetry.Tracer(telemetry.Noop{})
+	flushTraces := func(context.Context) error { return nil }
+	if traced {
+		tracer, flushTraces, err = telemetry.Setup(telemetry.Config{
+			PublicKey: os.Getenv("LANGFUSE_PUBLIC_KEY"),
+			SecretKey: os.Getenv("LANGFUSE_SECRET_KEY"),
+			Host:      os.Getenv("LANGFUSE_HOST"),
+		})
+		if err != nil {
+			st.Close()
+			return orchestrator.Deps{}, nil, err
+		}
+		if _, isNoop := tracer.(telemetry.Noop); isNoop {
+			fmt.Fprintln(stdout, "telemetry: no-op — set LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY/LANGFUSE_HOST to export traces")
+		} else {
+			fmt.Fprintf(stdout, "telemetry: OTel -> OTLP/HTTP -> Langfuse enabled (host %s)\n", os.Getenv("LANGFUSE_HOST"))
+		}
+	} else {
+		fmt.Fprintln(stdout, "telemetry: off (stub run — only --live campaign runs export traces)")
+	}
+	cleanup := func() {
+		// Flush batched spans before exit (cmdRun defers this cleanup;
+		// same 5s grace as cmd/server's graceful shutdown).
+		flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := flushTraces(flushCtx); err != nil {
+			fmt.Fprintf(stdout, "telemetry flush failed: %v\n", err)
+		}
+		st.Close()
+	}
 	fail := func(err error) (orchestrator.Deps, func(), error) {
 		cleanup()
 		return orchestrator.Deps{}, nil, err
@@ -392,6 +428,7 @@ func buildDeps(dbPath, dataDir string, edge llm.LLM) (orchestrator.Deps, func(),
 		Nutrition: nutrition,
 		Cost:      cost,
 		Grounding: ground,
+		Tracer:    tracer,
 	}, cleanup, nil
 }
 

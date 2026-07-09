@@ -23,6 +23,7 @@ import (
 	"github.com/ogngnaoh/capycook/internal/eventlog"
 	"github.com/ogngnaoh/capycook/internal/llm"
 	"github.com/ogngnaoh/capycook/internal/store"
+	"github.com/ogngnaoh/capycook/internal/telemetry"
 )
 
 // Fixture paths relative to this package (cmd/eval).
@@ -260,6 +261,54 @@ func TestRunCommandStubAllArms(t *testing.T) {
 			}
 		}
 	}
+}
+
+// The live campaign must be traceable OTel→Langfuse (milestone-02 spec Part 2
+// "runs traced"); buildDeps wires the tracer from LANGFUSE_* env exactly like
+// cmd/server — but only for --live runs: stub dry-runs must never export
+// spans into the real Langfuse project (harness/operator separation, same as
+// the event log's run_kind). The operator always sees which mode is active.
+func TestBuildDepsTelemetry(t *testing.T) {
+	build := func(t *testing.T, traced bool) (telemetry.Tracer, string) {
+		t.Helper()
+		var out bytes.Buffer
+		deps, cleanup, err := buildDeps(filepath.Join(t.TempDir(), "t.db"), testDataDirPath, llm.Stub{}, traced, &out)
+		if err != nil {
+			t.Fatalf("buildDeps: %v", err)
+		}
+		t.Cleanup(cleanup)
+		return deps.Tracer, out.String()
+	}
+	t.Run("live, no keys: noop tracer, explicit notice", func(t *testing.T) {
+		t.Setenv("LANGFUSE_PUBLIC_KEY", "")
+		t.Setenv("LANGFUSE_SECRET_KEY", "")
+		t.Setenv("LANGFUSE_HOST", "")
+		tracer, out := build(t, true)
+		if _, ok := tracer.(telemetry.Noop); !ok {
+			t.Errorf("Tracer = %T, want telemetry.Noop without LANGFUSE_* keys", tracer)
+		}
+		mustContain(t, "buildDeps stdout", out, "telemetry: no-op")
+	})
+	t.Run("live, keys set: real tracer, enabled banner", func(t *testing.T) {
+		t.Setenv("LANGFUSE_PUBLIC_KEY", "pk")
+		t.Setenv("LANGFUSE_SECRET_KEY", "sk")
+		t.Setenv("LANGFUSE_HOST", "https://lf.example")
+		tracer, out := build(t, true)
+		if _, ok := tracer.(telemetry.Noop); ok {
+			t.Error("Tracer is the no-op — LANGFUSE_* keys must wire the real exporter (spec: runs traced OTel→Langfuse)")
+		}
+		mustContain(t, "buildDeps stdout", out, "Langfuse enabled")
+	})
+	t.Run("stub, keys set: never exports", func(t *testing.T) {
+		t.Setenv("LANGFUSE_PUBLIC_KEY", "pk")
+		t.Setenv("LANGFUSE_SECRET_KEY", "sk")
+		t.Setenv("LANGFUSE_HOST", "https://lf.example")
+		tracer, out := build(t, false)
+		if _, ok := tracer.(telemetry.Noop); !ok {
+			t.Errorf("Tracer = %T on a stub run — dry-run spans must never reach the real Langfuse project", tracer)
+		}
+		mustContain(t, "buildDeps stdout", out, "telemetry: off (stub run")
+	})
 }
 
 func TestRunCommandSingleArm(t *testing.T) {
