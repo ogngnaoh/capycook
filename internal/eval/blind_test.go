@@ -245,6 +245,25 @@ func TestRejoinBlindRejectsUnknownBlindID(t *testing.T) {
 	}
 }
 
+// Distinct from an unknown blind_id: the blind_id IS in the map, but the
+// claim_id it maps to is not among the claims being rejoined (e.g. the map
+// and the --claims files come from different exports). The error must name
+// the missing claim_id so the operator can see which export is stale.
+func TestRejoinBlindRejectsUnknownClaimID(t *testing.T) {
+	claims := blindClaims(llm.ArmGrounded, 2)
+	sheet, m := BuildBlindSheet(blindRowsFromClaims(claims))
+	stale := make(map[string]string, len(m))
+	for k, v := range m {
+		stale[k] = v
+	}
+	const missing = "clm-grounded-bench-99-001"
+	stale[sheet[0].BlindID] = missing
+	_, err := RejoinBlind(sheet, stale, claims)
+	if err == nil || !strings.Contains(err.Error(), missing) {
+		t.Errorf("err = %v, want mention of the missing claim_id %q", err, missing)
+	}
+}
+
 func TestRejoinBlindRejectsAlreadyLabeled(t *testing.T) {
 	claims := blindClaims(llm.ArmGrounded, 2)
 	claims[0].LabelR1 = LabelGroundedCorrect // already labeled: rejoin must refuse to overwrite

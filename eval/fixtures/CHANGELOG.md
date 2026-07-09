@@ -21,3 +21,15 @@ Every change to the versioned benchmark set is logged here (PREREGISTRATION
   3 arms ≈ 195 claims; dev-seed disjointness test-enforced
   (`internal/eval/seeds_test.go`). The benchmark set is now locked — changes
   from here require a PREREGISTRATION §9 amendment.
+- **2026-07-08** — labeling kit v2 (PREREG §9 Amendment 1): the 15–20% seeded
+  double-label sampler (seed 20260706, rate 0.18) is RETIRED — Tier-2
+  double-label coverage is now 100% (every Tier-2 row carries
+  `double_label=true`; no sampler, no rate). Blind kit v1 added
+  (`internal/eval/blind.go`): blinded R1 CSV schema pinned
+  (`blind_id,dish,text,source,label_r1` — no arm, no claim_id) + sidecar
+  `blind_id`→`claim_id` map, seeded row shuffle `BlindShuffleSeed=20260708`;
+  Tier-1 verifier↔author blind-check sample pinned
+  (`BlindCheckSeed=20260709`, cap 18, stratified round-robin per arm); CLI:
+  `export-labels --blind`/`--map`, `import-labels --blind --map --claims`,
+  and new `blind-check` / `blind-check-score` subcommands. Instruments and
+  documentation only — this directory still holds no labels, no data.
