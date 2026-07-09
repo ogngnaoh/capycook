@@ -348,6 +348,41 @@ func TestDeepSeekEmptyContentThenSuccessRetry(t *testing.T) {
 	}
 }
 
+// Observed live (S5 first grounded run, 2026-07-09): one strict misfire
+// permanently demoted the move to the unenforced json_object fallback, which
+// then emitted a schema-violating stray "title" field on every remaining
+// attempt — exhausting retries and aborting the whole arm. The fallback must
+// bounce back to the server-enforced strict path when its content misbehaves:
+// strict cannot repeat a shape violation, so alternating beats re-rolling
+// unenforced dice.
+func TestDeepSeekFallbackMalformedContentReturnsToStrict(t *testing.T) {
+	r, ts := newReplayServer(t,
+		"synthetic_malformed_tool_call.json",    // attempt 1: strict, malformed → demote
+		"synthetic_fallback_unknown_field.json", // attempt 2: fallback, stray "title" → bounce back
+		"synthetic_strict_tool_call.json",       // attempt 3: strict, success
+	)
+	ds := newTestDeepSeek(t, ts.URL, newTestMeter(t, 10))
+
+	p, err := ds.GenerateMove(context.Background(), testMoveRequest())
+	if err != nil {
+		t.Fatalf("GenerateMove: %v", err)
+	}
+	calls := r.calls()
+	if len(calls) != 3 {
+		t.Fatalf("made %d calls, want 3", len(calls))
+	}
+	third := calls[2]
+	if len(third.Tools) == 0 {
+		t.Fatal("attempt 3 sent no tools — a fallback content failure must return to the strict path")
+	}
+	if third.ResponseFormat != nil {
+		t.Fatalf("attempt 3 response_format = %+v, want none (strict path)", third.ResponseFormat)
+	}
+	if len(p.Change) == 0 {
+		t.Fatal("empty Change after strict-path recovery")
+	}
+}
+
 func TestDeepSeekRetryExhaustionTypedError(t *testing.T) {
 	r, ts := newReplayServer(t,
 		"synthetic_malformed_tool_call.json",

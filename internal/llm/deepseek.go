@@ -217,11 +217,25 @@ func (d *DeepSeek) GenerateMove(ctx context.Context, req MoveRequest) (proposal.
 			return buildProposal(req, out), nil
 		}
 		last = err
+		// Every failed attempt is logged, not just the last: ExhaustedError
+		// carries only the final error, which hides systematic drift (e.g.
+		// the strict path silently failing every call and the campaign
+		// running entirely on the unenforced json_object fallback).
+		slog.Warn("llm: generate attempt failed",
+			"attempt", attempts, "fallback", fallback, "move", req.MoveType, "err", err)
 		if ctx.Err() != nil {
 			break // parent gone (cancel/redirect): don't spin on a dead context
 		}
 		if errors.Is(err, errMalformedToolCall) {
 			fallback = true // strict tool-calling misbehaved: demote to json_object
+		} else if fallback && errors.Is(err, errMalformedContent) {
+			// The unenforced json_object fallback emitted schema-violating
+			// JSON (observed live: a stray "title" field, twice in a row).
+			// The strict path is server-enforced and cannot repeat that
+			// failure shape — bounce back instead of re-rolling unenforced
+			// dice. Empty content stays on the fallback: it is that path's
+			// own documented retryable caveat.
+			fallback = false
 		}
 	}
 	return proposal.Proposal{}, &ExhaustedError{Attempts: attempts, Last: last}

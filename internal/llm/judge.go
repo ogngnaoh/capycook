@@ -19,10 +19,13 @@ import (
 // five frozen labels per claim. It never sees the claim's experimental arm —
 // LabelClaim's signature only accepts claim text + cited source.
 //
-// The retry/fallback shape mirrors DeepSeek.GenerateMove exactly: strict
-// forced tool-call (record_label) first, json_object fallback on a
+// The retry/fallback shape mirrors DeepSeek.GenerateMove: strict forced
+// tool-call (record_label) first, json_object fallback on a
 // malformed/missing tool call, budget PreCheck before every attempt, usage
-// recorded on every response, *ExhaustedError on exhaustion.
+// recorded on every response, *ExhaustedError on exhaustion. One deliberate
+// divergence: the generator bounces a misbehaving fallback back to the
+// strict path (S5 live fix); the judge keeps the simpler sticky demotion —
+// a judge failure is a per-claim abstain, never an aborted run.
 const (
 	// DefaultJudgeModel is the verified live Tier-2 R2 judge model id (PREREG
 	// §9 Amendment 1) — deepseek-v4-flash, same family as the deepseek-v4-pro

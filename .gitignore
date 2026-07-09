@@ -4,6 +4,8 @@
 # SQLite home (real operator data — never committed; privacy/pre-push guard)
 data/*.db
 data/*.db-*
+# LLM budget sidecar (operational spend state, lives next to the db)
+data/*.db.budget.json
 
 # eval harness output (unlabeled claim exports; the versioned instruments
 # live in eval/fixtures/)
