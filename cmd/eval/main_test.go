@@ -455,21 +455,21 @@ func writeUnlabeledClaims(t *testing.T, dir, arm string, n int) string {
 func TestExportLabelsCommand(t *testing.T) {
 	dir := t.TempDir()
 	paths := []string{
-		writeUnlabeledClaims(t, dir, "ungrounded", 5),  // k = max(1, round(0.9)) = 1
-		writeUnlabeledClaims(t, dir, "flavorgraph", 4), // k = 1
-		writeUnlabeledClaims(t, dir, "grounded", 3),    // k = 1
+		writeUnlabeledClaims(t, dir, "ungrounded", 5),
+		writeUnlabeledClaims(t, dir, "flavorgraph", 4),
+		writeUnlabeledClaims(t, dir, "grounded", 3),
 	}
 	out := filepath.Join(dir, "labels.csv")
 	code, stdout, stderr := runCLI(t, "export-labels", "--claims", strings.Join(paths, ","), "--out", out)
 	if code != 0 {
 		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
 	}
-	// Seed + per-arm marks are printed so the operator can see the pinned
-	// sampler at work; labels are EMPTY by the stop-line.
+	// All 12 claims are Tier-2 (label_tier1 empty): none is filtered out, and
+	// every row is double-labeled — no sampler, no per-arm rate (Amendment 1).
 	mustContain(t, "export summary", stdout,
-		"seed=20260706",
-		"ungrounded  1/5", "flavorgraph 1/4", "grounded    1/3",
-		"EMPTY", "Amendment 1",
+		"tier-2 sheet: 12 claims (tier-1 already labeled: 0)",
+		"every row double-labeled", "Amendment 1",
+		"EMPTY",
 	)
 
 	raw, err := os.ReadFile(out)
@@ -482,8 +482,8 @@ func TestExportLabelsCommand(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != 3 {
-		t.Errorf("marked rows = %d, want 3 (one per arm)", marked)
+	if marked != 12 {
+		t.Errorf("marked rows = %d, want 12 (every row double-labeled)", marked)
 	}
 	f, err := os.Open(out)
 	if err != nil {

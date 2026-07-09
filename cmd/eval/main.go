@@ -62,9 +62,11 @@ const (
 		"belongs to the writeup, not this tool; at ~30–40 double-labeled claims the confidence " +
 		"interval is wide."
 	bannerNoLabels = "NO LABELED DATA — no labeled-claim file (--labels): every rate and κ below is " +
-		"absent by design; exported claims stay UNLABELED until human labeling (PREREG §7)."
+		"absent by design; exported claims stay UNLABELED until Tier-2 labeling (author R1 + " +
+		"judge R2, PREREG §9 Amendment 1)."
 	bannerUnlabeled = "UNLABELED — the claims file carries no label_r1 values yet: rates and κ await " +
-		"human labeling (PREREG §7); the explicit zero denominators below carry the message."
+		"Tier-2 labeling (author R1 + judge R2, PREREG §9 Amendment 1); the explicit zero " +
+		"denominators below carry the message."
 )
 
 // errUsage marks flag/usage errors: the flag package (or the caller) has
@@ -132,8 +134,9 @@ func usage(w io.Writer) {
   report  compose rates + κ + gate dynamics into markdown (stdout) + JSON
 
   export-labels
-          turn the run subcommand's UNLABELED claims JSONL into a labeler CSV
-          sheet, marking the seeded stratified double-label subset for R2
+          filter the run subcommand's claims JSONL down to Tier-2 claims
+          (label_tier1 empty) and write a labeler CSV sheet, every row
+          marked for double-labeling (PREREG §9 Amendment 1: 100% coverage)
   import-labels
           validate a labeled CSV sheet against the five frozen PREREG §7a
           categories and write the labeled-claim JSONL rates/kappa consume
@@ -540,7 +543,7 @@ func writeRates(w io.Writer, rates map[string]eval.ArmRates) {
 	fmt.Fprintln(w, ratesNote)
 	fmt.Fprintln(w)
 	if labeledClaims(rates) == 0 {
-		fmt.Fprintln(w, "All claims are UNLABELED — rates await human labeling (PREREG §7).")
+		fmt.Fprintln(w, "All claims are UNLABELED — rates await Tier-2 labeling (author R1 + judge R2, PREREG §9 Amendment 1).")
 		fmt.Fprintln(w)
 	}
 	fmt.Fprint(w, eval.RatesTable(rates))
@@ -556,11 +559,13 @@ func labeledClaims(rates map[string]eval.ArmRates) int {
 
 // --- export-labels / import-labels (plan 4.6 labeling kit) ---
 
-// cmdExportLabels turns the runner's Tier-1-labeled claims exports (label_r1/
-// label_r2 still empty) into one labeler CSV sheet (schema + workflow:
-// eval/fixtures/README.md). The R1/R2 columns are always empty — the
-// Amendment-1 stop-line — and the seeded sampler marks the PREREG §6
-// double-label subset per arm.
+// cmdExportLabels turns the runner's claims exports into one labeler CSV
+// sheet, filtering out every Tier-1-settled claim (label_tier1 non-empty) so
+// the sheet carries Tier-2 claims only (schema + workflow:
+// eval/fixtures/README.md). The label_r1/label_r2 columns are always empty
+// — the Amendment-1 stop-line — and every row is marked for double-labeling:
+// PREREG §9 Amendment 1 sets Tier-2 coverage to 100%, superseding §6's
+// 15–20% sample.
 func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("export-labels", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -605,25 +610,9 @@ func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	total := map[string]int{}
-	marked := map[string]int{}
-	for _, r := range rows {
-		total[r.Arm]++
-		if r.DoubleLabel {
-			marked[r.Arm]++
-		}
-	}
-	arms := make([]string, 0, len(total))
-	for arm := range total {
-		arms = append(arms, arm)
-	}
-	sort.Strings(arms)
-	fmt.Fprintf(stdout, "claims: %d from %d files\n", len(rows), files)
-	fmt.Fprintf(stdout, "double-label subset: seeded sampler seed=%d rate=%d%% stratified per arm, min 1 (PREREG §6)\n",
-		eval.DoubleLabelSeed, int(eval.DoubleLabelRate*100))
-	for _, arm := range arms {
-		fmt.Fprintf(stdout, "arm %-11s %d/%d marked for R2 (double_label=true)\n", arm, marked[arm], total[arm])
-	}
+	fmt.Fprintf(stdout, "claims: %d from %d files\n", len(claims), files)
+	fmt.Fprintf(stdout, "tier-2 sheet: %d claims (tier-1 already labeled: %d) — every row double-labeled (Amendment 1)\n",
+		len(rows), len(claims)-len(rows))
 	fmt.Fprintf(stdout, "labeler sheet -> %s\n", *out)
 	fmt.Fprintln(stdout, "label_r1/label_r2 are EMPTY — author R1 and judge R2 label Tier-2 claims (PREREG §9 Amendment 1).")
 	return nil

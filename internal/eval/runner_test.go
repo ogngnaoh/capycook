@@ -274,7 +274,7 @@ func TestRunnerThreeArmDryRun(t *testing.T) {
 			// the author and the judge — never from this code. label_tier1 is
 			// machine-written by the Tier-1 verifier.
 			if c.LabelR1 != "" || c.LabelR2 != "" {
-				t.Errorf("claim %s carries pre-filled labels (%q/%q) — labels only ever come from human raters", c.ClaimID, c.LabelR1, c.LabelR2)
+				t.Errorf("claim %s carries pre-filled labels (%q/%q) — label_r1/label_r2 only ever come from the author (R1) and the judge (R2)", c.ClaimID, c.LabelR1, c.LabelR2)
 			}
 		}
 		switch arm {
