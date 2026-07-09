@@ -205,7 +205,7 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 	dataDir := fs.String("data", defaultDataDir(), "committed data/ assets directory")
 	outDir := fs.String("out", defaultOutDir, "output directory for claims_<arm>.jsonl (gitignored)")
 	live := fs.Bool("live", false, "use the live DeepSeek client instead of the stub (requires CAPYCOOK_LIVE_TEST=1 and DEEPSEEK_API_KEY; spends the metered budget)")
-	moveTimeout := fs.Duration("move-timeout", 390*time.Second, "per-move outcome wait — must cover up to 3 live LLM attempts at 120s each (<=0 falls back to the runner's 30s stub-era default)")
+	moveTimeout := fs.Duration("move-timeout", 660*time.Second, "per-move outcome wait — must cover up to 5 live LLM attempts at 120s each (<=0 falls back to the runner's 30s stub-era default)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -251,7 +251,7 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 	fmt.Fprintf(stdout, "script: %s (version %d, %d moves, policy %s/%s)\n",
 		*scriptFlag, script.Version, len(script.Moves), script.Policy.Verb, script.Policy.OnBlocked)
 
-	byArm, err := eval.Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: *outDir, Timeout: *moveTimeout}.Run(context.Background(), arms)
+	byArm, skipped, err := eval.Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: *outDir, Timeout: *moveTimeout}.Run(context.Background(), arms)
 	if err != nil {
 		return err
 	}
@@ -262,6 +262,13 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 	for _, a := range ran {
 		claims := byArm[a]
 		fmt.Fprintf(stdout, "arm %-11s %3d claims -> %s\n", a, len(claims), filepath.Join(*outDir, "claims_"+a+".jsonl"))
+		// Retry-policy skips (PREREG §9 amendment): reported per arm, never
+		// silent — a skipped seed contributes zero claims to this arm and the
+		// completed-seed count is the arm's explicit denominator context.
+		for _, sk := range skipped[a] {
+			fmt.Fprintf(stdout, "arm %-11s SKIPPED seed %s at move %d (%s): %s\n", a, sk.SeedID, sk.Move, sk.MoveType, sk.Reason)
+		}
+		fmt.Fprintf(stdout, "arm %-11s seeds completed: %d/%d\n", a, len(seeds)-len(skipped[a]), len(seeds))
 		// S3-exit coverage flag (PREREG §9 Amendment 1): the operator must see,
 		// per arm, how many claims the Tier-1 verifier settled machine-side vs.
 		// how many fell through to Tier 2 — never inferred from silence.
@@ -326,7 +333,7 @@ func liveLLM(dbPath string, stdout io.Writer) (llm.LLM, error) {
 	// generates full drafts (up to maxOutputTokens) and an arm abort loses
 	// the whole arm's spend — generous ceilings only bound failure, healthy
 	// calls return as fast as ever. Keep run's --move-timeout above
-	// 3 attempts × this value.
+	// 5 attempts × this value.
 	ds, err := llm.NewDeepSeek(llm.DeepSeekConfig{APIKey: key, Meter: meter, CallTimeout: 120 * time.Second})
 	if err != nil {
 		return nil, err

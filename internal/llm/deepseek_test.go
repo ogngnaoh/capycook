@@ -385,8 +385,10 @@ func TestDeepSeekFallbackMalformedContentReturnsToStrict(t *testing.T) {
 
 func TestDeepSeekRetryExhaustionTypedError(t *testing.T) {
 	r, ts := newReplayServer(t,
-		"synthetic_malformed_tool_call.json",
-		"synthetic_empty_content.json",
+		"synthetic_malformed_tool_call.json", // attempt 1: strict → demote
+		"synthetic_empty_content.json",       // attempts 2-5: fallback (empty
+		"synthetic_empty_content.json",       // content is the fallback's own
+		"synthetic_empty_content.json",       // retryable caveat — no bounce)
 		"synthetic_empty_content.json",
 	)
 	meter := newTestMeter(t, 10)
@@ -397,18 +399,18 @@ func TestDeepSeekRetryExhaustionTypedError(t *testing.T) {
 	if !errors.As(err, &ex) {
 		t.Fatalf("err = %v (%T), want *ExhaustedError", err, err)
 	}
-	if ex.Attempts != 3 {
-		t.Fatalf("Attempts = %d, want 3 (1 try + 2 retries)", ex.Attempts)
+	if ex.Attempts != 5 {
+		t.Fatalf("Attempts = %d, want 5 (1 try + 4 retries, spec-§7 bound raised at S5)", ex.Attempts)
 	}
 	if !errors.Is(err, errEmptyContent) {
 		t.Fatalf("err chain %v does not carry the empty-content cause", err)
 	}
-	if got := len(r.calls()); got != 3 {
-		t.Fatalf("made %d calls, want 3", got)
+	if got := len(r.calls()); got != 5 {
+		t.Fatalf("made %d calls, want 5", got)
 	}
-	// Failed extractions still cost money: all three responses' usage is
+	// Failed extractions still cost money: all five responses' usage is
 	// recorded.
-	wantSpend := costUSD(1000, 0, 20) + 2*costUSD(1000, 500, 0)
+	wantSpend := costUSD(1000, 0, 20) + 4*costUSD(1000, 500, 0)
 	if got := meter.Spent(); math.Abs(got-wantSpend) > 1e-12 {
 		t.Fatalf("meter.Spent() = %v, want %v", got, wantSpend)
 	}

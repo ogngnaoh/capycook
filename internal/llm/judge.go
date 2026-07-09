@@ -36,6 +36,12 @@ const (
 
 	// judgeToolName is the single forced function name for the R2 judge call.
 	judgeToolName = "record_label"
+
+	// judgeMaxRetries keeps the judge at its reviewed 3-attempt shape when
+	// the generator's maxRetries was raised for the S5 campaign — a judge
+	// failure is a per-claim abstain, never an aborted run, so it doesn't
+	// need the bigger budget.
+	judgeMaxRetries = 2
 )
 
 // JudgeLabels are the five frozen PREREG §7a wire label values. They are
@@ -168,7 +174,7 @@ func (j *Judge) LabelClaim(ctx context.Context, text, source string) (JudgeVerdi
 	fallback := false
 	attempts := 0
 	var last error
-	for attempts < 1+maxRetries {
+	for attempts < 1+judgeMaxRetries {
 		// Budget hard-stop BEFORE the network, re-checked every attempt.
 		if err := j.meter.PreCheck(); err != nil {
 			return JudgeVerdict{}, err

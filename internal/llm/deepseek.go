@@ -28,10 +28,11 @@ import (
 //     word "json" is guaranteed in the prompt by the template pack (asserted
 //     here), max_tokens is set, and the documented occasional-empty-content
 //     caveat is a retryable failure.
-//   - Failure policy (spec §7): 2 retries on malformed/empty output, 60s
-//     per-call timeout, extraction-ok/rationale-empty = degraded success;
-//     exhaustion returns *ExhaustedError, which the orchestrator maps to
-//     move_failed (never proposal_blocked).
+//   - Failure policy (spec §7): a fixed retry bound (maxRetries) on
+//     malformed/empty output, bounded per-call timeout, extraction-ok/
+//     rationale-empty = degraded success; exhaustion returns
+//     *ExhaustedError, which the orchestrator maps to move_failed (never
+//     proposal_blocked).
 //   - Budget: every attempt is pre-checked against the UsageMeter's hard cap
 //     BEFORE the network; every response's usage is recorded, extraction
 //     success or not.
@@ -50,9 +51,14 @@ const (
 	DefaultDeepSeekModel = "deepseek-v4-pro"
 
 	defaultCallTimeout = 60 * time.Second
-	// maxRetries is pinned by the spec §7 failure policy: 2 retries after
-	// the first attempt.
-	maxRetries = 2
+	// maxRetries implements the spec-§7 "retry up to a fixed bound" failure
+	// policy. Raised 2→4 at the S5 live campaign (2026-07-09, logged in
+	// docs/02-measure-run/log.md): the strict path stochastically emits
+	// syntactically invalid tool arguments on long-content moves (live-API
+	// behavior contradicting the /beta strict-mode docs), and with
+	// strict/fallback alternation more attempts sharply cut exhaustion
+	// aborts. The judge keeps its own tighter bound (judgeMaxRetries).
+	maxRetries = 4
 	// maxOutputTokens bounds every completion ("set max_tokens sensibly" —
 	// documented json_object caveat; a full Draft + rationale fits well
 	// within it).
@@ -273,9 +279,56 @@ func (d *DeepSeek) callOnce(ctx context.Context, chat []openai.ChatCompletionMes
 	}
 	d.recordUsage(resp.Usage)
 	if fallback {
-		return extractContent(resp)
+		out, err := extractContent(resp)
+		if err != nil {
+			logPayloadSnippet("json_object content", rawContent(resp), err)
+		}
+		return out, err
 	}
-	return extractToolCall(resp)
+	out, err := extractToolCall(resp)
+	if err != nil {
+		logPayloadSnippet("tool-call arguments", rawToolArgs(resp), err)
+	}
+	return out, err
+}
+
+// rawContent / rawToolArgs pull the undecoded payload a failed extraction
+// saw, for diagnostics only.
+func rawContent(resp openai.ChatCompletionResponse) string {
+	if len(resp.Choices) == 0 {
+		return ""
+	}
+	return resp.Choices[0].Message.Content
+}
+
+func rawToolArgs(resp openai.ChatCompletionResponse) string {
+	if len(resp.Choices) == 0 {
+		return ""
+	}
+	for _, tc := range resp.Choices[0].Message.ToolCalls {
+		if tc.Function.Name == proposalToolName {
+			return tc.Function.Arguments
+		}
+	}
+	return ""
+}
+
+// logPayloadSnippet logs a bounded window of a payload that failed
+// extraction — centered on the byte offset when the failure is a JSON
+// syntax error — so campaign-run drift is diagnosable from the run log
+// without persisting whole model responses. Dish-draft payloads carry no
+// secrets; the window stays small to keep logs readable.
+func logPayloadSnippet(path, raw string, err error) {
+	const window = 160
+	lo, hi := 0, min(len(raw), window)
+	var syn *json.SyntaxError
+	if errors.As(err, &syn) && int(syn.Offset) <= len(raw) {
+		lo = max(0, int(syn.Offset)-window/2)
+		hi = min(len(raw), int(syn.Offset)+window/2)
+	}
+	slog.Warn("llm: extraction failed — payload snippet",
+		"path", path, "len", len(raw), "window", fmt.Sprintf("%d:%d", lo, hi),
+		"snippet", raw[lo:hi])
 }
 
 func (d *DeepSeek) recordUsage(u openai.Usage) {
@@ -302,7 +355,7 @@ func extractToolCall(resp openai.ChatCompletionResponse) (moveOutput, error) {
 		}
 		out, err := decodeStrict(tc.Function.Arguments)
 		if err != nil {
-			return moveOutput{}, fmt.Errorf("%w: arguments: %v", errMalformedToolCall, err)
+			return moveOutput{}, fmt.Errorf("%w: arguments: %w", errMalformedToolCall, err)
 		}
 		return out, nil
 	}
@@ -321,7 +374,7 @@ func extractContent(resp openai.ChatCompletionResponse) (moveOutput, error) {
 	}
 	out, err := decodeStrict(content)
 	if err != nil {
-		return moveOutput{}, fmt.Errorf("%w: %v", errMalformedContent, err)
+		return moveOutput{}, fmt.Errorf("%w: %w", errMalformedContent, err)
 	}
 	return out, nil
 }

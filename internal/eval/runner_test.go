@@ -14,10 +14,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/ogngnaoh/capycook/internal/draft"
@@ -25,6 +27,7 @@ import (
 	"github.com/ogngnaoh/capycook/internal/grounding"
 	"github.com/ogngnaoh/capycook/internal/llm"
 	"github.com/ogngnaoh/capycook/internal/orchestrator"
+	"github.com/ogngnaoh/capycook/internal/proposal"
 	"github.com/ogngnaoh/capycook/internal/services"
 	"github.com/ogngnaoh/capycook/internal/store"
 )
@@ -89,15 +92,16 @@ func realDeps(t *testing.T) orchestrator.Deps {
 
 // --- instrument loading ---
 
-// TestMoveScriptFixture pins the committed instrument: version 1, N=5 moves,
-// auto-accept policy, and a comment stating it is pinned at T1.
+// TestMoveScriptFixture pins the committed instrument: version 2 (PREREG §9
+// retry amendment, 2026-07-09), N=5 moves, auto-accept policy with bounded
+// move retries, and a comment stating it is pinned at T1.
 func TestMoveScriptFixture(t *testing.T) {
 	s, err := LoadScript(scriptPath)
 	if err != nil {
 		t.Fatalf("LoadScript: %v", err)
 	}
-	if s.Version != 1 {
-		t.Errorf("version = %d, want 1", s.Version)
+	if s.Version != 2 {
+		t.Errorf("version = %d, want 2 (retry-policy amendment)", s.Version)
 	}
 	if len(s.Moves) != 5 {
 		t.Errorf("len(moves) = %d, want the pinned N=5", len(s.Moves))
@@ -105,8 +109,9 @@ func TestMoveScriptFixture(t *testing.T) {
 	if !strings.Contains(s.Comment, "T1") {
 		t.Errorf("comment must state the script is pinned at T1, got %q", s.Comment)
 	}
-	if s.Policy.Verb != orchestrator.VerbAccept || s.Policy.OnBlocked != OnBlockedAbort {
-		t.Errorf("policy = %+v, want accept/abort", s.Policy)
+	want := ScriptPolicy{Verb: orchestrator.VerbAccept, OnBlocked: PolicyRetry, OnFailed: PolicyRetry, RetryLimit: 3}
+	if s.Policy != want {
+		t.Errorf("policy = %+v, want %+v", s.Policy, want)
 	}
 }
 
@@ -131,6 +136,9 @@ func TestLoadScriptValidation(t *testing.T) {
 		{"unknown move type", func(s *Script) { s.Moves[0].MoveType = "julienne_everything" }},
 		{"non-accept policy verb", func(s *Script) { s.Policy.Verb = "regenerate" }},
 		{"unsupported on_blocked", func(s *Script) { s.Policy.OnBlocked = "skip" }},
+		{"unsupported on_failed", func(s *Script) { s.Policy.OnFailed = "skip" }},
+		{"retry without limit", func(s *Script) { s.Policy.OnBlocked = PolicyRetry }},
+		{"limit without retry", func(s *Script) { s.Policy.RetryLimit = 3 }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -204,7 +212,7 @@ func TestRunnerThreeArmDryRun(t *testing.T) {
 	outDir := filepath.Join(t.TempDir(), "out")
 	ctx := context.Background()
 
-	byArm, err := Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: outDir}.Run(ctx, nil)
+	byArm, _, err := Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: outDir}.Run(ctx, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -398,7 +406,7 @@ func TestRunnerDeterministicAcrossRuns(t *testing.T) {
 	runOnce := func() ([]eventlog.Event, string) {
 		deps := realDeps(t)
 		outDir := filepath.Join(t.TempDir(), "out")
-		if _, err := (Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: outDir}).Run(context.Background(), nil); err != nil {
+		if _, _, err := (Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: outDir}).Run(context.Background(), nil); err != nil {
 			t.Fatalf("Run: %v", err)
 		}
 		events, err := deps.Log.Replay(context.Background(), "")
@@ -470,7 +478,7 @@ func TestRunnerBlockedAbortsPerPolicy(t *testing.T) {
 	}}
 	outDir := filepath.Join(t.TempDir(), "out")
 
-	_, err := Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: outDir}.Run(context.Background(), []string{llm.ArmGrounded})
+	_, _, err := Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: outDir}.Run(context.Background(), []string{llm.ArmGrounded})
 	if err == nil {
 		t.Fatal("Run = nil error, want abort on the blocked move")
 	}
@@ -498,6 +506,152 @@ func TestRunnerBlockedAbortsPerPolicy(t *testing.T) {
 	}
 }
 
+// sabotageLLM wraps the deterministic stub, sabotaging the first N
+// GenerateMove calls: mode "block" rewrites the steer to the seeded unsafe
+// one (the REAL safety gate then blocks the proposal), mode "fail" returns a
+// generation error (the orchestrator maps it to move_failed). Calls after
+// the first N pass through untouched — retries recover exactly like a live
+// model whose next roll behaves.
+type sabotageLLM struct {
+	mu       sync.Mutex
+	mode     string // "block" | "fail"
+	sabotage int    // number of leading calls to sabotage
+	calls    int
+	stub     llm.Stub
+}
+
+func (s *sabotageLLM) GenerateMove(ctx context.Context, req llm.MoveRequest) (proposal.Proposal, error) {
+	s.mu.Lock()
+	s.calls++
+	n := s.calls
+	s.mu.Unlock()
+	if n <= s.sabotage {
+		switch s.mode {
+		case "fail":
+			return proposal.Proposal{}, errors.New("synthetic generation failure")
+		case "block":
+			req.Steer = "infuse a garlic oil for drizzling"
+		}
+	}
+	return s.stub.GenerateMove(ctx, req)
+}
+
+func retryScript(moves ...ScriptMove) Script {
+	return Script{
+		Version: 2,
+		Comment: "test-only retry-policy script (T1 amendment shape)",
+		Policy:  ScriptPolicy{Verb: orchestrator.VerbAccept, OnBlocked: PolicyRetry, OnFailed: PolicyRetry, RetryLimit: 2},
+		Moves:   moves,
+	}
+}
+
+func benignSeed(id string) Seed {
+	return Seed{
+		ID:   id,
+		Seed: "SYNTHETIC: retry-policy seed " + id,
+		Constraints: draft.Constraints{
+			Dietary: []string{}, Allergens: []string{}, Equipment: []string{},
+			Skill: "beginner", Servings: 2, OnHand: []string{}, Cuisine: "western",
+		},
+	}
+}
+
+// TestRunnerRetriesBlockedMoveThenSucceeds: policy on_blocked=retry issues
+// gate verb=regenerate — the same recovery a cook uses — and the seed
+// completes; the block stays in the eventlog as telemetry.
+func TestRunnerRetriesBlockedMoveThenSucceeds(t *testing.T) {
+	deps := realDeps(t)
+	deps.LLM = &sabotageLLM{mode: "block", sabotage: 1}
+	script := retryScript(ScriptMove{MoveType: llm.MoveTypeIngredientChange, Steer: "swap to something milder"})
+	outDir := filepath.Join(t.TempDir(), "out")
+
+	byArm, skipped, err := Runner{Deps: deps, Script: script, Seeds: []Seed{benignSeed("seed-retry-block")}, OutDir: outDir}.
+		Run(context.Background(), []string{llm.ArmGrounded})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(skipped[llm.ArmGrounded]) != 0 {
+		t.Fatalf("skipped = %+v, want none (retry recovered)", skipped[llm.ArmGrounded])
+	}
+	if len(byArm[llm.ArmGrounded]) == 0 {
+		t.Fatal("no claims from the recovered seed")
+	}
+	events, err := deps.Log.Replay(context.Background(), "")
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	var sawBlock, sawRegenerate bool
+	for _, e := range events {
+		switch e.Type {
+		case eventlog.TypeProposalBlocked:
+			sawBlock = true
+		case eventlog.TypeGateRegenerate:
+			sawRegenerate = true
+		}
+	}
+	if !sawBlock || !sawRegenerate {
+		t.Errorf("eventlog block/regenerate = %v/%v, want both (block is telemetry, retry is a real gate verb)", sawBlock, sawRegenerate)
+	}
+}
+
+// TestRunnerRetriesFailedMoveThenSucceeds: on_failed=retry re-proposes the
+// move after a generation failure (dish returns to idle on move_failed).
+func TestRunnerRetriesFailedMoveThenSucceeds(t *testing.T) {
+	deps := realDeps(t)
+	deps.LLM = &sabotageLLM{mode: "fail", sabotage: 1}
+	script := retryScript(ScriptMove{MoveType: llm.MoveTypeIngredientChange, Steer: "swap to something milder"})
+	outDir := filepath.Join(t.TempDir(), "out")
+
+	byArm, skipped, err := Runner{Deps: deps, Script: script, Seeds: []Seed{benignSeed("seed-retry-fail")}, OutDir: outDir}.
+		Run(context.Background(), []string{llm.ArmGrounded})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(skipped[llm.ArmGrounded]) != 0 || len(byArm[llm.ArmGrounded]) == 0 {
+		t.Fatalf("skipped=%+v claims=%d, want recovery with no skip", skipped[llm.ArmGrounded], len(byArm[llm.ArmGrounded]))
+	}
+}
+
+// TestRunnerSkipsSeedAfterRetryLimit: a move still blocked after retry_limit
+// fresh generations drops its WHOLE seed (no partial-seed claims), the arm
+// continues to later seeds, and the skip is reported — never silent.
+func TestRunnerSkipsSeedAfterRetryLimit(t *testing.T) {
+	deps := realDeps(t)
+	// Seed 1's single move blocks on the first attempt + both retries
+	// (3 sabotaged calls); seed 2's calls pass through clean.
+	deps.LLM = &sabotageLLM{mode: "block", sabotage: 3}
+	script := retryScript(ScriptMove{MoveType: llm.MoveTypeIngredientChange, Steer: "swap to something milder"})
+	outDir := filepath.Join(t.TempDir(), "out")
+
+	byArm, skipped, err := Runner{Deps: deps, Script: script,
+		Seeds: []Seed{benignSeed("seed-doomed"), benignSeed("seed-clean")}, OutDir: outDir}.
+		Run(context.Background(), []string{llm.ArmGrounded})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	skips := skipped[llm.ArmGrounded]
+	if len(skips) != 1 || skips[0].SeedID != "seed-doomed" || skips[0].Move != 1 {
+		t.Fatalf("skipped = %+v, want exactly seed-doomed at move 1", skips)
+	}
+	if !strings.Contains(skips[0].Reason, "blocked") {
+		t.Errorf("skip reason %q does not name the block", skips[0].Reason)
+	}
+	claims := byArm[llm.ArmGrounded]
+	if len(claims) == 0 {
+		t.Fatal("no claims — the arm must continue past a skipped seed")
+	}
+	for _, c := range claims {
+		if c.Dish == "seed-doomed" {
+			t.Fatalf("claim %s from the skipped seed leaked into the export", c.ClaimID)
+		}
+	}
+	// The claims file is still written — a run with reported skips is a
+	// completed run; partial SEEDS are what never appear.
+	if _, statErr := os.Stat(filepath.Join(outDir, "claims_grounded.jsonl")); statErr != nil {
+		t.Errorf("claims file missing after completed run with skips: %v", statErr)
+	}
+}
+
 // TestRunnerRejectsNonEvalArm: harness runs use the three PREREG §4 eval arms
 // only — "none" is the operator stamp, never a harness arm.
 func TestRunnerRejectsNonEvalArm(t *testing.T) {
@@ -511,7 +665,7 @@ func TestRunnerRejectsNonEvalArm(t *testing.T) {
 		t.Fatalf("LoadSeeds: %v", err)
 	}
 	r := Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: filepath.Join(t.TempDir(), "out")}
-	if _, err := r.Run(context.Background(), []string{llm.ArmNone}); err == nil {
+	if _, _, err := r.Run(context.Background(), []string{llm.ArmNone}); err == nil {
 		t.Error(`Run(arms=["none"]) = nil error, want rejection`)
 	}
 }

@@ -1,9 +1,11 @@
 {
-  "version": 1,
-  "comment": "CapyCook harness move script — a versioned INSTRUMENT, not data (it contains no labels, no benchmark seeds, no telemetry). Pinned at T1: its SHA is recorded in the T1 amendment entry (PREREGISTRATION §9) and any change bumps `version` with a dated CHANGELOG.md entry. Every benchmark seed runs these N=5 moves identically per arm through the real orchestrator (spec §7 scripted arm runner) under the auto-accept policy: each proposal is gated with verb=accept (first card), deterministic moves may auto-advance under the dial, and a safety block or failed move aborts the seed's run.",
+  "version": 2,
+  "comment": "CapyCook harness move script — a versioned INSTRUMENT, not data (it contains no labels, no benchmark seeds, no telemetry). Pinned at T1: its SHA is recorded in the T1 amendment entry (PREREGISTRATION §9) and any change bumps `version` with a dated CHANGELOG.md entry. Every benchmark seed runs these N=5 moves identically per arm through the real orchestrator (spec §7 scripted arm runner) under the auto-accept policy: each proposal is gated with verb=accept (first card), deterministic moves may auto-advance under the dial. v2 (PREREG §9 amendment, 2026-07-09): a safety block is answered with gate verb=regenerate and a failed move is re-proposed — up to retry_limit fresh generations per move (the same recovery a cook uses, recorded in the eventlog; the gate is never routed around) — after which the WHOLE seed is dropped from the arm and reported. Partial seeds are never exported.",
   "policy": {
     "verb": "accept",
-    "on_blocked": "abort"
+    "on_blocked": "retry",
+    "on_failed": "retry",
+    "retry_limit": 3
   },
   "moves": [
     {

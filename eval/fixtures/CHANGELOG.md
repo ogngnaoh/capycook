@@ -21,6 +21,20 @@ Every change to the versioned benchmark set is logged here (PREREGISTRATION
   3 arms ≈ 195 claims; dev-seed disjointness test-enforced
   (`internal/eval/seeds_test.go`). The benchmark set is now locked — changes
   from here require a PREREGISTRATION §9 amendment.
+- **2026-07-09** — `move_script.json` v2 (PREREG §9 amendment, S5 live
+  campaign): policy gains `on_blocked: retry`, `on_failed: retry`,
+  `retry_limit: 3` — a safety block is answered with gate verb=regenerate
+  (the cook's own recovery verb, recorded in the eventlog) and a failed move
+  is re-proposed from idle, up to 3 fresh generations per move; a move still
+  blocked/failed after that drops its WHOLE seed from the arm, loudly
+  reported with per-arm completed-seed counts (`internal/eval/runner.go`
+  `SkippedSeed`). Motivation (logged, pre-data — no arm had completed): the
+  v1 all-or-nothing abort was validated only against the deterministic stub;
+  live deepseek-v4-pro variance (observed ~5–11% per-move abort risk across
+  three aborted grounded-arm attempts) makes a 65-move abort-free arm
+  statistically infeasible. The gate is never routed around; blocks remain
+  telemetry; partial seeds are never exported. Moves and auto-accept verb
+  unchanged.
 - **2026-07-08** — labeling kit v2 (PREREG §9 Amendment 1): the 15–20% seeded
   double-label sampler (seed 20260706, rate 0.18) is RETIRED — Tier-2
   double-label coverage is now 100% (every Tier-2 row carries
