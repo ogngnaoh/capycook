@@ -235,6 +235,11 @@ func TestStubSetsProvenanceFromEvidence(t *testing.T) {
 	if got == nil || *got != "pairing:basil" {
 		t.Fatalf("flavor claim provenance = %v, want pairing:basil", got)
 	}
+	// Pre-existing claims (baseDraft index 0) must NOT be stamped — only
+	// claims this move appended may carry provenance.
+	if pre := applied.FlavorRationale[0].Provenance; pre != nil {
+		t.Fatalf("pre-existing flavor claim provenance = %q, want nil", *pre)
+	}
 
 	// No evidence (ungrounded arm) => provenance stays nil.
 	req.Evidence = Evidence{}
