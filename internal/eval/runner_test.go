@@ -4,10 +4,11 @@ package eval
 // the REAL orchestrator wired over the real deterministic services and the
 // committed data/ assets, with the deterministic stub LLM (no live calls in
 // phase 4). Seeds come from internal/eval/testdata (synthetic instrument-test
-// data only — never eval/fixtures). The end-to-end test is the re-homed
-// "empty baseline" oracle: a 3-arm dry run must emit structurally-complete
-// UNLABELED claims files and a results table with all-zero rates and explicit
-// Ns, with zero human labels anywhere.
+// data only — never eval/fixtures). The end-to-end test is the Amendment-1
+// dry-run oracle: a 3-arm dry run must emit structurally-complete claims
+// files whose every row carries a machine-written label_tier1 (this pinned
+// script/stub combination never falls through to Tier 2) and never a human
+// label — label_r1/label_r2 stay empty everywhere.
 
 import (
 	"bytes"
@@ -180,13 +181,16 @@ func TestLoadSeeds(t *testing.T) {
 	}
 }
 
-// --- the re-homed "empty baseline" oracle ---
+// --- the Amendment-1 dry-run oracle ---
 
 // TestRunnerThreeArmDryRun drives the full harness: 3 arms × 2 synthetic
 // seeds through the pinned move script on the stub LLM. It must emit
-// structurally-complete claims files whose every row is UNLABELED, and the
-// 4.1 rates over those files must render a results table with all-zero rates
-// and explicit Ns — the harness runs end-to-end with zero human labels.
+// structurally-complete claims, each carrying a machine-written label_tier1
+// (this pinned script/stub combination never falls through to Tier 2 — every
+// claim is either unsourced, hence correctly-unverified, or a pairing
+// citation the arm's own re-derived evidence verifies, hence
+// grounded-correct), and the 4.1 rates over those files render a results
+// table with those Tier-1 labels folded in — with zero human labels anywhere.
 func TestRunnerThreeArmDryRun(t *testing.T) {
 	deps := realDeps(t)
 	seeds, err := LoadSeeds(seedsPath)
@@ -238,6 +242,7 @@ func TestRunnerThreeArmDryRun(t *testing.T) {
 			seedIDs[s.ID] = true
 		}
 		seenIDs := map[string]bool{}
+		hasPairingSource := false
 		for _, c := range claims {
 			if c.ClaimID == "" || c.Arm == "" || c.Dish == "" || c.Text == "" {
 				t.Errorf("arm %s: structurally incomplete claim %+v", arm, c)
@@ -252,9 +257,36 @@ func TestRunnerThreeArmDryRun(t *testing.T) {
 			if !seedIDs[c.Dish] {
 				t.Errorf("claim %s dish = %q, not a seed id", c.ClaimID, c.Dish)
 			}
-			// The phase-4 stop-line: exported claims are UNLABELED, always.
+			// (a) a claim with no source is mechanically correctly-unverified
+			// (null provenance renders [unverified] — VerifyTier1 is exact here).
+			if c.Source == "" && c.LabelTier1 != LabelCorrectlyUnverified {
+				t.Errorf("claim %s: source empty, label_tier1 = %q, want %q", c.ClaimID, c.LabelTier1, LabelCorrectlyUnverified)
+			}
+			if strings.HasPrefix(c.Source, "pairing:") {
+				hasPairingSource = true
+				// (b) a pairing citation from the arm's own supplied evidence
+				// verifies — the stub cites the first supplied pairing.
+				if c.LabelTier1 != LabelGroundedCorrect {
+					t.Errorf("claim %s: pairing-sourced claim label_tier1 = %q, want %q", c.ClaimID, c.LabelTier1, LabelGroundedCorrect)
+				}
+			}
+			// The Amendment-1 stop-line: label_r1/label_r2 only ever come from
+			// the author and the judge — never from this code. label_tier1 is
+			// machine-written by the Tier-1 verifier.
 			if c.LabelR1 != "" || c.LabelR2 != "" {
 				t.Errorf("claim %s carries pre-filled labels (%q/%q) — labels only ever come from human raters", c.ClaimID, c.LabelR1, c.LabelR2)
+			}
+		}
+		switch arm {
+		case llm.ArmFlavorgraph, llm.ArmGrounded:
+			// (b) the grounded arms' own evidence yields at least one citation.
+			if !hasPairingSource {
+				t.Errorf("arm %s: no pairing:-sourced claim found, want >=1 (the stub cites the first supplied pairing)", arm)
+			}
+		case llm.ArmUngrounded:
+			// (c) ungrounded evidence is always empty — never a pairing citation.
+			if hasPairingSource {
+				t.Errorf("arm %s: found a pairing:-sourced claim, want none (ungrounded evidence carries no pairings)", arm)
 			}
 		}
 		rates, err := ComputeRates(claims)
@@ -262,23 +294,29 @@ func TestRunnerThreeArmDryRun(t *testing.T) {
 			t.Fatalf("arm %s: ComputeRates: %v", arm, err)
 		}
 		r := rates[arm]
-		if r.Total != wantClaimsPerArm || r.Unlabeled != wantClaimsPerArm || r.Checkable != 0 || r.Excluded != 0 {
-			t.Errorf("arm %s: N breakdown = total %d / unlabeled %d / checkable %d / excluded %d, want %d/%d/0/0",
+		// Every claim in this pinned dry run gets a determinate label_tier1
+		// (correctly-unverified or grounded-correct — never mischaracterized
+		// or hallucinated, since the stub never cites evidence it wasn't
+		// given), so Tier-1 alone settles the full checkable denominator with
+		// nothing unlabeled and a perfect (1.0) provenance rate.
+		if r.Total != wantClaimsPerArm || r.Unlabeled != 0 || r.Checkable != wantClaimsPerArm || r.Excluded != 0 {
+			t.Errorf("arm %s: N breakdown = total %d / unlabeled %d / checkable %d / excluded %d, want %d/0/%d/0",
 				arm, r.Total, r.Unlabeled, r.Checkable, r.Excluded, wantClaimsPerArm, wantClaimsPerArm)
 		}
-		if r.Provenance != 0 || r.Mischaracterization != 0 || r.Hallucination != 0 {
-			t.Errorf("arm %s: rates = %v/%v/%v, want all zero over the unlabeled files",
+		if r.Provenance != 1 || r.Mischaracterization != 0 || r.Hallucination != 0 {
+			t.Errorf("arm %s: rates = %v/%v/%v, want 1/0/0 (Tier-1 settles every claim in this dry run)",
 				arm, r.Provenance, r.Mischaracterization, r.Hallucination)
 		}
 		allRates[arm] = r
 	}
 
-	// The results table renders with all-zero rates and the explicit Ns.
+	// The results table renders with Tier-1 having settled every claim and
+	// the explicit Ns.
 	table := RatesTable(allRates)
 	for _, arm := range Arms {
-		wantRow := "| " + arm + " | 6 | 6 | 0 | 0 | 0.000 | 0.000 | 0.000 |"
+		wantRow := "| " + arm + " | 6 | 0 | 6 | 0 | 1.000 | 0.000 | 0.000 |"
 		if !strings.Contains(table, wantRow) {
-			t.Errorf("results table missing all-zero row %q:\n%s", wantRow, table)
+			t.Errorf("results table missing row %q:\n%s", wantRow, table)
 		}
 	}
 

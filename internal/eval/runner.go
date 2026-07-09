@@ -7,10 +7,12 @@ package eval
 // normal operation uses, never a re-implementation. Every event it causes is
 // stamped run_kind=harness + the arm, which is exactly what the H2 fold
 // (replay.go) excludes from gate dynamics. After each arm's run the accepted
-// version drafts and proposals are walked and exported as UNLABELED claims
-// (the spec §7 claim unit: flavor_rationale[].claim + unverified[] entries)
-// with empty label_r1/label_r2 — label values only ever come from human
-// raters, never from this code.
+// version drafts and proposals are walked and exported as claims (the spec §7
+// claim unit: flavor_rationale[].claim + unverified[] entries), each labeled
+// at add-time by the Tier-1 verifier (VerifyTier1) against the evidence
+// re-derived for the move that introduced it. The Amendment-1 stop-line:
+// label_r1/label_r2 only ever come from the author and the judge — never from
+// this code. label_tier1 is machine-written by the Tier-1 verifier.
 
 import (
 	"bufio"
@@ -28,6 +30,7 @@ import (
 
 	"github.com/ogngnaoh/capycook/internal/draft"
 	"github.com/ogngnaoh/capycook/internal/eventlog"
+	"github.com/ogngnaoh/capycook/internal/grounding"
 	"github.com/ogngnaoh/capycook/internal/llm"
 	"github.com/ogngnaoh/capycook/internal/orchestrator"
 	"github.com/ogngnaoh/capycook/internal/proposal"
@@ -215,14 +218,17 @@ func (r Runner) runArm(ctx context.Context, arm string) ([]Claim, error) {
 		if err != nil {
 			return nil, fmt.Errorf("seed %s: %w", seed.ID, err)
 		}
-		claims = append(claims, extractClaims(arm, seed, run)...)
+		claims = append(claims, extractClaims(arm, seed, run, deps.Grounding)...)
 	}
 	return claims, nil
 }
 
-// seedRun is one seed's completed script run: the accepted proposals and the
+// seedRun is one seed's completed script run: the pre-move initial draft
+// (constraints only, no accepted moves yet — the ground truth the first
+// move's evidence is re-derived against), the accepted proposals, and the
 // version snapshots they produced, in move order.
 type seedRun struct {
+	initial   draft.Draft
 	proposals []proposal.Proposal
 	versions  []draft.Draft
 }
@@ -262,7 +268,11 @@ func (r Runner) runSeed(ctx context.Context, orch *orchestrator.Orchestrator, de
 		return seedRun{}, fmt.Errorf("append dish_created: %w", err)
 	}
 
-	var run seedRun
+	// The pre-move draft: an empty draft carrying only the dish's constraints
+	// — exactly what orchestrator.currentDraft hands the first move before
+	// any version exists, so evidence re-derived against it matches what the
+	// real orchestrator supplied when generating that move.
+	run := seedRun{initial: draft.Draft{Constraints: seed.Constraints}}
 	for i, mv := range r.Script.Moves {
 		moveID, err := orch.Move(ctx, dishID, sessionID, mv.MoveType, mv.Steer)
 		if err != nil {
@@ -345,38 +355,48 @@ func loadVersionDraft(ctx context.Context, st store.Store, versionID string) (dr
 // order and emits one Claim per distinct structured entry (spec §7 claim
 // unit): each flavor_rationale[] entry (source = its provenance; empty means
 // it surfaced [unverified]) and each proposal unverified[] entry (source
-// always empty). Duplicate (text, source) pairs within the dish collapse to
-// one claim. label_r1/label_r2 are left empty — the phase-4 stop-line: labels
-// only ever come from human raters.
-func extractClaims(arm string, seed Seed, run seedRun) []Claim {
+// always empty). Each claim is labeled at add-time via VerifyTier1 against the
+// evidence re-derived for the move that introduced it — llm.BuildEvidence(arm,
+// prev, g) where prev is the draft immediately before that move (run.initial,
+// the pre-move seed draft, for the first move). Duplicate (text, source)
+// pairs within the dish collapse to one claim, keeping the label from the
+// move that introduced them (first-occurrence wins). The Amendment-1
+// stop-line: label_r1/label_r2 only ever come from the author and the judge —
+// never from this code. label_tier1 is machine-written by the Tier-1
+// verifier.
+func extractClaims(arm string, seed Seed, run seedRun, g grounding.Grounding) []Claim {
 	type key struct{ text, source string }
 	seen := map[key]bool{}
 	var claims []Claim
-	add := func(text, source string) {
+	add := func(text, source string, ev llm.Evidence) {
 		k := key{text, source}
 		if text == "" || seen[k] {
 			return
 		}
 		seen[k] = true
 		claims = append(claims, Claim{
-			ClaimID: fmt.Sprintf("clm-%s-%s-%03d", arm, seed.ID, len(claims)+1),
-			Arm:     arm,
-			Dish:    seed.ID,
-			Text:    text,
-			Source:  source,
+			ClaimID:    fmt.Sprintf("clm-%s-%s-%03d", arm, seed.ID, len(claims)+1),
+			Arm:        arm,
+			Dish:       seed.ID,
+			Text:       text,
+			Source:     source,
+			LabelTier1: VerifyTier1(source, ev),
 		})
 	}
+	prev := run.initial
 	for i := range run.versions {
+		ev := llm.BuildEvidence(arm, prev, g)
 		for _, fc := range run.versions[i].FlavorRationale {
 			source := ""
 			if fc.Provenance != nil {
 				source = *fc.Provenance
 			}
-			add(fc.Claim, source)
+			add(fc.Claim, source, ev)
 		}
 		for _, u := range run.proposals[i].Unverified {
-			add(u, "")
+			add(u, "", ev)
 		}
+		prev = run.versions[i]
 	}
 	return claims
 }

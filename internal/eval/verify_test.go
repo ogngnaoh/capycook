@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/ogngnaoh/capycook/internal/grounding"
@@ -38,5 +39,29 @@ func TestVerifyTier1(t *testing.T) {
 				t.Errorf("VerifyTier1(%q) = %q, want %q", tc.source, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestTier1Coverage(t *testing.T) {
+	claims := []Claim{
+		{ClaimID: "c1", LabelTier1: LabelCorrectlyUnverified},
+		{ClaimID: "c2", LabelTier1: LabelGroundedCorrect},
+		{ClaimID: "c3", LabelTier1: LabelGroundedCorrect},
+		{ClaimID: "c4", LabelTier1: ""}, // fell through to Tier 2
+	}
+	got := Tier1Coverage(claims)
+	want := Tier1Summary{
+		Labeled:     3,
+		FellThrough: 1,
+		ByLabel: map[string]int{
+			LabelCorrectlyUnverified: 1,
+			LabelGroundedCorrect:     2,
+		},
+	}
+	if got.Labeled != want.Labeled || got.FellThrough != want.FellThrough {
+		t.Errorf("Tier1Coverage(%d claims) = %+v, want Labeled=%d FellThrough=%d", len(claims), got, want.Labeled, want.FellThrough)
+	}
+	if !reflect.DeepEqual(got.ByLabel, want.ByLabel) {
+		t.Errorf("Tier1Coverage.ByLabel = %v, want %v", got.ByLabel, want.ByLabel)
 	}
 }
