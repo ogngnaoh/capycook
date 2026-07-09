@@ -132,6 +132,8 @@ Fallback path (tool-calling unavailable or malformed): request `json_object` mod
 
 **⚠ Verify-before-build:** the exact `deepseek-v4-pro` model identifier, the `/beta` strict-mode endpoint semantics, the `json_object` empty-content caveat, **and the pricing / context-window / parameter-count figures cited in §2** must all be re-checked against live `api-docs.deepseek.com` when the harness is actually built — this spec's DeepSeek-API knowledge predates the harness build and may be stale. *(Verified 2026-07-07, milestone-01 Phase 3: `deepseek-v4-pro` exists (legacy `deepseek-chat`/`deepseek-reasoner` deprecate 2026-07-24); `/beta` strict tool-calling confirmed with strict:true + all-required + additionalProperties:false; `json_object` remains schema-unvalidated with the documented occasional-empty-content caveat plus include-"json"-in-prompt and max_tokens caveats; pricing re-pinned in §2 — no structural drift.)*
 
+**2026-07-08 re-verify (live api-docs.deepseek.com):** generator deepseek-v4-pro confirmed current ($0.435/1M in miss · $0.87/1M out, 1M ctx); judge for Amendment-1 R2 = deepseek-v4-flash ($0.14/$0.28); legacy aliases deepseek-chat/deepseek-reasoner deprecate 2026-07-24 (codebase unaffected — already on v4-pro); json_object caveats confirmed (word "json" required in prompt, occasional empty content → bounded retry); no /beta strict-schema mode documented any longer — existing /beta strict tool-calling still works live (Gate B), noted as doc drift only.
+
 ---
 
 ## 5. Eval + observability
