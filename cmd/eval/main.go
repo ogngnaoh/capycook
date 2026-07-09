@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -95,6 +96,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		err = cmdExportLabels(args[1:], stdout, stderr)
 	case "import-labels":
 		err = cmdImportLabels(args[1:], stdout, stderr)
+	case "blind-check":
+		err = cmdBlindCheck(args[1:], stdout, stderr)
+	case "blind-check-score":
+		err = cmdBlindCheckScore(args[1:], stdout, stderr)
 	case "kappa":
 		err = cmdKappa(args[1:], stdout, stderr)
 	case "report":
@@ -140,6 +145,16 @@ func usage(w io.Writer) {
   import-labels
           validate a labeled CSV sheet against the five frozen PREREG §7a
           categories and write the labeled-claim JSONL rates/kappa consume
+          (--blind rejoins a blind sheet via --map onto --claims first)
+
+  blind-check
+          draw the seeded verifier<->author blind-check sample (Tier-1-
+          labeled claims, stratified per arm) and export it as a blind sheet
+          with label_tier1 withheld (PREREG §9 Amendment 1 verifier
+          validation)
+  blind-check-score
+          score an author-filled blind-check sheet against label_tier1:
+          agreement + confusion counts
 
 Run 'eval <subcommand> -h' for flags.
 `)
@@ -565,12 +580,16 @@ func labeledClaims(rates map[string]eval.ArmRates) int {
 // eval/fixtures/README.md). The label_r1/label_r2 columns are always empty
 // — the Amendment-1 stop-line — and every row is marked for double-labeling:
 // PREREG §9 Amendment 1 sets Tier-2 coverage to 100%, superseding §6's
-// 15–20% sample.
+// 15–20% sample. --blind exports a blinded sheet instead (opaque blind_id,
+// no arm/claim_id columns, seeded-shuffled row order) plus the sidecar
+// blind_id→claim_id map — PREREG §9 Amendment 1's R1 blinding requirement.
 func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("export-labels", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	claimsFlag := fs.String("claims", "", "comma-separated UNLABELED claims JSONL files (required; the run subcommand's claims_<arm>.jsonl exports)")
-	out := fs.String("out", filepath.Join(defaultOutDir, "labels.csv"), "labeler CSV sheet to write")
+	out := fs.String("out", "", "labeler CSV sheet to write (default: "+filepath.Join(defaultOutDir, "labels.csv")+", or "+filepath.Join(defaultOutDir, "labels_blind.csv")+" with --blind)")
+	blind := fs.Bool("blind", false, "export a blinded sheet: opaque blind_id, no arm/claim_id columns, seeded-shuffled row order (PREREG §9 Amendment 1 R1 blinding)")
+	mapOut := fs.String("map", "", "blind_id→claim_id map CSV to write (--blind only; default: "+filepath.Join(defaultOutDir, "labels_blind_map.csv")+")")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -595,10 +614,38 @@ func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
+
+	fmt.Fprintf(stdout, "claims: %d from %d files\n", len(claims), files)
+	fmt.Fprintf(stdout, "tier-2 sheet: %d claims (tier-1 already labeled: %d) — every row double-labeled (Amendment 1)\n",
+		len(rows), len(claims)-len(rows))
+
+	if *blind {
+		outPath := *out
+		if outPath == "" {
+			outPath = filepath.Join(defaultOutDir, "labels_blind.csv")
+		}
+		mapPath := *mapOut
+		if mapPath == "" {
+			mapPath = filepath.Join(defaultOutDir, "labels_blind_map.csv")
+		}
+		sheet, m := eval.BuildBlindSheet(rows)
+		if err := writeBlindFiles(outPath, mapPath, sheet, m); err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "blind sheet -> %s\n", outPath)
+		fmt.Fprintf(stdout, "blind map -> %s\n", mapPath)
+		fmt.Fprintln(stdout, "do not open the map until R1 labeling is done")
+		return nil
+	}
+
+	outPath := *out
+	if outPath == "" {
+		outPath = filepath.Join(defaultOutDir, "labels.csv")
+	}
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
 		return err
 	}
-	f, err := os.Create(*out)
+	f, err := os.Create(outPath)
 	if err != nil {
 		return err
 	}
@@ -610,37 +657,151 @@ func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	fmt.Fprintf(stdout, "claims: %d from %d files\n", len(claims), files)
-	fmt.Fprintf(stdout, "tier-2 sheet: %d claims (tier-1 already labeled: %d) — every row double-labeled (Amendment 1)\n",
-		len(rows), len(claims)-len(rows))
-	fmt.Fprintf(stdout, "labeler sheet -> %s\n", *out)
+	fmt.Fprintf(stdout, "labeler sheet -> %s\n", outPath)
 	fmt.Fprintln(stdout, "label_r1/label_r2 are EMPTY — author R1 and judge R2 label Tier-2 claims (PREREG §9 Amendment 1).")
 	return nil
 }
 
+// writeBlindFiles writes the blind sheet and its blind_id→claim_id map,
+// creating each file's parent directory as needed.
+func writeBlindFiles(sheetPath, mapPath string, sheet []eval.BlindRow, m map[string]string) error {
+	if err := os.MkdirAll(filepath.Dir(sheetPath), 0o755); err != nil {
+		return err
+	}
+	f, err := os.Create(sheetPath)
+	if err != nil {
+		return err
+	}
+	if err := eval.WriteBlindCSV(f, sheet); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(mapPath), 0o755); err != nil {
+		return err
+	}
+	mf, err := os.Create(mapPath)
+	if err != nil {
+		return err
+	}
+	if err := eval.WriteBlindMap(mf, m); err != nil {
+		mf.Close()
+		return err
+	}
+	return mf.Close()
+}
+
+// readBlindMap parses the blind_id,claim_id sidecar WriteBlindMap writes.
+func readBlindMap(path string) (map[string]string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open blind map: %w", err)
+	}
+	defer f.Close()
+	cr := csv.NewReader(f)
+	header, err := cr.Read()
+	if err != nil {
+		return nil, fmt.Errorf("blind map: read header: %w", err)
+	}
+	if len(header) > 0 {
+		header[0] = strings.TrimPrefix(header[0], "\ufeff")
+	}
+	if len(header) != 2 || header[0] != "blind_id" || header[1] != "claim_id" {
+		return nil, fmt.Errorf("blind map: header %q does not match the pinned blind_id,claim_id schema", strings.Join(header, ","))
+	}
+	m := map[string]string{}
+	for {
+		rec, err := cr.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("blind map: %w", err)
+		}
+		if rec[0] == "" {
+			return nil, errors.New("blind map: empty blind_id")
+		}
+		m[rec[0]] = rec[1]
+	}
+	if len(m) == 0 {
+		return nil, errors.New("blind map: no rows")
+	}
+	return m, nil
+}
+
 // cmdImportLabels validates a labeled sheet (frozen §7a categories only;
 // label_r2 only inside the marked subset) and writes the labeled-claim JSONL
-// that rates/kappa/report consume. Rejection writes nothing.
+// that rates/kappa/report consume. Rejection writes nothing. --blind treats
+// --csv as a blind sheet (opaque blind_id) and rejoins it via --map onto
+// --claims before writing — PREREG §9 Amendment 1's R1 blinding.
 func cmdImportLabels(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("import-labels", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	csvFlag := fs.String("csv", "", "labeled CSV sheet (required)")
+	csvFlag := fs.String("csv", "", "labeled CSV sheet (required; a blind sheet with --blind)")
 	out := fs.String("out", filepath.Join(defaultOutDir, "claims_labeled.jsonl"), "labeled-claim JSONL to write")
+	blind := fs.Bool("blind", false, "--csv is a blind sheet: rejoin via --map onto --claims (PREREG §9 Amendment 1 R1 blinding)")
+	mapFlag := fs.String("map", "", "blind_id→claim_id map CSV (required with --blind)")
+	claimsFlag := fs.String("claims", "", "comma-separated claims JSONL files to rejoin blind labels onto (required with --blind)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if *csvFlag == "" {
 		return errors.New("import-labels: --csv is required (the labeled sheet)")
 	}
-	f, err := os.Open(*csvFlag)
-	if err != nil {
-		return fmt.Errorf("open label sheet: %w", err)
+
+	var claims []eval.Claim
+	if *blind {
+		if *mapFlag == "" {
+			return errors.New("import-labels --blind: --map is required (the blind_id→claim_id map CSV)")
+		}
+		if *claimsFlag == "" {
+			return errors.New("import-labels --blind: --claims is required (comma-separated claims JSONL files to rejoin blind labels onto)")
+		}
+		f, err := os.Open(*csvFlag)
+		if err != nil {
+			return fmt.Errorf("open blind sheet: %w", err)
+		}
+		rows, err := eval.ReadBlindCSV(f)
+		f.Close()
+		if err != nil {
+			return err
+		}
+		m, err := readBlindMap(*mapFlag)
+		if err != nil {
+			return err
+		}
+		var base []eval.Claim
+		for _, p := range strings.Split(*claimsFlag, ",") {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			cs, err := readClaimsFile(p)
+			if err != nil {
+				return err
+			}
+			base = append(base, cs...)
+		}
+		claims, err = eval.RejoinBlind(rows, m, base)
+		if err != nil {
+			return err
+		}
+	} else {
+		f, err := os.Open(*csvFlag)
+		if err != nil {
+			return fmt.Errorf("open label sheet: %w", err)
+		}
+		cs, err := eval.ReadLabelCSV(f)
+		f.Close()
+		if err != nil {
+			return err
+		}
+		claims = cs
 	}
-	claims, err := eval.ReadLabelCSV(f)
-	f.Close()
-	if err != nil {
-		return err
-	}
+
 	if err := eval.WriteClaims(*out, claims); err != nil {
 		return err
 	}
@@ -660,6 +821,155 @@ func cmdImportLabels(args []string, stdout, stderr io.Writer) error {
 		len(claims), labeled, double, unlabeled)
 	fmt.Fprintf(stdout, "labeled claims -> %s\n", *out)
 	fmt.Fprintf(stdout, "next: eval rates --labels=%s · eval kappa --labels=%s\n", *out, *out)
+	return nil
+}
+
+// --- blind-check / blind-check-score (PREREG §9 Amendment 1 verifier
+// validation: the author blind-labels a seeded sample of Tier-1-labeled
+// claims; agreement with label_tier1 is the control on Tier-1's residual
+// risk) ---
+
+// cmdBlindCheck draws the seeded blind-check sample from a Tier-1-labeled
+// claims file and exports it as a blind sheet (label_tier1 withheld, same
+// opaque-id/no-arm shape as the R1 blind sheet) plus its blind_id→claim_id
+// map.
+func cmdBlindCheck(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("blind-check", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	claimsFlag := fs.String("claims", "", "Tier-1-labeled claims JSONL (required; label_tier1 non-empty rows are sampled)")
+	out := fs.String("out", filepath.Join(defaultOutDir, "blind_check.csv"), "blind-check sheet CSV to write (label_tier1 withheld)")
+	mapOut := fs.String("map", "", "blind_id→claim_id map CSV to write (default: derived from --out)")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if *claimsFlag == "" {
+		return errors.New("blind-check: --claims is required (a Tier-1-labeled claims JSONL file)")
+	}
+	claims, err := readClaimsFile(*claimsFlag)
+	if err != nil {
+		return err
+	}
+	sample := eval.BuildBlindCheckSample(claims)
+	if len(sample) == 0 {
+		return errors.New("blind-check: no Tier-1-labeled claims found (label_tier1 empty for every claim)")
+	}
+	rows := make([]eval.LabelRow, len(sample))
+	for i, c := range sample {
+		rows[i] = eval.LabelRow{Claim: c}
+	}
+	sheet, m := eval.BuildBlindSheet(rows)
+
+	mapPath := *mapOut
+	if mapPath == "" {
+		mapPath = derivedMapPath(*out)
+	}
+	if err := writeBlindFiles(*out, mapPath, sheet, m); err != nil {
+		return err
+	}
+
+	byArm := map[string]int{}
+	for _, c := range sample {
+		byArm[c.Arm]++
+	}
+	arms := make([]string, 0, len(byArm))
+	for a := range byArm {
+		arms = append(arms, a)
+	}
+	sort.Strings(arms)
+	fmt.Fprintf(stdout, "blind-check sample: %d of %d Tier-1-labeled claims\n", len(sample), tier1LabeledCount(claims))
+	for _, a := range arms {
+		fmt.Fprintf(stdout, "  %-11s %d\n", a, byArm[a])
+	}
+	fmt.Fprintf(stdout, "blind-check sheet -> %s\n", *out)
+	fmt.Fprintf(stdout, "blind-check map -> %s\n", mapPath)
+	fmt.Fprintln(stdout, "label_tier1 is withheld — do not open the map until the author's blind pass is done")
+	return nil
+}
+
+// derivedMapPath appends _map before a blind sheet path's extension
+// (labels_blind.csv -> labels_blind_map.csv), the same convention
+// export-labels' default --map uses.
+func derivedMapPath(out string) string {
+	ext := filepath.Ext(out)
+	return strings.TrimSuffix(out, ext) + "_map" + ext
+}
+
+func tier1LabeledCount(claims []eval.Claim) int {
+	n := 0
+	for _, c := range claims {
+		if c.LabelTier1 != "" {
+			n++
+		}
+	}
+	return n
+}
+
+// cmdBlindCheckScore rejoins an author-filled blind-check sheet back onto
+// the same Tier-1-labeled claims file the sample was drawn from (recomputing
+// the deterministic sample), then reports verifier↔author agreement and the
+// confusion counts.
+func cmdBlindCheckScore(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("blind-check-score", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	csvFlag := fs.String("csv", "", "author-filled blind-check sheet CSV (required)")
+	mapFlag := fs.String("map", "", "blind_id→claim_id map CSV (required)")
+	claimsFlag := fs.String("claims", "", "the same Tier-1-labeled claims JSONL blind-check sampled from (required)")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if *csvFlag == "" {
+		return errors.New("blind-check-score: --csv is required (the author-filled blind-check sheet)")
+	}
+	if *mapFlag == "" {
+		return errors.New("blind-check-score: --map is required (the blind_id→claim_id map)")
+	}
+	if *claimsFlag == "" {
+		return errors.New("blind-check-score: --claims is required (the Tier-1-labeled claims JSONL)")
+	}
+
+	f, err := os.Open(*csvFlag)
+	if err != nil {
+		return fmt.Errorf("open blind-check sheet: %w", err)
+	}
+	rows, err := eval.ReadBlindCSV(f)
+	f.Close()
+	if err != nil {
+		return err
+	}
+	m, err := readBlindMap(*mapFlag)
+	if err != nil {
+		return err
+	}
+	claims, err := readClaimsFile(*claimsFlag)
+	if err != nil {
+		return err
+	}
+	sample := eval.BuildBlindCheckSample(claims)
+	if len(sample) == 0 {
+		return errors.New("blind-check-score: no Tier-1-labeled claims found (label_tier1 empty for every claim)")
+	}
+	authored, err := eval.RejoinBlind(rows, m, claims)
+	if err != nil {
+		return err
+	}
+	agree, total, confusion := eval.ScoreBlindCheck(sample, authored)
+	if total == 0 {
+		return errors.New("blind-check-score: no scored claims (no authored label_r1 matched a sampled claim)")
+	}
+	fmt.Fprintf(stdout, "verifier↔author agreement: %d/%d (%.0f%%)\n", agree, total, float64(agree)/float64(total)*100)
+	keys := make([][2]string, 0, len(confusion))
+	for k := range confusion {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i][0] != keys[j][0] {
+			return keys[i][0] < keys[j][0]
+		}
+		return keys[i][1] < keys[j][1]
+	})
+	for _, k := range keys {
+		fmt.Fprintf(stdout, "  %s -> %s: %d\n", k[0], k[1], confusion[k])
+	}
 	return nil
 }
 

@@ -555,6 +555,265 @@ func TestImportLabelsCommand(t *testing.T) {
 	}
 }
 
+// --- blind kit (PREREG §9 Amendment 1 R1 blinding + verifier↔author
+// blind-check) ---
+
+func TestExportLabelsBlindCommand(t *testing.T) {
+	dir := t.TempDir()
+	paths := []string{
+		writeUnlabeledClaims(t, dir, "ungrounded", 3),
+		writeUnlabeledClaims(t, dir, "flavorgraph", 3),
+		writeUnlabeledClaims(t, dir, "grounded", 3),
+	}
+	out := filepath.Join(dir, "labels_blind.csv")
+	mapOut := filepath.Join(dir, "labels_blind_map.csv")
+	code, stdout, stderr := runCLI(t, "export-labels", "--blind", "--claims", strings.Join(paths, ","), "--out", out, "--map", mapOut)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	mustContain(t, "blind export summary", stdout,
+		"tier-2 sheet: 9 claims (tier-1 already labeled: 0)",
+		"blind sheet -> "+out,
+		"blind map -> "+mapOut,
+		"do not open the map until R1 labeling is done",
+	)
+
+	f, err := os.Open(out)
+	if err != nil {
+		t.Fatalf("open blind sheet: %v", err)
+	}
+	sheet, err := eval.ReadBlindCSV(f)
+	f.Close()
+	if err != nil {
+		t.Fatalf("ReadBlindCSV: %v", err)
+	}
+	if len(sheet) != 9 {
+		t.Errorf("blind sheet rows = %d, want 9", len(sheet))
+	}
+	for _, h := range eval.BlindCSVHeader {
+		if h == "arm" || h == "claim_id" {
+			t.Errorf("blind sheet header carries a %q column", h)
+		}
+	}
+
+	mapRaw, err := os.ReadFile(mapOut)
+	if err != nil {
+		t.Fatalf("read blind map: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(mapRaw)), "\n")
+	if len(lines) != 10 { // header + 9 rows
+		t.Errorf("blind map lines = %d, want 10 (header + 9 rows)", len(lines))
+	}
+
+	if code, _, stderr := runCLI(t, "export-labels", "--blind", "--out", out); code != 1 || !strings.Contains(stderr, "--claims") {
+		t.Errorf("missing --claims (blind): code=%d stderr=%q, want 1 naming the flag", code, stderr)
+	}
+}
+
+func TestImportLabelsBlindCommand(t *testing.T) {
+	dir := t.TempDir()
+	paths := []string{
+		writeUnlabeledClaims(t, dir, "ungrounded", 2),
+		writeUnlabeledClaims(t, dir, "flavorgraph", 2),
+	}
+	blindOut := filepath.Join(dir, "labels_blind.csv")
+	mapOut := filepath.Join(dir, "labels_blind_map.csv")
+	if code, _, stderr := runCLI(t, "export-labels", "--blind", "--claims", strings.Join(paths, ","), "--out", blindOut, "--map", mapOut); code != 0 {
+		t.Fatalf("export-labels --blind: code=%d stderr=%q", code, stderr)
+	}
+
+	// Simulate the author blind-labeling every row of the sheet.
+	f, err := os.Open(blindOut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheet, err := eval.ReadBlindCSV(f)
+	f.Close()
+	if err != nil {
+		t.Fatalf("ReadBlindCSV: %v", err)
+	}
+	for i := range sheet {
+		sheet[i].LabelR1 = eval.LabelGroundedCorrect
+	}
+	sf, err := os.Create(blindOut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := eval.WriteBlindCSV(sf, sheet); err != nil {
+		t.Fatal(err)
+	}
+	if err := sf.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// RejoinBlind needs the original claims to write label_r1 onto: combine
+	// the two arm files export-labels read from.
+	var all []eval.Claim
+	for _, p := range paths {
+		pf, err := os.Open(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cs, err := eval.ReadClaims(pf)
+		pf.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		all = append(all, cs...)
+	}
+	claimsCombined := filepath.Join(dir, "claims_all.jsonl")
+	if err := eval.WriteClaims(claimsCombined, all); err != nil {
+		t.Fatal(err)
+	}
+
+	out := filepath.Join(dir, "claims_labeled.jsonl")
+	code, stdout, stderr := runCLI(t, "import-labels", "--blind", "--csv", blindOut, "--map", mapOut, "--claims", claimsCombined, "--out", out)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	mustContain(t, "blind import summary", stdout, "4 imported", "4 labeled by R1", out)
+
+	rf, err := os.Open(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	labeled, err := eval.ReadClaims(rf)
+	rf.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(labeled) != 4 {
+		t.Fatalf("labeled claims = %d, want 4", len(labeled))
+	}
+	for _, c := range labeled {
+		if c.LabelR1 != eval.LabelGroundedCorrect {
+			t.Errorf("claim %s label_r1 = %q, want %q", c.ClaimID, c.LabelR1, eval.LabelGroundedCorrect)
+		}
+	}
+
+	if code, _, stderr := runCLI(t, "import-labels", "--blind", "--csv", blindOut, "--claims", claimsCombined, "--out", out); code != 1 || !strings.Contains(stderr, "--map") {
+		t.Errorf("missing --map: code=%d stderr=%q, want 1 naming the flag", code, stderr)
+	}
+}
+
+// tier1LabeledClaims builds n claims per arm, every one already Tier-1-
+// labeled (label_tier1 = label) — the verifier↔author blind-check draws
+// from exactly this subset.
+func tier1LabeledClaims(arms []string, label string, n int) []eval.Claim {
+	var claims []eval.Claim
+	for _, arm := range arms {
+		for i := 0; i < n; i++ {
+			claims = append(claims, eval.Claim{
+				ClaimID:    fmt.Sprintf("clm-%s-bench-01-%03d", arm, i+1),
+				Arm:        arm,
+				Dish:       "bench-01",
+				Text:       fmt.Sprintf("SYNTHETIC claim %d", i+1),
+				LabelTier1: label,
+			})
+		}
+	}
+	return claims
+}
+
+func TestBlindCheckCommand(t *testing.T) {
+	dir := t.TempDir()
+	claims := tier1LabeledClaims([]string{"ungrounded", "flavorgraph", "grounded"}, eval.LabelGroundedCorrect, 3)
+	claimsPath := filepath.Join(dir, "claims_tier1.jsonl")
+	if err := eval.WriteClaims(claimsPath, claims); err != nil {
+		t.Fatal(err)
+	}
+
+	out := filepath.Join(dir, "blind_check.csv")
+	code, stdout, stderr := runCLI(t, "blind-check", "--claims", claimsPath, "--out", out)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	mustContain(t, "blind-check summary", stdout,
+		"blind-check sample: 9 of 9 Tier-1-labeled claims",
+		"blind-check sheet -> "+out,
+		"label_tier1 is withheld",
+	)
+
+	f, err := os.Open(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	sheet, err := eval.ReadBlindCSV(f)
+	if err != nil {
+		t.Fatalf("ReadBlindCSV: %v", err)
+	}
+	if len(sheet) != 9 {
+		t.Errorf("blind-check sheet rows = %d, want 9", len(sheet))
+	}
+	mapPath := filepath.Join(dir, "blind_check_map.csv")
+	if _, err := os.Stat(mapPath); err != nil {
+		t.Errorf("derived map path %s missing: %v", mapPath, err)
+	}
+
+	unlabeledPath := writeUnlabeledClaims(t, dir, "grounded", 2)
+	if code, _, stderr := runCLI(t, "blind-check", "--claims", unlabeledPath, "--out", filepath.Join(dir, "bc2.csv")); code != 1 || !strings.Contains(stderr, "no Tier-1-labeled claims") {
+		t.Errorf("no tier-1 claims: code=%d stderr=%q, want 1 naming it", code, stderr)
+	}
+}
+
+func TestBlindCheckScoreCommand(t *testing.T) {
+	dir := t.TempDir()
+	claims := tier1LabeledClaims([]string{"ungrounded", "flavorgraph", "grounded"}, eval.LabelGroundedCorrect, 3)
+	claimsPath := filepath.Join(dir, "claims_tier1.jsonl")
+	if err := eval.WriteClaims(claimsPath, claims); err != nil {
+		t.Fatal(err)
+	}
+
+	sheetPath := filepath.Join(dir, "blind_check.csv")
+	mapPath := filepath.Join(dir, "blind_check_map.csv")
+	if code, _, stderr := runCLI(t, "blind-check", "--claims", claimsPath, "--out", sheetPath, "--map", mapPath); code != 0 {
+		t.Fatalf("blind-check: code=%d stderr=%q", code, stderr)
+	}
+
+	f, err := os.Open(sheetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheet, err := eval.ReadBlindCSV(f)
+	f.Close()
+	if err != nil {
+		t.Fatalf("ReadBlindCSV: %v", err)
+	}
+	// The author agrees on every row but one — exercises both the agreement
+	// count and a non-trivial confusion cell.
+	for i := range sheet {
+		if i == 0 {
+			sheet[i].LabelR1 = eval.LabelHallucinated
+		} else {
+			sheet[i].LabelR1 = eval.LabelGroundedCorrect
+		}
+	}
+	sf, err := os.Create(sheetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := eval.WriteBlindCSV(sf, sheet); err != nil {
+		t.Fatal(err)
+	}
+	if err := sf.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	code, stdout, stderr := runCLI(t, "blind-check-score", "--csv", sheetPath, "--map", mapPath, "--claims", claimsPath)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	mustContain(t, "blind-check-score summary", stdout,
+		fmt.Sprintf("verifier↔author agreement: %d/9", len(sheet)-1),
+		eval.LabelGroundedCorrect+" -> "+eval.LabelHallucinated+": 1",
+	)
+
+	if code, _, stderr := runCLI(t, "blind-check-score", "--csv", sheetPath, "--map", mapPath); code != 1 || !strings.Contains(stderr, "--claims") {
+		t.Errorf("missing --claims: code=%d stderr=%q, want 1 naming the flag", code, stderr)
+	}
+}
+
 // A claims file with zero labels: rates render with explicit zero
 // denominators under the UNLABELED banner, and κ is noted as not measurable.
 func TestReportUnlabeledBanner(t *testing.T) {
