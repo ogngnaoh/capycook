@@ -33,6 +33,7 @@ One claim per JSONL line / CSV row:
 | `dish` | benchmark seed id the claim came from |
 | `text` | the claim (spec §7 claim unit: `flavor_rationale[].claim` + `unverified[]` entries) |
 | `source` | cited provenance; empty = the claim surfaced `[unverified]` |
+| `label_tier1` | machine-written by the Tier-1 verifier (PREREG §9 Amendment 1); never set by raters |
 | `label_r1` | primary rater's category — empty until labeled |
 | `label_r2` | second rater's category — empty; only on double-label rows |
 | `double_label` | CSV sheet only: `true` = row is in the seeded R2 subset (dropped on import) |
