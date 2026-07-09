@@ -10,7 +10,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -19,6 +21,7 @@ import (
 
 	"github.com/ogngnaoh/capycook/internal/eval"
 	"github.com/ogngnaoh/capycook/internal/eventlog"
+	"github.com/ogngnaoh/capycook/internal/llm"
 	"github.com/ogngnaoh/capycook/internal/store"
 )
 
@@ -552,6 +555,141 @@ func TestImportLabelsCommand(t *testing.T) {
 	}
 	if _, err := os.Stat(badOut); !os.IsNotExist(err) {
 		t.Errorf("rejected import still wrote %s (stat err = %v)", badOut, err)
+	}
+}
+
+// --- judge (Task 20: Tier-2 R2 labeling) ---
+
+// fakeJudge is the test-only judgeClient double: it returns a canned verdict
+// (or error) and counts calls, so tests can assert exactly which claims the
+// CLI actually sent to the judge.
+type fakeJudge struct {
+	calls   int
+	verdict llm.JudgeVerdict
+	err     error
+}
+
+func (f *fakeJudge) LabelClaim(ctx context.Context, text, source string) (llm.JudgeVerdict, error) {
+	f.calls++
+	return f.verdict, f.err
+}
+
+// withFakeJudge overrides the package-level judgeFactory seam for the
+// duration of the test, restoring the original (real, live-gated) factory on
+// cleanup.
+func withFakeJudge(t *testing.T, fj *fakeJudge) {
+	t.Helper()
+	orig := judgeFactory
+	judgeFactory = func(dbPath string, stdout io.Writer) (judgeClient, error) {
+		return fj, nil
+	}
+	t.Cleanup(func() { judgeFactory = orig })
+}
+
+// judge refuses without --live: there is no stub judging (a canned label
+// would be fabricated data), so the CLI must name both the missing flag and
+// the underlying env gate it maps to — mirroring run --live's refusal shape.
+func TestJudgeCommandRefusesNonLive(t *testing.T) {
+	dir := t.TempDir()
+	claimsPath := writeUnlabeledClaims(t, dir, "grounded", 1)
+	outPath := filepath.Join(dir, "claims_judged.jsonl")
+
+	code, _, stderr := runCLI(t, "judge", "--claims", claimsPath, "--out", outPath)
+	if code != 1 {
+		t.Fatalf("code=%d stderr=%q, want 1", code, stderr)
+	}
+	mustContain(t, "judge non-live refusal", stderr, "--live", "CAPYCOOK_LIVE_TEST")
+	if _, err := os.Stat(outPath); !os.IsNotExist(err) {
+		t.Errorf("refused judge run still wrote %s", outPath)
+	}
+}
+
+// judge only labels claims with both label_tier1 and label_r2 empty: a
+// tier-1-settled claim is never judged, and a claim already carrying label_r2
+// is skipped (idempotent resume) — over this 3-claim file exactly one claim
+// is eligible, so the fake judge must see exactly one call.
+func TestJudgeCommandLabelsOnlyEligibleClaims(t *testing.T) {
+	dir := t.TempDir()
+	claims := []eval.Claim{
+		{ClaimID: "clm-1", Arm: "grounded", Dish: "dish-1", Text: "text one", Source: "source one", LabelTier1: eval.LabelGroundedCorrect},
+		{ClaimID: "clm-2", Arm: "grounded", Dish: "dish-1", Text: "text two", Source: "source two", LabelR2: eval.LabelHallucinated},
+		{ClaimID: "clm-3", Arm: "grounded", Dish: "dish-1", Text: "text three", Source: "source three"},
+	}
+	claimsPath := filepath.Join(dir, "claims.jsonl")
+	if err := eval.WriteClaims(claimsPath, claims); err != nil {
+		t.Fatalf("write claims fixture: %v", err)
+	}
+	outPath := filepath.Join(dir, "claims_judged.jsonl")
+
+	fj := &fakeJudge{verdict: llm.JudgeVerdict{Label: eval.LabelGroundedCorrect, Rationale: "fake rationale"}}
+	withFakeJudge(t, fj)
+
+	code, stdout, stderr := runCLI(t, "judge", "--live", "--claims", claimsPath, "--out", outPath)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	if fj.calls != 1 {
+		t.Fatalf("LabelClaim calls = %d, want 1 (only clm-3 is eligible)", fj.calls)
+	}
+	mustContain(t, "judge summary", stdout,
+		"judge R2: 1 labeled, 1 skipped (already labeled), 1 tier-1 (not judged)")
+
+	f, err := os.Open(outPath)
+	if err != nil {
+		t.Fatalf("open judged output: %v", err)
+	}
+	defer f.Close()
+	got, err := eval.ReadClaims(f)
+	if err != nil {
+		t.Fatalf("ReadClaims: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("output claims = %d, want 3 (every claim carried through)", len(got))
+	}
+	byID := map[string]eval.Claim{}
+	for _, c := range got {
+		byID[c.ClaimID] = c
+	}
+	if byID["clm-1"].LabelR2 != "" {
+		t.Errorf("tier-1-labeled claim got label_r2 = %q, want empty (never judged)", byID["clm-1"].LabelR2)
+	}
+	if byID["clm-2"].LabelR2 != eval.LabelHallucinated {
+		t.Errorf("already-labeled claim label_r2 changed to %q, want unchanged %q", byID["clm-2"].LabelR2, eval.LabelHallucinated)
+	}
+	if byID["clm-3"].LabelR2 != eval.LabelGroundedCorrect {
+		t.Errorf("eligible claim label_r2 = %q, want %q (from the fake judge)", byID["clm-3"].LabelR2, eval.LabelGroundedCorrect)
+	}
+}
+
+// A claim the judge errors on after retries keeps label_r2 empty and is
+// counted abstained rather than failing the whole run — the summary surfaces
+// the count only when it's non-zero.
+func TestJudgeCommandAbstainsOnJudgeError(t *testing.T) {
+	dir := t.TempDir()
+	claimsPath := writeUnlabeledClaims(t, dir, "grounded", 1)
+	outPath := filepath.Join(dir, "claims_judged.jsonl")
+
+	fj := &fakeJudge{err: errors.New("exhausted retries")}
+	withFakeJudge(t, fj)
+
+	code, stdout, stderr := runCLI(t, "judge", "--live", "--claims", claimsPath, "--out", outPath)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0 (abstain is not fatal)", code, stderr)
+	}
+	mustContain(t, "judge abstain summary", stdout,
+		"judge R2: 0 labeled, 0 skipped (already labeled), 0 tier-1 (not judged), 1 abstained")
+
+	f, err := os.Open(outPath)
+	if err != nil {
+		t.Fatalf("open judged output: %v", err)
+	}
+	defer f.Close()
+	got, err := eval.ReadClaims(f)
+	if err != nil {
+		t.Fatalf("ReadClaims: %v", err)
+	}
+	if len(got) != 1 || got[0].LabelR2 != "" {
+		t.Fatalf("got claims = %+v, want 1 claim with label_r2 empty", got)
 	}
 }
 

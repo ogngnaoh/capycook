@@ -96,6 +96,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		err = cmdExportLabels(args[1:], stdout, stderr)
 	case "import-labels":
 		err = cmdImportLabels(args[1:], stdout, stderr)
+	case "judge":
+		err = cmdJudge(args[1:], stdout, stderr)
 	case "blind-check":
 		err = cmdBlindCheck(args[1:], stdout, stderr)
 	case "blind-check-score":
@@ -146,6 +148,9 @@ func usage(w io.Writer) {
           validate a labeled CSV sheet against the five frozen PREREG §7a
           categories and write the labeled-claim JSONL rates/kappa consume
           (--blind rejoins a blind sheet via --map onto --claims first)
+  judge   run the Tier-2 R2 judge over a claims JSONL, writing label_r2
+          (live-gated like run --live, sharing its budget cap; idempotent —
+          re-running resumes past already-labeled/tier-1 claims)
 
   blind-check
           draw the seeded verifier<->author blind-check sample (Tier-1-
@@ -821,6 +826,127 @@ func cmdImportLabels(args []string, stdout, stderr io.Writer) error {
 		len(claims), labeled, double, unlabeled)
 	fmt.Fprintf(stdout, "labeled claims -> %s\n", *out)
 	fmt.Fprintf(stdout, "next: eval rates --labels=%s · eval kappa --labels=%s\n", *out, *out)
+	return nil
+}
+
+// --- judge (Task 20: Tier-2 R2 labeling, PREREG §9 Amendment 1) ---
+
+// judgeClient is the slice of *llm.Judge cmdJudge needs — narrowed to a
+// package-local interface so tests can substitute a fake judge without going
+// through llm.NewJudge's live-only construction path.
+type judgeClient interface {
+	LabelClaim(ctx context.Context, text, source string) (llm.JudgeVerdict, error)
+}
+
+// judgeFactory builds the judge client cmdJudge labels claims with. The
+// default wraps liveJudge — the only real construction path, so every
+// non-test invocation goes through the same CAPYCOOK_LIVE_TEST +
+// DEEPSEEK_API_KEY gate as liveLLM; tests override this var to return a fake
+// judge with canned verdicts. There is no stub judge path otherwise — a
+// canned label would be fabricated data (phase-4 rail).
+var judgeFactory = func(dbPath string, stdout io.Writer) (judgeClient, error) {
+	return liveJudge(dbPath, stdout)
+}
+
+// liveJudge is judge's counterpart to liveLLM: it opens the UsageMeter on the
+// SAME sidecar ledger (db+".budget.json") liveLLM uses, so generation and
+// judging spend against one shared budget cap, then gates unconditionally on
+// CAPYCOOK_LIVE_TEST=1 + DEEPSEEK_API_KEY exactly like liveLLM.
+func liveJudge(dbPath string, stdout io.Writer) (*llm.Judge, error) {
+	meter, err := llm.OpenUsageMeter(dbPath+".budget.json", budgetUSD())
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintf(stdout, "llm budget: $%.4f spent of $%.2f cap (%s)\n", meter.Spent(), meter.Cap(), dbPath+".budget.json")
+	if os.Getenv("CAPYCOOK_LIVE_TEST") != "1" {
+		return nil, errors.New("refusing --live: CAPYCOOK_LIVE_TEST=1 is required (no live LLM calls outside the Gate-B rail)")
+	}
+	key := os.Getenv("DEEPSEEK_API_KEY")
+	if key == "" {
+		return nil, errors.New("refusing --live: DEEPSEEK_API_KEY is not set")
+	}
+	j, err := llm.NewJudge(llm.DeepSeekConfig{APIKey: key, Meter: meter})
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintf(stdout, "judge: LIVE mode — model %s, usage metered against the cap\n", j.Model())
+	return j, nil
+}
+
+// cmdJudge runs the Tier-2 R2 judge over a claims JSONL: every claim with
+// both LabelTier1 and LabelR2 empty is sent to the judge and its verdict
+// written to label_r2; claims already carrying label_r2 are skipped
+// (idempotent resume — re-running over a partially-judged file picks up
+// where it left off) and tier-1-labeled claims are never judged (Tier 1
+// already settled them). A claim the judge errors on after retries keeps
+// label_r2 empty and is counted abstained, not fatal — every other claim
+// still gets judged and the file still gets written. There is no non-live
+// path: a canned judge label would be fabricated data, so --live (plus the
+// CAPYCOOK_LIVE_TEST + DEEPSEEK_API_KEY rail liveJudge enforces) is required.
+func cmdJudge(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("judge", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	claimsFlag := fs.String("claims", "", "claims JSONL file to judge (required)")
+	out := fs.String("out", "", "labeled-claim JSONL to write (required)")
+	db := fs.String("db", defaultDBPath(), "SQLite database path — the shared budget ledger is db+\".budget.json\" (same cap as run --live)")
+	live := fs.Bool("live", false, "use the live DeepSeek judge (required: no stub judging — a canned judge label would be fabricated data)")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if *claimsFlag == "" {
+		return errors.New("judge: --claims is required (a claims JSONL file)")
+	}
+	if *out == "" {
+		return errors.New("judge: --out is required (the labeled-claim JSONL to write)")
+	}
+	if !*live {
+		return errors.New("judge: refusing to run without --live: no stub judging — a canned judge label would be fabricated data " +
+			"(pass --live; requires CAPYCOOK_LIVE_TEST=1 and DEEPSEEK_API_KEY, same rail as run --live)")
+	}
+
+	j, err := judgeFactory(*db, stdout)
+	if err != nil {
+		return err
+	}
+
+	claims, err := readClaimsFile(*claimsFlag)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	labeled, skipped, tier1, abstained := 0, 0, 0, 0
+	for i := range claims {
+		c := &claims[i]
+		switch {
+		case c.LabelTier1 != "":
+			tier1++
+		case c.LabelR2 != "":
+			skipped++
+		default:
+			v, err := j.LabelClaim(ctx, c.Text, c.Source)
+			if err != nil {
+				abstained++
+			} else {
+				c.LabelR2 = v.Label
+				labeled++
+			}
+		}
+		if (i+1)%10 == 0 {
+			fmt.Fprintf(stdout, "judge: %d/%d claims processed (%d labeled, %d skipped, %d tier-1, %d abstained)\n",
+				i+1, len(claims), labeled, skipped, tier1, abstained)
+		}
+	}
+
+	if err := eval.WriteClaims(*out, claims); err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "labeled claims -> %s\n", *out)
+	summary := fmt.Sprintf("judge R2: %d labeled, %d skipped (already labeled), %d tier-1 (not judged)", labeled, skipped, tier1)
+	if abstained > 0 {
+		summary += fmt.Sprintf(", %d abstained", abstained)
+	}
+	fmt.Fprintln(stdout, summary)
 	return nil
 }
 
