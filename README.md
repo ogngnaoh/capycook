@@ -130,7 +130,7 @@ LLM — and reports the real answer, including a null.
 | Package | What it is |
 |---|---|
 | `internal/orchestrator` | the move/gate state machine — proposals, safety screen, versioning |
-| `internal/eval` | pre-registered eval harness: 3-arm runner, labeling kit, κ, rates |
+| `internal/eval` | pre-registered eval harness: 3-arm runner, tiered labeling kit (Tier-1 verifier + blinded R1 + judge R2), κ, rates |
 | `internal/llm` | swappable model edge: DeepSeek client, deterministic stub, prompt pack |
 | `internal/grounding` | FlavorGraph pairing + USDA/FoodOn entity resolution |
 | `internal/services` | deterministic side: nutrition/cost recompute, allergen + safety gate |

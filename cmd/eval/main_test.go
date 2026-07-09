@@ -223,7 +223,8 @@ func TestRunCommandStubAllArms(t *testing.T) {
 	if strings.Contains(stderr, "UNRATIFIED") {
 		t.Errorf("explicit --seeds must not print the unratified-default warning, stderr=%q", stderr)
 	}
-	mustContain(t, "run summary", stdout, "stub", "UNLABELED")
+	mustContain(t, "run summary", stdout, "stub",
+		"label_r1/label_r2 are EMPTY — author R1 and judge R2 label Tier-2 claims (PREREG §9 Amendment 1)")
 	// 2 synthetic seeds × 3 claims each (arithmetic in internal/eval/runner_test.go).
 	for _, arm := range eval.Arms {
 		path := filepath.Join(outDir, "claims_"+arm+".jsonl")
@@ -240,10 +241,19 @@ func TestRunCommandStubAllArms(t *testing.T) {
 		if len(claims) != 6 {
 			t.Errorf("arm %s: %d claims, want 6", arm, len(claims))
 		}
+		// The S3-exit coverage flag (PREREG §9 Amendment 1): the operator must
+		// see per-arm how many claims the Tier-1 verifier settled machine-side
+		// vs. how many fell through to Tier 2.
+		tc := eval.Tier1Coverage(claims)
+		wantTier1 := fmt.Sprintf("tier-1: %-11s %d/%d labeled (fell through to Tier 2: %d)",
+			arm, tc.Labeled, tc.Labeled+tc.FellThrough, tc.FellThrough)
+		mustContain(t, "run summary", stdout, wantTier1)
 		for _, c := range claims {
-			// The phase-4 stop-line: exports are labeling-ready, never labeled.
+			// The Amendment-1 stop-line: label_r1/label_r2 come only from the
+			// author (R1) and the judge (R2) — never from this code. label_tier1
+			// is machine-written by the Tier-1 verifier and may be non-empty.
 			if c.LabelR1 != "" || c.LabelR2 != "" {
-				t.Errorf("claim %s carries labels (%q/%q) — labels only ever come from human raters", c.ClaimID, c.LabelR1, c.LabelR2)
+				t.Errorf("claim %s carries labels (%q/%q) — label_r1/label_r2 only ever come from author R1 / judge R2 (PREREG §9 Amendment 1)", c.ClaimID, c.LabelR1, c.LabelR2)
 			}
 		}
 	}
@@ -459,7 +469,7 @@ func TestExportLabelsCommand(t *testing.T) {
 	mustContain(t, "export summary", stdout,
 		"seed=20260706",
 		"ungrounded  1/5", "flavorgraph 1/4", "grounded    1/3",
-		"EMPTY", "human raters",
+		"EMPTY", "Amendment 1",
 	)
 
 	raw, err := os.ReadFile(out)

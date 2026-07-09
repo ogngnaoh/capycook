@@ -235,9 +235,16 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 		ran = eval.Arms
 	}
 	for _, a := range ran {
-		fmt.Fprintf(stdout, "arm %-11s %3d claims -> %s\n", a, len(byArm[a]), filepath.Join(*outDir, "claims_"+a+".jsonl"))
+		claims := byArm[a]
+		fmt.Fprintf(stdout, "arm %-11s %3d claims -> %s\n", a, len(claims), filepath.Join(*outDir, "claims_"+a+".jsonl"))
+		// S3-exit coverage flag (PREREG §9 Amendment 1): the operator must see,
+		// per arm, how many claims the Tier-1 verifier settled machine-side vs.
+		// how many fell through to Tier 2 — never inferred from silence.
+		tc := eval.Tier1Coverage(claims)
+		fmt.Fprintf(stdout, "tier-1: %-11s %d/%d labeled (fell through to Tier 2: %d)\n",
+			a, tc.Labeled, tc.Labeled+tc.FellThrough, tc.FellThrough)
 	}
-	fmt.Fprintln(stdout, "all exported claims are UNLABELED (label_r1/label_r2 empty) — labels only ever come from human raters (PREREG §7); harness events carry run_kind=harness and are excluded from H2.")
+	fmt.Fprintln(stdout, "label_r1/label_r2 are EMPTY — author R1 and judge R2 label Tier-2 claims (PREREG §9 Amendment 1); harness events carry run_kind=harness and are excluded from H2.")
 	return nil
 }
 
@@ -549,10 +556,11 @@ func labeledClaims(rates map[string]eval.ArmRates) int {
 
 // --- export-labels / import-labels (plan 4.6 labeling kit) ---
 
-// cmdExportLabels turns the runner's UNLABELED claims exports into one
-// labeler CSV sheet (schema + workflow: eval/fixtures/README.md). The label
-// columns are always empty — the phase-4 stop-line — and the seeded sampler
-// marks the PREREG §6 double-label subset per arm.
+// cmdExportLabels turns the runner's Tier-1-labeled claims exports (label_r1/
+// label_r2 still empty) into one labeler CSV sheet (schema + workflow:
+// eval/fixtures/README.md). The R1/R2 columns are always empty — the
+// Amendment-1 stop-line — and the seeded sampler marks the PREREG §6
+// double-label subset per arm.
 func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("export-labels", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -617,7 +625,7 @@ func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
 		fmt.Fprintf(stdout, "arm %-11s %d/%d marked for R2 (double_label=true)\n", arm, marked[arm], total[arm])
 	}
 	fmt.Fprintf(stdout, "labeler sheet -> %s\n", *out)
-	fmt.Fprintln(stdout, "label_r1/label_r2 are EMPTY — labels only ever come from human raters (PREREG §7).")
+	fmt.Fprintln(stdout, "label_r1/label_r2 are EMPTY — author R1 and judge R2 label Tier-2 claims (PREREG §9 Amendment 1).")
 	return nil
 }
 
