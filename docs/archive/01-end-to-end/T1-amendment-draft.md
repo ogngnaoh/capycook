@@ -7,21 +7,22 @@
 
 ## Refresh checklist (the user, before logging)
 
-The SHA below is `git rev-parse HEAD` at the time this draft was committed
-(Phase 4, task 4.7): `0a92e5541e9d22f2f7e54e93f91ed237546cb0d6`. It predates
-Gate C, so `eval/fixtures/seeds.json` does not exist at it yet. **The SHA MUST
-be refreshed to the ratified-seed commit at milestone-02 start** — the commit
-in which the Gate-C-ratified `eval/fixtures/seeds.json` (+ its CHANGELOG
-entry) landed. Before appending the rows to §9:
+The SHA below has been refreshed to `git rev-parse HEAD`
+(`08903cb95d41cfe7257cd0fd3691469409cb4a9b`) at the milestone-02 reframe's
+instrument-final commit — replacing the earlier Phase-4 pin, which predated
+the reframe's edits. `eval/fixtures/seeds.json` (ratified at Gate C) already
+exists at this commit. Before appending the rows to §9:
 
-1. Fill both Date cells with the actual T1 date (milestone-02 start).
-2. Replace `0a92e5541e9d22f2f7e54e93f91ed237546cb0d6` in the Change cell with
-   `git rev-parse HEAD` at the ratified-seed commit, and verify
-   `eval/fixtures/seeds.json` exists at that commit.
-3. Verify every pinned path is unchanged between that commit and the first
-   counted run (`git diff <sha> -- <paths>` is empty); any later instrument
-   change needs a further dated §9 entry before more counted runs.
-4. Append the two rows below to the §9 table in `docs/PREREGISTRATION.md`
+1. Confirm the SHA is still the instrument-final commit of the milestone-02
+   reframe — the last commit touching any pinned path (the reframe
+   deliberately edited `internal/llm/prompts/` (provenance vocabulary +
+   judge.tmpl), `internal/llm/evidence.go` (unchanged — verify), and
+   `internal/eval/runner.go` (Tier-1 pass)); verify
+   `git diff <sha>..HEAD -- <the 7 pinned paths>` is empty at gate time and
+   that `eval/fixtures/seeds.json` exists at that commit. If a later task
+   touches a pinned path before the gate, the SHA must be refreshed again.
+2. Fill both Date cells with the actual T1 date (milestone-02 start).
+3. Append the two rows below to the §9 table in `docs/PREREGISTRATION.md`
    (replacing the `| — | (none) | — |` placeholder row if it is still there).
    No other edit to that file, ever.
 
@@ -29,7 +30,7 @@ entry) landed. Before appending the rows to §9:
 
 | Date | Change | Reason |
 |---|---|---|
-| (T1 date — fill at milestone-02 start) | **T1 instrument freeze.** All eval instruments pinned at commit `0a92e5541e9d22f2f7e54e93f91ed237546cb0d6` (refresh per draft checklist): prompts `internal/llm/prompts/` · benchmark seeds `eval/fixtures/seeds.json` (ratified at Gate C) · claim-extraction code `internal/eval/runner.go` · safety rules `data/safety/` · arm driver `eval/fixtures/move_script.json` · grounding-toggle component matrix `internal/llm/evidence.go` · verb→frozen-category mapping `internal/eval/mapping.go`. | Freeze the instruments by SHA **before any counted run** (build spec §1.9) so no prompt, seed, extractor, safety rule, driver, toggle, or mapping can drift after data exists. Dev prompt iteration used only `internal/llm/testdata/dev_seeds.json`, disjoint from the benchmark set. |
+| (T1 date — fill at milestone-02 start) | **T1 instrument freeze.** All eval instruments pinned at commit `08903cb95d41cfe7257cd0fd3691469409cb4a9b` (refresh per draft checklist): prompts `internal/llm/prompts/` · benchmark seeds `eval/fixtures/seeds.json` (ratified at Gate C) · claim-extraction code `internal/eval/runner.go` · safety rules `data/safety/` · arm driver `eval/fixtures/move_script.json` · grounding-toggle component matrix `internal/llm/evidence.go` · verb→frozen-category mapping `internal/eval/mapping.go`. | Freeze the instruments by SHA **before any counted run** (build spec §1.9) so no prompt, seed, extractor, safety rule, driver, toggle, or mapping can drift after data exists. Dev prompt iteration used only `internal/llm/testdata/dev_seeds.json`, disjoint from the benchmark set. |
 | (T1 date — fill at milestone-02 start) | **FoodPuzzle-proxy deferral.** The §5 "borrowed proxy" outcome (FoodPuzzle molecular-flavor accuracy) is deferred to P1 and not measured in v0. | FlavorDB-derivation license check and LLM-judge machinery are out of v0 scope (build spec §1.10); the deferral is logged as a dated amendment rather than silently dropped. |
 
 ## Rationale (short)
