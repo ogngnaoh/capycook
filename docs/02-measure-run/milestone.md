@@ -19,8 +19,8 @@
 |---|---|---|---|
 | S1 | README surgery + hygiene + archive reorg + state-machine & data-flow Mermaid diagrams | shipped | `docs/superpowers/plans/2026-07-08-milestone-02-measure-run.md` |
 | S2 | Prereg §9 amendment (authorizes machine + LLM raters by name) + materialize `docs/02-measure-run/` + update `docs/milestones.md` | shipped | `docs/superpowers/plans/2026-07-08-milestone-02-measure-run.md` |
-| S3 | Tier-1 deterministic verifier (TDD) + author blind-check validation sample | in-progress | `docs/superpowers/plans/2026-07-08-milestone-02-measure-run.md` |
-| S4 | Blinded label sheet + judge R2 client + revise `labels.go` human-only stop-line | planned | `docs/superpowers/plans/2026-07-08-milestone-02-measure-run.md` |
+| S3 | Tier-1 deterministic verifier (TDD) + author blind-check validation sample | shipped | `docs/superpowers/plans/2026-07-08-milestone-02-measure-run.md` |
+| S4 | Blinded label sheet + judge R2 client + revise `labels.go` human-only stop-line | in-progress | `docs/superpowers/plans/2026-07-08-milestone-02-measure-run.md` |
 | S5 | Live 3-arm run + Langfuse traces | planned | (planned at S4 exit) |
 | S6 | Blinded R1 labeling, pre-adjudication κ + confusion matrix, adjudication → author-final set, rates → Results + findings + eval-pipeline diagram + H2 fold | planned | (planned at S4 exit) |
 | S7 | Media wave: 4 new GIFs, eval terminal capture, hero banner, social preview, SVG exports, portfolio MP4s | planned | (planned at S4 exit) |
