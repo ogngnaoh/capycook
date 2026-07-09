@@ -562,15 +562,21 @@ func TestImportLabelsCommand(t *testing.T) {
 
 // fakeJudge is the test-only judgeClient double: it returns a canned verdict
 // (or error) and counts calls, so tests can assert exactly which claims the
-// CLI actually sent to the judge.
+// CLI actually sent to the judge. budgetAt (1-indexed, 0 = never) makes it
+// return llm.ErrBudgetExhausted on that call, so a test can exercise the
+// mid-run budget hard-stop.
 type fakeJudge struct {
-	calls   int
-	verdict llm.JudgeVerdict
-	err     error
+	calls    int
+	verdict  llm.JudgeVerdict
+	err      error
+	budgetAt int
 }
 
 func (f *fakeJudge) LabelClaim(ctx context.Context, text, source string) (llm.JudgeVerdict, error) {
 	f.calls++
+	if f.budgetAt != 0 && f.calls == f.budgetAt {
+		return llm.JudgeVerdict{}, fmt.Errorf("call %d: %w", f.calls, llm.ErrBudgetExhausted)
+	}
 	return f.verdict, f.err
 }
 
@@ -690,6 +696,60 @@ func TestJudgeCommandAbstainsOnJudgeError(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].LabelR2 != "" {
 		t.Fatalf("got claims = %+v, want 1 claim with label_r2 empty", got)
+	}
+}
+
+// Budget exhaustion is a hard-stop on the shared cap, not a per-claim abstain:
+// once LabelClaim returns llm.ErrBudgetExhausted the loop stops early, every
+// remaining claim keeps label_r2 empty, and a distinct final line reports the
+// unjudged count alongside the (correct) labeled count.
+func TestJudgeCommandStopsEarlyOnBudgetExhaustion(t *testing.T) {
+	dir := t.TempDir()
+	claims := []eval.Claim{
+		{ClaimID: "clm-1", Arm: "grounded", Dish: "dish-1", Text: "text one", Source: "src one"},
+		{ClaimID: "clm-2", Arm: "grounded", Dish: "dish-1", Text: "text two", Source: "src two"},
+		{ClaimID: "clm-3", Arm: "grounded", Dish: "dish-1", Text: "text three", Source: "src three"},
+	}
+	claimsPath := filepath.Join(dir, "claims.jsonl")
+	if err := eval.WriteClaims(claimsPath, claims); err != nil {
+		t.Fatalf("write claims fixture: %v", err)
+	}
+	outPath := filepath.Join(dir, "claims_judged.jsonl")
+
+	// Call 1 labels clm-1; call 2 (clm-2) hits the cap and stops the loop —
+	// clm-3 is never even sent.
+	fj := &fakeJudge{verdict: llm.JudgeVerdict{Label: eval.LabelGroundedCorrect, Rationale: "r"}, budgetAt: 2}
+	withFakeJudge(t, fj)
+
+	code, stdout, stderr := runCLI(t, "judge", "--live", "--claims", claimsPath, "--out", outPath)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0 (budget stop is a clean early exit, not a failure)", code, stderr)
+	}
+	if fj.calls != 2 {
+		t.Fatalf("LabelClaim calls = %d, want 2 (loop must stop at the cap, not send clm-3)", fj.calls)
+	}
+	mustContain(t, "judge budget-stop summary", stdout,
+		"judge R2: 1 labeled, 0 skipped (already labeled), 0 tier-1 (not judged)",
+		"budget cap reached — stopped with 2 claims unjudged (label_r2 empty)")
+
+	f, err := os.Open(outPath)
+	if err != nil {
+		t.Fatalf("open judged output: %v", err)
+	}
+	defer f.Close()
+	got, err := eval.ReadClaims(f)
+	if err != nil {
+		t.Fatalf("ReadClaims: %v", err)
+	}
+	byID := map[string]eval.Claim{}
+	for _, c := range got {
+		byID[c.ClaimID] = c
+	}
+	if byID["clm-1"].LabelR2 != eval.LabelGroundedCorrect {
+		t.Errorf("clm-1 label_r2 = %q, want %q (labeled before the cap)", byID["clm-1"].LabelR2, eval.LabelGroundedCorrect)
+	}
+	if byID["clm-2"].LabelR2 != "" || byID["clm-3"].LabelR2 != "" {
+		t.Errorf("post-cap claims label_r2 = %q/%q, want both empty (unjudged)", byID["clm-2"].LabelR2, byID["clm-3"].LabelR2)
 	}
 }
 

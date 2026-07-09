@@ -880,9 +880,13 @@ func liveJudge(dbPath string, stdout io.Writer) (*llm.Judge, error) {
 // where it left off) and tier-1-labeled claims are never judged (Tier 1
 // already settled them). A claim the judge errors on after retries keeps
 // label_r2 empty and is counted abstained, not fatal — every other claim
-// still gets judged and the file still gets written. There is no non-live
-// path: a canned judge label would be fabricated data, so --live (plus the
-// CAPYCOOK_LIVE_TEST + DEEPSEEK_API_KEY rail liveJudge enforces) is required.
+// still gets judged and the file still gets written. Budget exhaustion is the
+// one exception: the shared cap is a hard-stop the retry loop can never
+// recover from, so the loop stops early (remaining claims stay unjudged,
+// label_r2 empty) and a distinct final line reports the count. There is no
+// non-live path: a canned judge label would be fabricated data, so --live
+// (plus the CAPYCOOK_LIVE_TEST + DEEPSEEK_API_KEY rail liveJudge enforces) is
+// required.
 func cmdJudge(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("judge", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -916,20 +920,33 @@ func cmdJudge(args []string, stdout, stderr io.Writer) error {
 
 	ctx := context.Background()
 	labeled, skipped, tier1, abstained := 0, 0, 0, 0
+	// unjudged counts claims left untouched by an early budget stop — distinct
+	// from abstained (a genuine per-claim judge failure). Budget exhaustion is
+	// a hard-stop on the SHARED cap: PreCheck will reject every remaining
+	// claim, so continuing the loop only manufactures identical failures.
+	budgetStopped := false
+	unjudged := 0
 	for i := range claims {
 		c := &claims[i]
 		switch {
+		case budgetStopped:
+			unjudged++
 		case c.LabelTier1 != "":
 			tier1++
 		case c.LabelR2 != "":
 			skipped++
 		default:
 			v, err := j.LabelClaim(ctx, c.Text, c.Source)
-			if err != nil {
-				abstained++
-			} else {
+			switch {
+			case err == nil:
 				c.LabelR2 = v.Label
 				labeled++
+			case errors.Is(err, llm.ErrBudgetExhausted):
+				// Stop here: this claim and every remaining one stay unjudged.
+				budgetStopped = true
+				unjudged++
+			default:
+				abstained++
 			}
 		}
 		if (i+1)%10 == 0 {
@@ -947,6 +964,9 @@ func cmdJudge(args []string, stdout, stderr io.Writer) error {
 		summary += fmt.Sprintf(", %d abstained", abstained)
 	}
 	fmt.Fprintln(stdout, summary)
+	if budgetStopped {
+		fmt.Fprintf(stdout, "judge R2: budget cap reached — stopped with %d claims unjudged (label_r2 empty)\n", unjudged)
+	}
 	return nil
 }
 
