@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -160,6 +161,21 @@ const fallbackContentResponse = `{
   "usage": {"prompt_tokens": 100, "completion_tokens": 15, "total_tokens": 115}
 }`
 
+const fallbackContentUnknownLabelResponse = `{
+  "id": "fake-5",
+  "object": "chat.completion",
+  "created": 1,
+  "model": "deepseek-v4-flash",
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "stop",
+      "message": {"role": "assistant", "content": "{\"label\":\"bogus-label\",\"rationale\":\"r\"}"}
+    }
+  ],
+  "usage": {"prompt_tokens": 100, "completion_tokens": 15, "total_tokens": 115}
+}`
+
 // ---- tests ------------------------------------------------------------
 
 func TestJudgeLabelClaimHappyToolCallPath(t *testing.T) {
@@ -285,5 +301,103 @@ func TestJudgeDefaultsToDefaultJudgeModel(t *testing.T) {
 	}
 	if DefaultJudgeModel == DefaultDeepSeekModel {
 		t.Fatal("judge model must differ from the generator model (PREREG §9 Amendment 1)")
+	}
+}
+
+// TestJudgeEnumGuardCoversJSONObjectFallback proves the post-decode
+// knownJudgeLabel guard fires on the json_object fallback path too, not only
+// the strict tool-call path: a malformed tool call demotes to the fallback,
+// whose response decodes cleanly but carries an off-list label — that must be
+// rejected every attempt, ending in *ExhaustedError. (The strict-path enum
+// case is TestJudgeLabelClaimEnumGuard.)
+func TestJudgeEnumGuardCoversJSONObjectFallback(t *testing.T) {
+	var bodies []string
+	rt := fakeTransport{
+		responses: []string{
+			malformedToolCallResponse,           // attempt 1: strict, no tool call -> fallback
+			fallbackContentUnknownLabelResponse, // attempt 2+: fallback, off-list label
+		},
+		gotBodies: &bodies,
+	}
+	j := newTestJudge(t, rt, newJudgeTestMeter(t))
+
+	_, err := j.LabelClaim(context.Background(), "claim text", "source")
+	var ex *ExhaustedError
+	if !errors.As(err, &ex) {
+		t.Fatalf("err = %v (%T), want *ExhaustedError", err, err)
+	}
+	if ex.Attempts != 3 {
+		t.Fatalf("Attempts = %d, want 3 (1 try + 2 retries)", ex.Attempts)
+	}
+	// The exhausting cause must be the unknown-label guard, not empty-content
+	// or malformed-tool-call — proving the guard ran on the fallback decode.
+	if !strings.Contains(ex.Last.Error(), "unknown label") {
+		t.Fatalf("last error = %v, want the unknown-label guard failure", ex.Last)
+	}
+	// Attempts 2 and 3 must have been json_object fallback calls: this is the
+	// path the guard is being proven to cover.
+	if len(bodies) != 3 {
+		t.Fatalf("made %d calls, want 3", len(bodies))
+	}
+	for _, i := range []int{1, 2} {
+		if !strings.Contains(bodies[i], `"response_format":{"type":"json_object"}`) {
+			t.Errorf("call %d was not a json_object fallback call: %s", i, bodies[i])
+		}
+	}
+}
+
+// TestJudgeLabelCopiesMatchJudgeLabels drift-pins the two hand-written copies
+// of the five frozen labels against the single source, JudgeLabels: the tool
+// schema's label enum (judgeSchemaJSON) and judge.tmpl's wire-values line. A
+// stale copy fails here instead of silently confusing the model at label
+// time.
+func TestJudgeLabelCopiesMatchJudgeLabels(t *testing.T) {
+	// (a) judgeSchemaJSON's properties.label.enum must be exactly the five.
+	var schema struct {
+		Properties struct {
+			Label struct {
+				Enum []string `json:"enum"`
+			} `json:"label"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal([]byte(judgeSchemaJSON), &schema); err != nil {
+		t.Fatalf("judgeSchemaJSON is not valid JSON: %v", err)
+	}
+	gotEnum := schema.Properties.Label.Enum
+	if len(gotEnum) != len(JudgeLabels) {
+		t.Fatalf("schema label enum has %d values %v, want the %d JudgeLabels %v",
+			len(gotEnum), gotEnum, len(JudgeLabels), JudgeLabels)
+	}
+	enumSet := map[string]bool{}
+	for _, v := range gotEnum {
+		enumSet[v] = true
+	}
+	for _, want := range JudgeLabels {
+		if !enumSet[want] {
+			t.Errorf("schema label enum %v is missing JudgeLabels value %q", gotEnum, want)
+		}
+	}
+
+	// (b) judge.tmpl's wire-values line must list all five. Find the sentence
+	// that introduces them and assert each label appears within it.
+	tmpl, err := promptFS.ReadFile("prompts/judge.tmpl")
+	if err != nil {
+		t.Fatalf("read judge.tmpl: %v", err)
+	}
+	marker := "The five wire values for the `label` field are:"
+	idx := strings.Index(string(tmpl), marker)
+	if idx < 0 {
+		t.Fatalf("judge.tmpl has no wire-values line (marker %q)", marker)
+	}
+	// The wrapped sentence runs to the next blank line; a generous window
+	// covers it without pulling in the claim block below.
+	window := string(tmpl)[idx:]
+	if end := strings.Index(window, "\n\n"); end >= 0 {
+		window = window[:end]
+	}
+	for _, want := range JudgeLabels {
+		if !strings.Contains(window, want) {
+			t.Errorf("judge.tmpl wire-values line does not list %q\n--- line ---\n%s", want, window)
+		}
 	}
 }
