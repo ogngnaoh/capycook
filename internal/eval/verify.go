@@ -15,11 +15,11 @@ import (
 // Rules (PREREG §9 Amendment 1):
 //   - ""              -> correctly-unverified (null provenance renders [unverified])
 //   - pairing:<name>  -> grounded-correct if <name> is among the supplied
-//                        pairings; grounded-mischaracterized otherwise (the
-//                        citation asserts evidence the arm never supplied)
+//     pairings; grounded-mischaracterized otherwise (the
+//     citation asserts evidence the arm never supplied)
 //   - fdc:<id> / foodon:<id> -> anchor check only: supplied -> "" (content
-//                        judgment is Tier 2); not supplied -> grounded-
-//                        mischaracterized
+//     judgment is Tier 2); not supplied -> grounded-
+//     mischaracterized
 //   - anything else   -> "" (unparseable; Tier 2)
 func VerifyTier1(source string, ev llm.Evidence) string {
 	switch {
