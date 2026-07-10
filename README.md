@@ -112,12 +112,13 @@ flowchart LR
     GC --> RT
     GM --> RT
     T2 --> RT
-    BC[blind-check control:<br/>author blind-labels a stratified<br/>Tier-1 sample, agreement reported] -.validates.- T1
+    BC["blind-check control:<br/>author-delegated LLM rater<br/>blind-labels a stratified Tier-1<br/>sample (§9 Amendment 3)"] -.validates.- T1
 ```
 
 *On the live campaign (2026-07-10) Tier-1 decided 562/562 claims — the Tier-2 path
 (R1 sheet, judge, κ) had zero rows, machine-confirmed, and the blind-check control
-is the only human labeling in the loop.*
+— run by an author-delegated LLM rater (§9 Amendment 3) — is the only labeling outside
+the deterministic verifier.*
 
 ## How it works
 
@@ -194,20 +195,76 @@ source of truth — this section summarizes it and restates nothing.
   is scored as a *confirmed prediction* (the pairing hypothesis is contested and v0
   is Western-only), not a failure — and a correctness win driven by the
   deterministic path is never reported as a flavor-grounding win.
-- **Reliability (κ) plan:** a second labeler double-labels 15–20% of the ~200-claim
-  set; Cohen's κ + a confusion matrix are reported; κ < 0.4 flags the rubric as
-  ambiguous and the provenance/hallucination numbers as unreliable.
+- **Reliability plan (as amended):** PREREG §9 Amendment 1 replaced the second human
+  labeler with tiered verification — a deterministic Tier-1 verifier (machine labels,
+  validated by a blind-check control), plus a blinded author R1 pass and a DeepSeek
+  judge R2 with pre-adjudication Cohen's κ over all Tier-2 claims. Amendment 2 added
+  bounded move retries to the harness runner after live-model variance made the
+  all-or-nothing arm design infeasible. Amendment 3 records that the blind-check pass
+  was executed by an author-delegated LLM rater — its agreement figure is
+  model-validates-machine, never human validation (full text + rationale for all three
+  in [docs/PREREGISTRATION.md §9](docs/PREREGISTRATION.md)).
 
 ## Results
 
-**No eval data yet.** Results land here when the pre-registered campaign (milestone 02) completes; methodology is frozen in [docs/PREREGISTRATION.md](docs/PREREGISTRATION.md).
+Live 3-arm campaign, 2026-07-10 (13 ratified seeds × 5 moves × 3 arms, deepseek-v4-pro,
+instruments frozen at PREREG §9's T1 re-pin; total model spend $0.87). Seeds completed:
+**12/13 in every arm** — bench-12 (the tree-nuts stress seed) was blocked by the
+deterministic allergen gate on all four generation attempts in all three arms
+(`allergen-unresolved`; Amendment-2 skip, reported not silent).
 
-When they land, this section reports, per PREREGISTRATION §7a (rates over the
-checkable denominator; `grounded-mischaracterized` counts neither for nor against):
+### Provenance rates — PREREG §7a (per arm, checkable denominator)
 
-- **Per-arm rates** — provenance/honesty, mischaracterization, hallucination, with explicit denominators (ungrounded · FlavorGraph-only · grounded).
-- **Labeling reliability** — pre-adjudication Cohen's κ + confusion matrix over the double-labeled set.
-- **Gate dynamics (H2)** — accept/edit/regenerate/reject/redirect per move-category; single-operator telemetry with explicit N (its own table — different columns than the rates).
+| arm | claims | checkable | provenance | mischaracterization | hallucination |
+|---|---|---|---|---|---|
+| ungrounded | 150 | 150 | 1.000 | 0.000 | 0.000 |
+| flavorgraph | 203 | 203 | 1.000 | 0.000 | 0.000 |
+| grounded | 209 | 209 | 1.000 | 0.000 | 0.000 |
+
+Label composition (the contrast the headline rates flatten): ungrounded emitted **zero
+citations** (150× correctly-unverified); flavorgraph and grounded each emitted **10
+`pairing:` citations, all resolving against their arm's supplied evidence**
+(grounded-correct), the rest correctly-unverified. No claim in any arm fabricated or
+mangled a citation.
+
+### Labeling reliability
+
+Tier-1 (deterministic verifier) decided **562/562 claims — the Tier-2 path had zero
+rows**, so the pre-registered κ/confusion-matrix machinery had nothing to measure
+(reported per §8: the frozen design met an unexpected data shape; nothing is imputed).
+The blind-check control — an 18-row stratified Tier-1 sample blind-labeled by an
+author-delegated LLM rater (fresh-context Claude agent, §9 Amendment 3;
+model-validates-machine, cross-family vs the DeepSeek generator/judge) — agreed with
+the verifier on **15/18 (83%)**. All three divergences were subjective flavor-harmony
+claims the rater judged `opinion-non-checkable` where the mechanical empty-source rule
+says `correctly-unverified` — the residual-risk shape Amendment 1's control watches
+for, surfaced here as signal rather than error.
+
+### Gate dynamics — H2
+
+*Gate-dynamics telemetry is accumulating (single operator); this subsection is filled
+from `eval replay` — explicit N, single-operator caveat — before publish (S8; Task 5,
+resequenced).*
+
+### Findings
+
+The three §7a rates land at ceiling (1.000 / 0.000 / 0.000) in every arm: the live model
+never fabricated a citation, and every uncited claim was correctly rendered
+`[unverified]`. Rendered against the registration, **H1 is null on the registered
+contrast** — grounded showed no provenance or hallucination advantage over ungrounded —
+and the null is a ceiling effect, not a quality result: the ungrounded arm never
+*attempted* a citation, so there was no fabrication for grounding to prevent, and §8's
+deterministic-path-first attribution rule goes unused (there is no gap to attribute).
+Nor does the ceiling show the arms are equally good: it shows the registered instrument
+(provenance rates over the checkable denominator) cannot separate arms when citation
+uptake is 0–5%. The arms instead separate on **citation uptake**, which was low
+everywhere (10/209 grounded, 10/203 flavorgraph, 0/150 ungrounded): grounding evidence
+changed *whether* the model cites (ungrounded cited nothing; both evidence-fed arms
+cited, always correctly) but not how often it grounds a claim. Tier-1's 100% coverage —
+a consequence of provenance vocabulary staying within `pairing:`/empty — collapsed the
+planned human-labeling campaign to the 18-row control. These are descriptive results
+over one model, one seed set, and a single-operator telemetry stream; they are not
+user-research or quality claims (§8).
 
 ## Quickstart (fork & run)
 
