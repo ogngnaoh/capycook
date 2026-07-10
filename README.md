@@ -232,6 +232,13 @@ source of truth — this section summarizes it and restates nothing.
   model-validates-machine, never human validation (full text + rationale for all three
   in [docs/PREREGISTRATION.md §9](docs/PREREGISTRATION.md)).
 
+Every `llm.generate_move` call in the campaign shipped exactly one OTel span to
+Langfuse — session id, arm, and move type ride the span so H2 telemetry can be
+cross-checked against the trace stream; span payloads stay attribute-only by design
+(prompts and drafts never ride the telemetry). One span from the live campaign:
+
+![One llm.generate_move span from the live campaign in Langfuse: latency, arm, move type, and session id — attributes only, no payloads](docs/media/langfuse-trace.png)
+
 ## Results
 
 The grounded arm of the campaign, as it ran — real log, real commands (budget banner,
