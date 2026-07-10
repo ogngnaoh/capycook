@@ -156,6 +156,7 @@ _Empty at registration (T0). All post-freeze changes are appended here as dated 
 | 2026-07-09 | **FoodPuzzle-proxy deferral.** The §5 "borrowed proxy" outcome (FoodPuzzle molecular-flavor accuracy) is deferred to P1 and not measured in v0. | FlavorDB-derivation license check and LLM-judge machinery are out of v0 scope (build spec §1.10); the deferral is logged as a dated amendment rather than silently dropped. |
 | 2026-07-09 | **Amendment 2 — bounded move retries in the harness runner** (full text below the table; summary: a safety-blocked move is answered with gate verb=regenerate and a failed move re-proposed, up to 3 fresh generations per move; a move still blocked/failed after that drops its WHOLE seed from the arm, loudly reported with per-arm completed-seed counts; generator client retry bound raised 2→4 within SPEC §7's "fixed bound") | The v1 all-or-nothing abort policy was validated only against the deterministic stub; live deepseek-v4-pro variance (three aborted grounded-arm attempts, observed ~5–11% per-move abort risk × 65 all-or-nothing moves) makes an abort-free arm statistically infeasible. Recorded pre-data: no arm had completed; zero counted claims existed. |
 | 2026-07-09 | **T1 instrument re-pin.** All seven instrument paths re-pinned at commit `32afe54fef040fe8fb964fd3c2f04fc9e673b910` (supersedes the `08903cb…` pin): changed — arm driver `eval/fixtures/move_script.json` (v2, retry policy) and claim-extraction code `internal/eval/runner.go` (retry/skip machinery); byte-identical to the prior pin — `internal/llm/prompts/`, `eval/fixtures/seeds.json`, `data/safety/`, `internal/llm/evidence.go`, `internal/eval/mapping.go`. | Amendment 2's mechanism lives in the runner + move script; the pin must postdate those edits and predate the first counted run (build spec §1.9). No prompt, seed, safety rule, toggle, or mapping changed. |
+| 2026-07-10 | **Amendment 3 — author-delegated LLM rater for the Tier-1 blind-check control** (full text below the table; summary: Amendment 1's "author blind-labels" verifier-validation pass may be executed by a fresh-context LLM agent acting as the author's delegate, labels adopted by the author; rater of record for the 2026-07-10 control: Claude (Fable 5), isolated worktree, blinded sheet + frozen §7a rubric only; agreement reported as verifier↔LLM-delegate, never as human validation) | Solo-completion constraint: the author delegated the last human-labeling pass rather than perform it. Recorded before the scorer ran so the control's rater identity is stated honestly instead of presenting delegated labels as the author's hand-labeling; see the outcome-knowledge note in the full text. |
 
 ### Amendment 1 — 2026-07-08
 
@@ -264,3 +265,47 @@ from existing — the amendment was forced by instrument infeasibility, not
 by an undesired number. The live failure evidence (timestamps, error
 classes, per-attempt logs) is preserved in `docs/02-measure-run/log.md` and
 the git history predating this entry.
+
+### Amendment 3 — 2026-07-10
+
+**Recorded after the delegated rater filled the sheet but before the scorer
+ran; the blind_id→claim_id map has never been opened (file mtime unchanged
+since export).** This amendment changes the rater identity of Amendment 1's
+"Verifier validation" bullet only. Every category definition and rate
+formula (§7a), hypothesis (§3), κ band (§6), §8 prescribed action, the
+Tier-1 rules, and the R2 judge procedure stay frozen as written.
+
+**What changes:**
+
+- **Delegated rater authorized (blind-check only).** Amendment 1's
+  verifier-validation pass ("Author blind-labels a seeded sample…") may be
+  executed by an LLM agent acting as the author's delegate, its labels
+  adopted by the author as their submission. Rater of record for the
+  2026-07-10 control: a fresh-context Claude agent (Claude Fable 5) in an
+  isolated worktree, given only the blinded sheet, the frozen §7a category
+  table, and mechanical labeling rules; it never saw the
+  blind_id→claim_id map, the claims files, the run logs, or telemetry.
+- **Reporting rule.** The agreement figure is verifier↔LLM-delegate
+  agreement. It is never reported as human validation of the machine
+  labels; every mention names the rater, and the model-validates-machine
+  weakness accompanies the figure wherever it appears. Partial mitigation,
+  stated for what it is: the delegate is from a different model family
+  than the DeepSeek generator and judge, so same-family self-preference is
+  not in play for this control.
+
+**Sequence and outcome-knowledge, stated plainly:** the sheet (18 rows,
+stratified per arm, seed 20260709) was exported 2026-07-10 00:02 and its
+map sealed; the delegated rater filled it 13:45 the same day; the filled
+sheet was integrity-verified against the sealed original (dish/text/source
+byte-identical; labels within the frozen vocabulary: 15 correctly-unverified,
+3 opinion-non-checkable). Because every sampled row's source is empty, the
+Tier-1 side of the comparison is derivable in advance (empty source →
+correctly-unverified), so the agreement figure (15/18) is knowable before
+the scorer runs — this entry is recorded for rater-identity honesty, not
+outcome-blindness, and claims no pre-outcome status.
+
+**Why:** the author chose to delegate the final human-labeling pass under
+the same solo-completion constraint that motivated Amendment 1, and adopts
+the delegate's labels. The alternative — presenting delegated labels as the
+author's own hand-labeling — would be a false methodology claim; this entry
+replaces it with a true one.
