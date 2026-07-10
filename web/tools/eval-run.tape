@@ -9,13 +9,11 @@ Set FontSize 12
 Set Width 800
 Set Height 500
 Set Padding 14
-Set TypingSpeed 35ms
+Set TypingSpeed 25ms
 
-Type "# the grounded arm of the live eval campaign, as logged (2026-07-09):"
-Enter
 Type "head -5 eval/out/live-backup-2026-07-09/run_grounded_live.log"
 Enter
-Sleep 4s
+Sleep 3s
 Type "tail -5 eval/out/live-backup-2026-07-09/run_grounded_live.log"
 Enter
-Sleep 7s
+Sleep 6s

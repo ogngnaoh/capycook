@@ -23,7 +23,7 @@ proposes; you dispose — at every move.**
 
 ## Demo
 
-Eight short captures (6–10s each) of the real loop, driven headlessly in stub-LLM mode
+Eight short captures (5–11s each) of the real loop, driven headlessly in stub-LLM mode
 (no API key) against a fresh database. Capture tooling lives in [`web/tools/`](web/tools/).
 
 **1 · Seed → proposal → accept → the trial record.** A plain-language seed becomes a proposed
