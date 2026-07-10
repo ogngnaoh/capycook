@@ -5,9 +5,11 @@
 ![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+![CapyCook — dish development workbench: the gate's proposal card on the warm workbench UI](docs/media/hero.png)
+
 Go 1.26 stdlib backend · React/Vite/Tailwind workbench · SQLite · swappable LLM edge (DeepSeek or deterministic stub) · OTel→Langfuse tracing · hand-rolled pre-registered eval harness.
 
-> **Status:** built & demoable (keyless stub mode); eval campaign in progress — methodology pre-registered & frozen before any data ([docs/PREREGISTRATION.md](docs/PREREGISTRATION.md), 2026-07-01).
+> **Status:** built & demoable (keyless stub mode); live eval campaign complete (2026-07-10, 562 claims across 3 arms — [Results](#results)) — methodology pre-registered & frozen before any data ([docs/PREREGISTRATION.md](docs/PREREGISTRATION.md), 2026-07-01).
 
 **CapyCook** is an open-source, self-hostable **human-in-the-loop workbench** for cooks
 who want to *develop and understand their own dishes*, not just fetch or generate a recipe.
