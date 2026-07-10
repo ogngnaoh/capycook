@@ -97,6 +97,28 @@ to cancelling a move before it ever reaches the gate (see `internal/eval/mapping
 simplification: a blocked or gate-pending *deterministic* move re-enters the deterministic
 path on regenerate/redirect — the state diagram draws only the creative re-launch.
 
+### The eval pipeline (tiered verification)
+
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+flowchart LR
+    R[3-arm scripted runner<br/>13 seeds x 5 moves per arm<br/>retry: regenerate on block,<br/>re-propose on fail, limit 3] --> C[claims_&lt;arm&gt;.jsonl<br/>per-claim text + provenance]
+    C --> T1{Tier-1 deterministic verifier<br/>re-derives each arm's<br/>supplied evidence}
+    T1 -->|"empty source"| CU[correctly-unverified]
+    T1 -->|"pairing: resolves"| GC[grounded-correct]
+    T1 -->|"citation not supplied"| GM[grounded-mischaracterized]
+    T1 -->|"not machine-decidable"| T2[Tier 2: blinded author R1<br/>+ DeepSeek judge R2<br/>+ pre-adjudication kappa]
+    CU --> RT[PREREG section 7a rates<br/>per arm, explicit denominators]
+    GC --> RT
+    GM --> RT
+    T2 --> RT
+    BC[blind-check control:<br/>author blind-labels a stratified<br/>Tier-1 sample, agreement reported] -.validates.- T1
+```
+
+*On the live campaign (2026-07-10) Tier-1 decided 562/562 claims — the Tier-2 path
+(R1 sheet, judge, κ) had zero rows, machine-confirmed, and the blind-check control
+is the only human labeling in the loop.*
+
 ## How it works
 
 - **A hand-rolled move/gate state machine, not `prompt → response`.** Each turn is a *move*
