@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ogngnaoh/capycook/internal/draft"
 	"github.com/ogngnaoh/capycook/internal/proposal"
@@ -18,16 +19,31 @@ import (
 // Seeded unsafe case: a steer containing "garlic oil" (case-insensitive)
 // makes the proposed draft gain a garlic ingredient plus a room-temperature
 // garlic-in-oil infuse_oil step, so the safety stub can block it.
-type Stub struct{}
+type Stub struct {
+	// Latency, when nonzero, delays each GenerateMove so the proposing
+	// state stays on screen long enough for demo capture
+	// (CAPYCOOK_STUB_LATENCY_MS, server-only). The wait is context-aware:
+	// a cancel mid-wait returns at once, so the Stop button really stops.
+	Latency time.Duration
+}
 
 var _ LLM = Stub{}
 
 // GenerateMove renders the move type's template against req.Draft. Unknown
 // move types error; ID/MoveID and Safety stay zero (the orchestrator and
 // the safety gate own them).
-func (Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Proposal, error) {
+func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Proposal, error) {
 	if err := ctx.Err(); err != nil {
 		return proposal.Proposal{}, err
+	}
+	if s.Latency > 0 {
+		t := time.NewTimer(s.Latency)
+		defer t.Stop()
+		select {
+		case <-ctx.Done():
+			return proposal.Proposal{}, ctx.Err()
+		case <-t.C:
+		}
 	}
 	tmpl, ok := templates[req.MoveType]
 	if !ok {

@@ -2,9 +2,11 @@ package llm
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ogngnaoh/capycook/internal/draft"
 	"github.com/ogngnaoh/capycook/internal/grounding"
@@ -150,6 +152,40 @@ func TestStubGenerateMoveCancelledContext(t *testing.T) {
 	_, err := Stub{}.GenerateMove(ctx, MoveRequest{Draft: baseDraft(), MoveType: MoveTypeSeedExpand})
 	if err == nil {
 		t.Fatalf("GenerateMove with cancelled context: want error, got nil")
+	}
+}
+
+// TestStubLatencyHonored: a Stub with Latency set waits before answering —
+// the demo-capture knob that keeps the proposing state on screen long
+// enough to film. The zero value (every eval/test construction) never waits.
+func TestStubLatencyHonored(t *testing.T) {
+	start := time.Now()
+	_, err := Stub{Latency: 60 * time.Millisecond}.GenerateMove(context.Background(),
+		MoveRequest{Draft: baseDraft(), MoveType: MoveTypeSeedExpand})
+	if err != nil {
+		t.Fatalf("GenerateMove error: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed < 60*time.Millisecond {
+		t.Errorf("GenerateMove returned after %v, want at least the 60ms latency", elapsed)
+	}
+}
+
+// TestStubLatencyCancelled: cancelling mid-wait returns the context error
+// promptly — the workbench Stop button must genuinely stop the move.
+func TestStubLatencyCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		cancel()
+	}()
+	start := time.Now()
+	_, err := Stub{Latency: 30 * time.Second}.GenerateMove(ctx,
+		MoveRequest{Draft: baseDraft(), MoveType: MoveTypeSeedExpand})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("GenerateMove error = %v, want context.Canceled", err)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("GenerateMove took %v after cancel, want a prompt return", elapsed)
 	}
 }
 

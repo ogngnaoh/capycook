@@ -107,7 +107,7 @@ func wire(cfg config.Config) (http.Handler, func(), error) {
 	// (and CAPYCOOK_STUB_LLM doesn't force the stub), else the Phase-1 stub.
 	// The budget ledger is a sidecar JSON next to the SQLite file so the
 	// LLM_BUDGET_USD cap survives restarts.
-	var modelEdge llm.LLM = llm.Stub{}
+	var modelEdge llm.LLM = llm.Stub{Latency: cfg.StubLatency}
 	llmStatus := func() httpapi.LLMStatus {
 		return httpapi.LLMStatus{Mode: "stub", BudgetCapUSD: cfg.LLMBudgetUSD}
 	}

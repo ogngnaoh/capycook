@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestLoadReadsEnv(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "dk")
@@ -80,6 +83,21 @@ func TestLoadStubLLM(t *testing.T) {
 	t.Setenv("CAPYCOOK_STUB_LLM", "true")
 	if !Load().StubLLM {
 		t.Fatal("CAPYCOOK_STUB_LLM=true not read")
+	}
+}
+
+func TestLoadStubLatency(t *testing.T) {
+	t.Setenv("CAPYCOOK_STUB_LATENCY_MS", "")
+	if got := Load().StubLatency; got != 0 {
+		t.Fatalf("default StubLatency = %v, want 0", got)
+	}
+	t.Setenv("CAPYCOOK_STUB_LATENCY_MS", "3000")
+	if got := Load().StubLatency; got != 3*time.Second {
+		t.Fatalf("StubLatency = %v, want 3s", got)
+	}
+	t.Setenv("CAPYCOOK_STUB_LATENCY_MS", "not-a-number")
+	if got := Load().StubLatency; got != 0 {
+		t.Fatalf("unparsable StubLatency = %v, want default 0", got)
 	}
 }
 
