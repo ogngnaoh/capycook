@@ -1,39 +1,33 @@
 # Handoff — milestone 02 (measure-run)
 
 ## Next session start here
-Three ordered steps — do them in order; step 2 is an irreversible spend, so finish step 1 first.
-
-**1. Re-review the shipped slices (S1–S4) before spending.** The final whole-branch
-review already returned SHIP (verdict + evidence in `log.md`, 2026-07-09); re-orient by
-confirming the branch is clean at that state and skimming the S1–S4 diff
-(`git diff $(git merge-base master HEAD)..HEAD -- internal/eval internal/llm cmd/eval docs/PREREGISTRATION.md`).
-Sanity-gate before spend: `make test`/`vet` green; `git diff 08903cb..HEAD` over the 7
-pinned instrument paths still empty (instruments frozen). If any of that fails, stop.
-
-**2. Run S5 (live 3-arm eval — user-gated spend, ~$0.6 under the $10 cap):**
-```
-export DEEPSEEK_API_KEY=<key>  CAPYCOOK_LIVE_TEST=1
-go run ./cmd/eval run --arm=all --live
-```
-FIRST BATCH, before the full spend: check grounded-arm `foodon:` provenance formatting
-(bare vs prefixed — log.md watch note) and read the per-arm Tier-1 coverage line.
-Then: trace to Langfuse (set LANGFUSE_* in .env) → export blinded R1 sheet
-(`export-labels --blind --claims=<3 claims_*.jsonl> --map=...`) → judge R2
-(`judge --claims=<merged> --live`) → Tier-1 blind-check (`blind-check` / `blind-check-score`).
-See milestone.md notes (f)/(g).
-
-**3. Plan S6–S8 (not yet bite-sized).** Use superpowers:writing-plans over the spec's
-S6–S8 (labeling/adjudication/κ/Results + eval-pipeline diagram + H2 fold · media wave ·
-publish gate). Do this after S5 lands real numbers, since S6's Results depend on them.
+Author task first, no Claude needed: **blind-label the Tier-1 control sample** —
+open `eval/out/blind_check.csv` (18 rows, arms hidden), fill the label column per
+the §7a rubric, do NOT open `blind_check_map.csv` until done. Then score it:
+`go run ./cmd/eval blind-check-score --csv=eval/out/blind_check.csv --map=eval/out/blind_check_map.csv --claims=eval/out/claims_all.jsonl`.
+Then execute the S6 plan (pointer in milestone.md) — S6 has NO other labeling
+work: Tier-2 is empty (see Active concerns).
 
 ## Current state
 - Branch `measure-run`, **not pushed** (D7 holds all pushes until Results fill). Tree clean.
-- S1–S4 shipped, review-clean, final whole-branch review **SHIP** (plan Tasks 1–24; ledger `.superpowers/sdd/progress.md`).
-- PREREGISTRATION §9 carries both entries: Amendment 1 (tiered verification, 2026-07-08) + T1 instrument freeze / FoodPuzzle deferral (2026-07-09), both user-pasted; §1–§8 byte-unchanged. Instruments pinned at `08903cb` (7 paths diff-empty to HEAD).
-- Eval kit complete: Tier-1 verifier, runner integration, `label_tier1` slot, blinded R1 kit (opaque ids + map), blind-check sample+score, judge R2 client + `eval judge` CLI (live-gated, budget-metered, idempotent). `make test`/`vet`/`build` green.
-- Stub dry-run: 39 claims/arm, Tier-1 100% (stub artifact — see note (g)).
+- S1–S5 shipped. S5 (2026-07-10): 562 live claims (150/203/209), 12/13 seeds per
+  arm (bench-12 blocked symmetrically, allergen-unresolved), Tier-1 100%
+  everywhere, $0.87 of $2 spent, 220 traces in Langfuse. Artifacts + backups in
+  `eval/out/` + `eval/out/live-backup-2026-07-09/` (gitignored — do not delete;
+  a re-run re-spends and re-rolls the data).
+- PREREGISTRATION §9 now carries Amendment 2 (bounded move retries) + T1 re-pin
+  at `32afe54` (user-delegated paste 7dd5c51). §1–§8 byte-unchanged.
+- Eval CLI hardened this session: Langfuse tracing (--live only), 660s move
+  timeout, 5-attempt strict/fallback alternation, per-attempt + payload-snippet
+  logging, runner retry/skip machinery. All fresh-context reviewed.
 
 ## Active concerns
-- **Tier-1 live coverage unknown** (note g) — determines author labeling hours; read the per-arm coverage line at the live run.
-- **Verify-before-build at S5**: re-check `deepseek-v4-flash` id + pricing against live api-docs (Amendment 1 committed to this); confirm live provenance tokens are lowercase/whitespace-free or Tier-1 coverage silently drops.
-- Adjudication (S6) must write the author-final value into `label_r1` before `rates` runs — `FinalLabel()` can't distinguish raw vs adjudicated R1 (Task 13 carried note).
+- **Zero Tier-2 claims** (milestone note (h)): R1 sheet + judge R2 vacuous,
+  κ has no rows — S6's Results section must report this plainly per §8 (frozen
+  machinery met unexpected data shape; never fabricate or dress up).
+- Citation uptake low (10/209, 10/203, 0/150): H1 contrast rests on few
+  citation-bearing claims — findings paragraph owns it.
+- bench-12 un-runnable as generated (allergen-unresolved in all arms/rolls):
+  S6 writeup item; denominators are 12/13 seeds.
+- H2 operator-session count unchecked this session — run `eval replay` while
+  executing S6 (rough floor ~8 sessions).
