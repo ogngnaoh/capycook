@@ -22,9 +22,9 @@
 | S3 | Tier-1 deterministic verifier (TDD) + author blind-check validation sample | shipped | `docs/superpowers/plans/2026-07-08-milestone-02-measure-run.md` |
 | S4 | Blinded label sheet + judge R2 client + revise `labels.go` human-only stop-line | shipped | `docs/superpowers/plans/2026-07-08-milestone-02-measure-run.md` |
 | S5 | Live 3-arm run + Langfuse traces | shipped | (session plan 2026-07-09; evidence in log.md) |
-| S6 | Blinded R1 labeling, pre-adjudication κ + confusion matrix, adjudication → author-final set, rates → Results + findings + eval-pipeline diagram + H2 fold | next | (planned at S5 exit) |
-| S7 | Media wave: 4 new GIFs, eval terminal capture, hero banner, social preview, SVG exports, portfolio MP4s | planned | (planned at S4 exit) |
-| S8 | Publish: push + GitHub settings pass + portfolio linkage | planned | (planned at S4 exit) |
+| S6 | Results + findings + eval-pipeline diagram + blind-check control + H2 fold (R1/κ/adjudication vacuous — note (h)) | next | `docs/superpowers/plans/2026-07-10-milestone-02-s6-s8.md` |
+| S7 | Media wave: 4 new GIFs, eval terminal capture, hero banner, social preview, SVG exports, portfolio MP4s | planned | `docs/superpowers/plans/2026-07-10-milestone-02-s6-s8.md` |
+| S8 | Publish: push + GitHub settings pass + portfolio linkage | planned | `docs/superpowers/plans/2026-07-10-milestone-02-s6-s8.md` |
 
 ## Integration notes
 

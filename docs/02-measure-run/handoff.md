@@ -5,8 +5,9 @@ Author task first, no Claude needed: **blind-label the Tier-1 control sample** �
 open `eval/out/blind_check.csv` (18 rows, arms hidden), fill the label column per
 the §7a rubric, do NOT open `blind_check_map.csv` until done. Then score it:
 `go run ./cmd/eval blind-check-score --csv=eval/out/blind_check.csv --map=eval/out/blind_check_map.csv --claims=eval/out/claims_all.jsonl`.
-Then execute the S6 plan (pointer in milestone.md) — S6 has NO other labeling
-work: Tier-2 is empty (see Active concerns).
+Then execute the S6 plan: `docs/superpowers/plans/2026-07-10-milestone-02-s6-s8.md`
+(Task 1 = the blind-check scoring above; S6 has NO other labeling work — Tier-2 is
+empty, see Active concerns). S7/S8 tasks are in the same plan doc.
 
 ## Current state
 - Branch `measure-run`, **not pushed** (D7 holds all pushes until Results fill). Tree clean.
