@@ -154,6 +154,8 @@ _Empty at registration (T0). All post-freeze changes are appended here as dated 
 | 2026-07-08 | **Amendment 1 — tiered verification replaces the second human labeler** (full text below the table; summary: deterministic Tier-1 verifier authorized to write machine labels to a new label_tier1 slot; LLM judge (deepseek-v4-flash) authorized as R2; Tier-2 double-label coverage 100% (supersedes §6's 15–20%); κ reported pre-adjudication as author↔judge agreement) | Solo-completion constraint; §6's second labeler assumed a volunteer the project does not have |
 | 2026-07-09 | **T1 instrument freeze.** All eval instruments pinned at commit `08903cb95d41cfe7257cd0fd3691469409cb4a9b` (refresh per draft checklist): prompts `internal/llm/prompts/` · benchmark seeds `eval/fixtures/seeds.json` (ratified at Gate C) · claim-extraction code `internal/eval/runner.go` · safety rules `data/safety/` · arm driver `eval/fixtures/move_script.json` · grounding-toggle component matrix `internal/llm/evidence.go` · verb→frozen-category mapping `internal/eval/mapping.go`. | Freeze the instruments by SHA **before any counted run** (build spec §1.9) so no prompt, seed, extractor, safety rule, driver, toggle, or mapping can drift after data exists. Dev prompt iteration used only `internal/llm/testdata/dev_seeds.json`, disjoint from the benchmark set. |
 | 2026-07-09 | **FoodPuzzle-proxy deferral.** The §5 "borrowed proxy" outcome (FoodPuzzle molecular-flavor accuracy) is deferred to P1 and not measured in v0. | FlavorDB-derivation license check and LLM-judge machinery are out of v0 scope (build spec §1.10); the deferral is logged as a dated amendment rather than silently dropped. |
+| 2026-07-09 | **Amendment 2 — bounded move retries in the harness runner** (full text below the table; summary: a safety-blocked move is answered with gate verb=regenerate and a failed move re-proposed, up to 3 fresh generations per move; a move still blocked/failed after that drops its WHOLE seed from the arm, loudly reported with per-arm completed-seed counts; generator client retry bound raised 2→4 within SPEC §7's "fixed bound") | The v1 all-or-nothing abort policy was validated only against the deterministic stub; live deepseek-v4-pro variance (three aborted grounded-arm attempts, observed ~5–11% per-move abort risk × 65 all-or-nothing moves) makes an abort-free arm statistically infeasible. Recorded pre-data: no arm had completed; zero counted claims existed. |
+| 2026-07-09 | **T1 instrument re-pin.** All seven instrument paths re-pinned at commit `32afe54fef040fe8fb964fd3c2f04fc9e673b910` (supersedes the `08903cb…` pin): changed — arm driver `eval/fixtures/move_script.json` (v2, retry policy) and claim-extraction code `internal/eval/runner.go` (retry/skip machinery); byte-identical to the prior pin — `internal/llm/prompts/`, `eval/fixtures/seeds.json`, `data/safety/`, `internal/llm/evidence.go`, `internal/eval/mapping.go`. | Amendment 2's mechanism lives in the runner + move script; the pin must postdate those edits and predate the first counted run (build spec §1.9). No prompt, seed, safety rule, toggle, or mapping changed. |
 
 ### Amendment 1 — 2026-07-08
 
@@ -219,3 +221,46 @@ project's own design boundary to the eval — a human never labels what a
 program can verify, and human judgment hours go only where neither program
 nor rubric-following model suffices. The change is recorded here, dated,
 before any data existed to bias it.
+
+### Amendment 2 — 2026-07-09
+
+**Recorded before any counted eval data existed: three grounded-arm attempts
+had aborted mid-run (moves 5, 12, and a diagnostic re-roll at move 1); no
+arm's claims file was ever written.** This amendment changes the harness
+runner's failure handling only. Every category definition and rate formula
+(§7a), hypothesis (§3), κ band (§6), analysis rule (§8), the three arms, the
+13 ratified seeds, the 5-move script content, prompts, safety rules, and the
+Amendment-1 tiered-labeling procedure stay frozen as written.
+
+**What changes:**
+
+- **Bounded move retries (move_script.json v2).** Policy is now
+  `on_blocked: retry`, `on_failed: retry`, `retry_limit: 3`. A
+  safety-blocked proposal is answered with gate verb `regenerate` — the same
+  recovery verb a cook uses in the workbench, recorded in the event log; the
+  deterministic safety gate itself is never routed around, and every block
+  remains logged telemetry. A failed move (LLM exhaustion) is re-proposed
+  from the idle state. The retry counter is shared across both classes, per
+  scripted move.
+- **Seed skip on exhaustion.** A move still blocked/failed after 3 fresh
+  generations drops its ENTIRE seed from that arm (partial seeds are never
+  exported); the skip is reported per arm with the move, reason, and a
+  completed-seed count (N/13) that accompanies the Results denominators.
+  Selection note, stated plainly: claims come only from seeds that completed
+  all 5 moves under retries; if skips land asymmetrically across arms, the
+  per-arm completed-seed counts expose it and the writeup must discuss it.
+- **Generator client retry bound 2→4** (5 attempts, alternating the
+  server-enforced strict path with the json_object fallback). SPEC §7 pins
+  "retry up to a fixed bound", not a literal count; the judge client keeps
+  its reviewed 3-attempt bound and is byte-unchanged.
+
+**What does not change:** claim extraction (only FINAL accepted proposals
+produce claims — identical to v1 for any seed that completes); Tier-1
+evidence re-derivation; blinding; judge procedure; all rates, hypotheses,
+and κ machinery.
+
+**Why this is not results-contingent:** the aborts prevented ANY results
+from existing — the amendment was forced by instrument infeasibility, not
+by an undesired number. The live failure evidence (timestamps, error
+classes, per-attempt logs) is preserved in `docs/02-measure-run/log.md` and
+the git history predating this entry.
