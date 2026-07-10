@@ -38,20 +38,24 @@ const CAP_MS = 66; // ~15fps capture cadence
 const FPS = 15;
 const WIDTH = 800; // downscale target (S7 constraint: 640-800px wide)
 
+// Setup scenes open their pre-built dish BEFORE the recorder starts
+// (preroll): the GIF then opens directly on the workbench — no white-flash
+// initial paint, which both replays on every loop and costs a full frame
+// of GIF data (full-frame changes dominate file size; see encodeGif).
 const SCENES = {
   loop: { file: '01-develop-loop.gif', run: sceneLoop },
-  safety: { file: '02-safety-hold.gif', run: sceneSafety, setup: seedTrials(1) },
-  restart: { file: '03-restart-survival.gif', run: sceneRestart, setup: seedTrials(1) },
-  postcook: { file: '04-post-cook-rework.gif', run: scenePostcook, setup: seedTrials(1) },
-  branch: { file: '05-branch-promote.gif', run: sceneBranch, setup: seedTrials(2) },
+  safety: { file: '02-safety-hold.gif', run: sceneSafety, setup: seedTrials(1), preroll: openTrial(1) },
+  restart: { file: '03-restart-survival.gif', run: sceneRestart, setup: seedTrials(1), preroll: openTrial(1) },
+  postcook: { file: '04-post-cook-rework.gif', run: scenePostcook, setup: seedTrials(1), preroll: openTrial(1) },
+  branch: { file: '05-branch-promote.gif', run: sceneBranch, setup: seedTrials(2), preroll: openTrial(2) },
   // The dial defaults ON — the dial scene's dish starts OFF so the scene
   // can flip it on camera.
-  dial: { file: '06-autonomy-dial.gif', run: sceneDial, setup: seedTrials(1, { autonomy_dial: false }) },
+  dial: { file: '06-autonomy-dial.gif', run: sceneDial, setup: seedTrials(1, { autonomy_dial: false }), preroll: openTrial(1) },
   cancel: {
-    file: '07-midstream-cancel.gif', run: sceneCancel, setup: seedTrials(1),
+    file: '07-midstream-cancel.gif', run: sceneCancel, setup: seedTrials(1), preroll: openTrial(1),
     env: { CAPYCOOK_STUB_LATENCY_MS: '3000' },
   },
-  technical: { file: '08-technical-dark.gif', run: sceneTechnical, setup: seedTrials(1), theme: 'dark' },
+  technical: { file: '08-technical-dark.gif', run: sceneTechnical, setup: seedTrials(1), preroll: openTrial(1), theme: 'dark' },
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -144,10 +148,14 @@ async function seedToTrial1(page) {
   await settle(900);
 }
 
-// Open a pre-built dish straight on the workbench (setup scenes).
-async function openDish(page, ctx) {
-  await page.goto(`${BASE}/dishes/${ctx.dishId}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#cc-intent', { timeout: 8000 });
+// Open a pre-built dish straight on the workbench and wait for the Trial-n
+// card — the preroll for every setup scene, run before recording starts.
+function openTrial(n) {
+  return async (page, ctx) => {
+    await page.goto(`${BASE}/dishes/${ctx.dishId}`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#cc-intent', { timeout: 8000 });
+    await waitForTimelineTrial(page, n);
+  };
 }
 
 // ----------------------------------------------------------- API pre-setup ---
@@ -312,9 +320,7 @@ async function sceneLoop(page) {
 
 // (02) garlic-oil steer trips the deterministic safety hold; "Ask for a
 // safer change" recovers to Trial 2.
-async function sceneSafety(page, ctx) {
-  await openDish(page, ctx);
-  await waitForTimelineTrial(page, 1);
+async function sceneSafety(page) {
   await settle(800);
   await page.type('#cc-intent', 'infuse some garlic oil for richness', { delay: 14 });
   await settle(400);
@@ -337,8 +343,6 @@ async function sceneSafety(page, ctx) {
 // (03) kill + restart the server mid-flow: the reconnect banner shows and clears
 // on its own, then a deep-link reload rebuilds the exact state from SQLite.
 async function sceneRestart(page, ctx) {
-  await openDish(page, ctx);
-  await waitForTimelineTrial(page, 1);
   await settle(800);
 
   // Hard-kill the backend -> the persistent EventSource drops at once ->
@@ -358,19 +362,15 @@ async function sceneRestart(page, ctx) {
   // Deep-link reload: a cold boot rebuilds Trial 1 + the draft from persistence.
   // Wait on domcontentloaded, not networkidle0 — the dish page holds a persistent
   // EventSource open, so the network never goes fully idle; the render is proven
-  // by the timeline-trial wait that follows.
+  // by the timeline-trial wait that follows. The scene ends here, on the
+  // rebuilt workbench — that IS the persistence proof.
   await page.goto(page.url(), { waitUntil: 'domcontentloaded' });
   await waitForTimelineTrial(page, 1);
-  await settle(1000);
-  await clickTimelineTrial(page, 1);
-  await waitForText(page, 'Viewing a past trial');
-  await settle(1400);
+  await settle(2200);
 }
 
 // (04) I cooked this -> tasting notes -> rework proposal -> accept.
-async function scenePostcook(page, ctx) {
-  await openDish(page, ctx);
-  await waitForTimelineTrial(page, 1);
+async function scenePostcook(page) {
   await settle(800);
   await clickButton(page, /^I cooked this/i);
   await page.waitForSelector('#cc-tasting-notes', { timeout: 8000 });
@@ -389,9 +389,7 @@ async function scenePostcook(page, ctx) {
 // (05) branch + promote: view the Trial-1 snapshot, promote it to trunk,
 // develop off it — the new trial carries the Branch badge (two lines of
 // development now share Trial 1 as parent).
-async function sceneBranch(page, ctx) {
-  await openDish(page, ctx);
-  await waitForTimelineTrial(page, 2);
+async function sceneBranch(page) {
   await settle(1100); // the line of development: two trials on the trunk
   await clickTimelineTrial(page, 1);
   await waitForText(page, 'Viewing a past trial');
@@ -413,9 +411,7 @@ async function sceneBranch(page, ctx) {
 
 // (06) autonomy dial: deterministic math fast-forwards with no gate;
 // a creative move still parks at the gate.
-async function sceneDial(page, ctx) {
-  await openDish(page, ctx);
-  await waitForTimelineTrial(page, 1);
+async function sceneDial(page) {
   await settle(900);
   await clickButton(page, /^Auto-apply safe steps$/i);
   await settle(900); // deterministic chips pick up their 'auto' tags
@@ -433,9 +429,7 @@ async function sceneDial(page, ctx) {
 // (07) mid-stream cancel: with CAPYCOOK_STUB_LATENCY_MS the proposing card
 // (spinner + Stop) is on screen long enough to stop; a second try left
 // alone runs to the gate.
-async function sceneCancel(page, ctx) {
-  await openDish(page, ctx);
-  await waitForTimelineTrial(page, 1);
+async function sceneCancel(page) {
   await settle(700);
   await page.type('#cc-intent', 'reimagine it as a hands-off traybake', { delay: 14 });
   await settle(300);
@@ -454,9 +448,7 @@ async function sceneCancel(page, ctx) {
 
 // (08) technical view + dark mode: slugs, ver ids and raw values surface;
 // the diff at the gate in the dark theme.
-async function sceneTechnical(page, ctx) {
-  await openDish(page, ctx);
-  await waitForTimelineTrial(page, 1);
+async function sceneTechnical(page) {
   await settle(900);
   await clickButton(page, /^Technical view/i);
   await settle(1300); // ver ids + slugs surface across the workbench
@@ -471,20 +463,26 @@ async function sceneTechnical(page, ctx) {
 }
 
 // ------------------------------------------------------------------ encode ---
+// dither=none: the UI is flat panels + text, so dithering is pure noise —
+// it breaks LZW runs and triples the cost of full-frame changes (banner
+// shifts, reloads), which dominate file size. gifsicle -O3 stays LOSSLESS:
+// --lossy leaves visible ghosting on the dark theme's flat background.
 function encodeGif(framesDir, outPath) {
   const vf = `scale=${WIDTH}:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];`
-    + `[b][p]paletteuse=dither=bayer:bayer_scale=3`;
+    + `[b][p]paletteuse=dither=none`;
   const r = spawnSync('ffmpeg', [
     '-y', '-framerate', String(FPS),
     '-i', join(framesDir, 'frame-%05d.png'),
     '-vf', vf, outPath,
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
   if (r.status !== 0) throw new Error('ffmpeg failed:\n' + (r.stderr || '').toString().slice(-1800));
+  const g = spawnSync('gifsicle', ['-O3', outPath, '-o', outPath], { stdio: 'ignore' });
+  if (g.error || g.status !== 0) log('  (gifsicle unavailable or failed — raw ffmpeg encode kept)');
 }
 
 // -------------------------------------------------------------------- driver ---
 async function captureScene(key) {
-  const { file, run, setup, theme = 'light', env = {} } = SCENES[key];
+  const { file, run, setup, preroll, theme = 'light', env = {} } = SCENES[key];
   const framesDir = join(tmpdir(), `capycook-demo-${key}`);
   rmSync(framesDir, { recursive: true, force: true });
   mkdirSync(framesDir, { recursive: true });
@@ -510,6 +508,10 @@ async function captureScene(key) {
     const page = await browser.newPage();
     await page.setViewport(VIEWPORT);
     await page.evaluateOnNewDocument((t) => localStorage.setItem('capycook-theme', t), theme);
+    if (preroll) {
+      await preroll(page, ctx);
+      log(`${key}: preroll done (opening state ready off camera)`);
+    }
 
     const rec = new Recorder(page, framesDir);
     await rec.start();

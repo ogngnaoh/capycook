@@ -21,8 +21,8 @@ proposes; you dispose — at every move.**
 
 ## Demo
 
-Four ~10-second captures of the real loop, driven headlessly in stub-LLM mode (no API key)
-against a fresh database. Capture tooling lives in [`web/tools/`](web/tools/).
+Eight short captures (6–10s each) of the real loop, driven headlessly in stub-LLM mode
+(no API key) against a fresh database. Capture tooling lives in [`web/tools/`](web/tools/).
 
 **1 · Seed → proposal → accept → the trial record.** A plain-language seed becomes a proposed
 recipe at the pass — deterministic nutrition, USDA `fdc:` / FoodOn `foodon:` provenance chips
@@ -50,6 +50,33 @@ notes on the current trial; the notes feed a **post-cook rework** proposal that 
 through the gate for your approval — closing the develop → cook → iterate cycle.
 
 ![After cooking, tasting notes drive a post-cook rework proposal through the gate](docs/media/04-post-cook-rework.gif)
+
+**5 · Promote a past trial and develop off it — the line branches.** Any earlier trial opens as
+a read-only snapshot; **Promote to trunk** makes it the version in service, and the next
+accepted move develops off *it* — the timeline now shows two lines sharing Trial 1, and the
+new trial wears a **Branch** badge.
+
+![Viewing a past trial, promoting it to trunk, and branching a new line of development off it](docs/media/05-branch-promote.gif)
+
+**6 · The autonomy dial: safe math fast-forwards, creative moves still gate.** With *Auto-apply
+safe steps* on, a deterministic move (recompute cost) lands as a trial with **no gate** — a
+toast confirms it was applied automatically. A creative move right after still parks at
+*Needs your call*. Autonomy extends exactly as far as determinism does.
+
+![Auto-apply on: a cost recompute lands with no gate while a creative move still waits for a decision](docs/media/06-autonomy-dial.gif)
+
+**7 · Stop an in-flight move mid-stream.** While the kitchen is *Working on your idea*, **Stop**
+aborts the move — nothing is stored, the bench returns to Ready, and a second try left alone
+runs through to the gate. (The stub normally answers in microseconds, so this capture runs it
+with an artificial 3-second latency; the cancel path itself is the production code.)
+
+![Cancelling a move mid-generation, then letting the retry run to the gate](docs/media/07-midstream-cancel.gif)
+
+**8 · Technical view, dark theme.** The same workbench with the plumbing surfaced: USDA `fdc:` /
+FoodOn `foodon:` ids on every ingredient, full version hashes in the timeline, and the raw
+`unverified` field slugs under the nutrition panel.
+
+![Technical view in the dark theme: provenance ids, version hashes, and raw unverified slugs](docs/media/08-technical-dark.gif)
 
 ## Architecture
 
