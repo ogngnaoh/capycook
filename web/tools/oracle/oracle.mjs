@@ -175,6 +175,18 @@ async function runScenario(browser, def, { port, evidence, profileOverride = nul
       judgeStill: async (id, label) => {
         if (parityMode) return null;
         if (!byId.has(id) || byId.get(id).tag !== 'judge') throw new Error(`oracle: judgeStill for non-judge ${id}`);
+        // A screencast frame pushed BEFORE first paint is a blank — wait for
+        // a frame captured after this call (evidence-freshness; a stale
+        // blank sent judge BC-A-8 a black seed screen in run-073).
+        if (recorder && recorder.running) {
+          const callT = Date.now() - recorder.startedAt;
+          const t0 = Date.now();
+          while (Date.now() - t0 < 1500) {
+            const last = recorder.frames[recorder.frames.length - 1];
+            if (last && last.t >= callT) break;
+            await new Promise((r) => setTimeout(r, 60));
+          }
+        }
         const buf = recorder && recorder.running ? recorder.latestFrame() : await pageBundle.page.screenshot();
         if (!buf) return null;
         const list = judgeStills.get(id) || [];
