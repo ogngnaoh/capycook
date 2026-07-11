@@ -57,6 +57,16 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
   repertoire (those render paths are unit-tested; the oracle asserts the
   drivable clauses and documents the gap).
 
+- **BC-G-13 fails today (unmarked):** `--color-border-strong` (#CEC6B7 light /
+  #443C2E dark) measures ~1.7:1 / ~1.56:1 as a component boundary — dial-OFF
+  track/thumb (`DialToggle.tsx:13,17`) and the invalid seed-field border
+  (`SeedSetup.tsx:49`, aria-invalid adds no recolor) sit below WCAG 1.4.11's
+  3:1. Dial-ON (accent) and the hold border (critical) pass. G-10's expected
+  fail is quantified: 98 text pairs below AA, both themes.
+- **Lib wart (workaround in place):** `browser.mjs` re-seeds `capycook-theme`
+  on every navigation, so cross-reload persistence checks (BC-G-2) verify as
+  write + boot-read halves rather than one journey.
+
 ## Decisions (user, 2026-07-11)
 
 - B2 + B3 land directly on `measure-run`; B4 branches off later.
