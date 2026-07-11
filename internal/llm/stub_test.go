@@ -268,14 +268,16 @@ func TestStubSteerFixtures(t *testing.T) {
 		wantIngredient string // "" => no fixture ingredient expected
 		wantConfidence float64
 		wantChicken    bool
+		wantDiffShapes bool // spring clean: add + in-place step replace + flavor remove
 	}{
-		{"peanut allergen", "add a peanut butter swirl", "peanut butter", 0.6, false},
-		{"peanut case-insensitive", "PEANUT please", "peanut butter", 0.6, false},
-		{"rare chicken min-temp", "give me rare chicken", "chicken breast", 0.6, true},
-		{"saffron unpriced", "a pinch of Saffron", "saffron", 0.6, false},
-		{"moonshot low confidence", "go moonshot on it", "", 0.15, false},
-		{"no fixture steer", "make it smokier", "", 0.6, false},
-		{"empty steer", "", "", 0.6, false},
+		{"peanut allergen", "add a peanut butter swirl", "peanut butter", 0.6, false, false},
+		{"peanut case-insensitive", "PEANUT please", "peanut butter", 0.6, false, false},
+		{"rare chicken min-temp", "give me rare chicken", "chicken breast", 0.6, true, false},
+		{"saffron unpriced", "a pinch of Saffron", "saffron", 0.6, false, false},
+		{"moonshot low confidence", "go moonshot on it", "", 0.15, false, false},
+		{"spring clean add/change/remove", "give it a Spring Clean", "carrot", 0.6, false, true},
+		{"no fixture steer", "make it smokier", "", 0.6, false, false},
+		{"empty steer", "", "", 0.6, false, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -314,6 +316,31 @@ func TestStubSteerFixtures(t *testing.T) {
 				}
 				if step.InternalTempC == nil || *step.InternalTempC != 55 {
 					t.Errorf("chicken step internal_temp_c = %v, want 55 (below the 74 C poultry minimum)", step.InternalTempC)
+				}
+			}
+			if tt.wantDiffShapes {
+				// BC-C-16 needs all three markup shapes from ONE proposal: an
+				// added row, an in-place change, and a removed row. Assert the
+				// op kinds the gate renders those from.
+				var addIngredient, replaceStep, removeFlavor bool
+				for _, op := range p.Change {
+					switch {
+					case op.Op == "add" && strings.HasPrefix(op.Path, "/ingredients/"):
+						addIngredient = true
+					case op.Op == "replace" && strings.HasPrefix(op.Path, "/steps/"):
+						replaceStep = true
+					case op.Op == "remove" && strings.HasPrefix(op.Path, "/flavor_rationale/"):
+						removeFlavor = true
+					}
+				}
+				if !addIngredient {
+					t.Errorf("spring clean: no add op under /ingredients/; ops=%+v", p.Change)
+				}
+				if !replaceStep {
+					t.Errorf("spring clean: no in-place replace op on a /steps/ path; ops=%+v", p.Change)
+				}
+				if !removeFlavor {
+					t.Errorf("spring clean: no remove op on a /flavor_rationale/ path; ops=%+v", p.Change)
 				}
 			}
 		})

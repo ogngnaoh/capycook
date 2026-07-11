@@ -70,6 +70,9 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 	if strings.Contains(steer, "saffron") {
 		addSaffron(&proposed)
 	}
+	if strings.Contains(steer, "spring clean") {
+		springClean(&proposed)
+	}
 	confidence := 0.6
 	if strings.Contains(steer, "moonshot") {
 		confidence = 0.15
@@ -277,6 +280,26 @@ func addUndercookedChicken(d *draft.Draft) {
 // (2026-07-11 area-D oracle finding). Steer keyword: "saffron".
 func addSaffron(d *draft.Draft) {
 	d.Ingredients = append(d.Ingredients, draft.Ingredient{Name: "saffron", Qty: 1, Unit: "pinch"})
+}
+
+// springClean injects the three diff shapes BC-C-16 needs from a single
+// proposal — an add, an in-place change, and a remove — that no plain
+// template produces on its own: it appends one inert grounded ingredient
+// (carrot: priced and allergen-resolved, tripping no safety rule), rewrites
+// an EXISTING step in place (a replace op on a /steps/N path, not an append),
+// and drops one EXISTING flavor_rationale entry (a remove op on a
+// /flavor_rationale path). The modify/remove halves are guarded so a draft
+// with no steps or no flavor claims never panics. Steer keyword: "spring
+// clean".
+func springClean(d *draft.Draft) {
+	d.Ingredients = append(d.Ingredients, draft.Ingredient{Name: "carrot", Qty: 100, Unit: "g"})
+	if len(d.Steps) > 0 {
+		d.Steps[0].Text = "Wipe down the board and reset the mise en place before the first cook."
+		d.Steps[0].Why = "a clean spring reset keeps the following steps tidy"
+	}
+	if n := len(d.FlavorRationale); n > 0 {
+		d.FlavorRationale = d.FlavorRationale[:n-1]
+	}
 }
 
 // clone deep-copies a Draft through JSON so template mutations never touch
