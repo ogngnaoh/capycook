@@ -268,8 +268,13 @@ func addUndercookedChicken(d *draft.Draft) {
 
 // addSaffron injects an ingredient absent from the price table
 // (data/cost/prices.csv), so a cost recompute footnotes it in
-// analysis.cost.missing (BC-D-10). It carries no allergen or protein-class
-// rule, so the proposal passes the safety gate. Steer keyword: "saffron".
+// analysis.cost.missing. ⚠ saffron is also ungrounded in the FoodOn subset,
+// and the allergen gate fails closed on unknown ingredients — on a dish that
+// declares any allergen constraint this move trips a safety hold ("allergen
+// status unknown"), which is correct gate behavior. Use it only on dishes
+// with no declared allergens; BC-D-10's allergen-declared recipe is served
+// by the ordinary seed_expand template's unpriced parsley instead
+// (2026-07-11 area-D oracle finding). Steer keyword: "saffron".
 func addSaffron(d *draft.Draft) {
 	d.Ingredients = append(d.Ingredients, draft.Ingredient{Name: "saffron", Qty: 1, Unit: "pinch"})
 }
