@@ -20,11 +20,15 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
        5 revised + re-verified (3 CRITICALs killed: invisible-disclaimer
        vacuity, untested changed-step clause, unswept Stop control); 2 more
        genuine defects surfaced (C-16 StepRow markup, CookFlow-under-header)
-8. [ ] Stage 5 self-test exit 0 (artifact committed)
-9. [ ] BC-H-4 budget profile demonstrated reachable (move-failed banner)
-10. [ ] Guardrails green: freeze diff empty, suites pass, pin intact, operator DB = 6
-11. [ ] B3 census: full run + judge merge → report posted to user
-12. [ ] Ship ritual: milestone.md, handoff.md rewrite, log.md — same commit
+8. [x] Stage 5 self-test exit 0 — 27/27 (plumbing 15 + known-broken/evidence
+       probes + 10/10 mutation flips); artifact `evidence/selftest-report.json`
+9. [x] BC-H-4 budget profile demonstrated reachable (move-failed banner +
+       working Try again, census PASS)
+10. [x] Guardrails green at exit: freeze diff empty, suites pass, pin intact,
+        operator DB = 6 (1307 harness events all on temp DBs)
+11. [x] B3 census: run-073 full run + 9 judges merged → 79/43/1 over 123 rows,
+        posted to user
+12. [x] Ship ritual: milestone.md, handoff.md rewrite, log.md — this commit
 
 ## Pre-census findings (unexpected fails, investigated during B2 build)
 
@@ -92,6 +96,15 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
   by the self-test's hide-proposing-card mutation forcing a real *Visible*
   clause into the check (DOM presence had been passing). Same
   attention-management neglect as BC-A-5's focus clause.
+
+- **BC-E-3 fails at judgment (unmarked, judged):** the rework proposal's
+  rationale never echoes the tasting note's specific asks, so the cook cannot
+  see their feedback drove the change — the cook→taste→rework loop is not
+  legibly closed (fresh-context judge over census stills, run-073).
+- **Harness lesson (fixed):** judge stills taken from the screencast's latest
+  pushed frame can predate first paint — judge BC-A-8 initially mis-failed on
+  a blank frame; `judgeStill` now waits for a post-call frame, stills were
+  re-captured, and a fresh judge re-ruled PASS.
 
 ## Decisions (user, 2026-07-11)
 

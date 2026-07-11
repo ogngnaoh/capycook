@@ -34,3 +34,19 @@
   (recorded in milestone.md; BC-J-3 verifies it every iteration). The contract
   is now frozen — loop may never edit it; amendments only via user ruling
   logged here. B2 (oracle harness + falsifiability self-test) active.
+- **2026-07-11 — B2 + B3 SHIPPED.** Oracle built at `web/tools/oracle/` (~44
+  scenarios, 12 files) by a 10-builder fan-out; Go stub gained 5 fixture
+  branches + stub-mode budget metering (BC-H-4 reachable). 10 fresh-context
+  critics reviewed every file against contract text only — 3 CRITICALs found
+  and fixed (invisible-disclaimer vacuity, untested changed-step clause,
+  unswept Stop control), 5 files revised + re-verified 2×. Falsifiability
+  self-test 27/27: contrast math vs hand-computed WCAG pairs, deadline/
+  report-refusal plumbing, 10/10 mutation sabotages flip their targets; two
+  evaluator vacuities hardened en route (A-10 row-match, B-1 real Visible
+  clause). B3 census run-073 (full, guardrails + suites green): **79 pass /
+  43 fail / 1 parked**, every fail explained — all ~27 contract-marked
+  FAILS-TODAY reproduce, plus **10 unmarked genuine defects** root-caused to
+  file:line (A-14, B-1, B-5, C-16 changed-step, C-17, E-3 judged, G-12,
+  G-13, G-14 ×2 offenders). Judges 7 PASS / 2 FAIL (I-2 = the founding
+  finding). One judge mis-fail traced to a stale pre-paint evidence frame →
+  harness freshness fix, re-capture, re-judge (PASS). B4 active.
