@@ -45,7 +45,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a.startsWith('--')) {
       const key = a.slice(2);
-      const flagOnly = ['headful', 'keep-tmp', 'parity'].includes(key);
+      const flagOnly = ['headful', 'keep-tmp', 'parity', 'skip-mutations'].includes(key);
       args[key] = flagOnly ? true : argv[++i];
     } else args._.push(a);
   }
@@ -394,8 +394,17 @@ if (cmd === 'list') cmdList(args);
 else if (cmd === 'run') cmdRun(args).catch((e) => { console.error('[oracle] harness error:', e); process.exit(2); });
 else if (cmd === 'merge-judgments') cmdMergeJudgments(args);
 else if (cmd === 'self-test') {
-  console.error('[oracle] self-test is built in B2 Stage 5 — not available yet (refusing to pretend).');
-  process.exit(4);
+  import('./selftest/selftest.mjs').then(async ({ runSelfTest }) => {
+    const out = args.out || join(args['report-dir'] || DEFAULT_REPORT_ROOT, 'selftest-report.json');
+    const artifact = await runSelfTest({
+      reportPath: args.report || null,
+      port: assertPortAllowed(Number(args.port || 8125)),
+      skipMutations: !!args['skip-mutations'],
+      outPath: out,
+    });
+    log(`artifact: ${out}`);
+    process.exit(artifact.ok ? 0 : 4);
+  }).catch((e) => { console.error('[oracle] self-test crashed:', e); process.exit(4); });
 } else {
   console.error('usage: oracle.mjs <run|list|merge-judgments|self-test> [flags]');
   process.exit(2);
