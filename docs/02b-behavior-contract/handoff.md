@@ -1,12 +1,19 @@
 # Handoff — milestone 02b (behavior-contract)
 
 ## Next session start here
-B1 docs + spec + contract DRAFT are complete and committed (66 criteria: 56 assert /
-10 judge, areas A–J; the four 2026-07-11 gaps are encoded as [FAILS TODAY] criteria
-A-3, A-4, B-3, B-4, plus F-3/I-2 expected fails). **The USER ratification gate has
-NOT happened** — the contract is a draft until the user ratifies it. On
-ratification: commit any edits, record the pin hash in `milestone.md`, then start
-B2 (oracle harness). Do not start B2 before ratification.
+B1 docs + spec + contract DRAFT are complete. The contract survived a 49-round
+fresh-context adversarial review loop (UX home-cook + WCAG 2.2 AA critic personas,
+each round a fresh agent, every finding code-verified before folding in): grew
+66 → 109 criteria (99 assert / 10 judge), final verdict APPROVE (round 49, nits
+only). The review loop itself surfaced real product bugs beyond the original four
+(silent wrong-shape take-over commit, partial-alternatives premature gate,
+override "Go back" discarding typed edits, typed-input discard on failure ×3,
+AA contrast failures measured in tokens.css) — all encoded as [FAILS TODAY]
+criteria. **The USER ratification gate has NOT happened** — the contract is a
+draft until the user ratifies it; two criteria are explicitly flagged
+⚖ RATIFICATION DECISION (BC-C-26 in-app safety disclaimer, BC-D-12 persisted
+move rationale). On ratification: commit any edits, record the pin hash in
+`milestone.md`, then start B2. Do not start B2 before ratification.
 
 ## Current state
 - Branch `measure-run`; 02b inserted into `docs/milestones.md` (02's S8 paused
