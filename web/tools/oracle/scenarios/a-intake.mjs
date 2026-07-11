@@ -88,14 +88,21 @@ export const scenarios = [
         await sleep(300);
         const summary = await page.evaluate(() => {
           const el = document.querySelector('[role="alert"]');
-          return el ? { text: el.textContent.trim(), focused: document.activeElement === el, hasLink: !!el.querySelector('a') } : null;
+          if (!el) return null;
+          const a = el.querySelector('a');
+          return {
+            text: el.textContent.trim(),
+            focused: document.activeElement === el,
+            linkHref: a ? (a.getAttribute('href') || '') : null,
+          };
         });
         t.expect(!!summary, 'error summary (role=alert) rendered', { observed: summary });
         if (summary) {
           t.expectMatch(summary.text, /There is a problem/, 'summary headline');
           t.expectMatch(summary.text, /Enter a seed — say what you want to cook\./, 'seed message present');
           t.expect(summary.focused, 'summary container took focus (GOV.UK pattern)', { observed: summary.focused });
-          t.expect(summary.hasLink, 'message rendered as a link targeting the field');
+          t.expect(summary.linkHref !== null && /field-/.test(summary.linkHref),
+            'message is a link targeting the field', { observed: summary.linkHref });
         }
         t.expectEq(net.count({ method: 'POST', pathRe: CREATE_RE, since: mark }), 0, 'no POST /api/dishes fired');
       }, { journeyCritical: false });
@@ -122,27 +129,32 @@ export const scenarios = [
       // BC-A-12 double-click half — the form is valid at this point.
       await ctx.check('BC-A-12', async (t) => {
         const mark = net.mark();
-        // Synchronous double-click: both clicks land before React can commit
-        // the disabled state — exactly the race the criterion targets.
-        await page.evaluate(() => {
-          const btn = [...document.querySelectorAll('button')].find((b) => /^Develop this dish|^Developing/.test(b.textContent.trim()));
+        // Synchronous double-click, then an IN-PAGE 5ms sampling loop until
+        // the route resolves: both clicks land before React can commit the
+        // disabled state (the race under test), and the tight renderer-side
+        // poll observes the in-flight window even when the local stub
+        // round-trips in tens of milliseconds.
+        const during = await page.evaluate(async () => {
+          const find = () => [...document.querySelectorAll('button')].find((b) => /^Develop this dish|^Developing/.test(b.textContent.trim()));
+          const btn = find();
           btn.click(); btn.click();
-        });
-        await sleep(80);
-        const during = await page.evaluate(() => {
-          const btn = [...document.querySelectorAll('button')].find((b) => /^Developing|^Develop this dish/.test(b.textContent.trim()));
-          return {
-            label: btn ? btn.textContent.trim() : null,
-            disabledExposed: btn ? (btn.getAttribute('aria-disabled') === 'true' || btn.disabled) : null,
-            activeIsBody: document.activeElement === document.body,
-          };
+          const out = { sawDisabled: false, focusDroppedToBody: false, samples: 0 };
+          const t0 = performance.now();
+          while (performance.now() - t0 < 4000 && !location.pathname.startsWith('/dishes/')) {
+            const b = find();
+            if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true')) out.sawDisabled = true;
+            if (document.activeElement === document.body) out.focusDroppedToBody = true;
+            out.samples += 1;
+            await new Promise((r) => setTimeout(r, 5));
+          }
+          return out;
         });
         t.observe('duringFlight', during);
         await page.waitForFunction(() => location.pathname.startsWith('/dishes/'), { timeout: 8000 });
         await sleep(200);
         t.expectEq(net.count({ method: 'POST', pathRe: CREATE_RE, since: mark }), 1, 'double-click → exactly one POST /api/dishes');
-        t.expect(during.disabledExposed === true, 'submit affordance visibly disabled in flight', { observed: during });
-        t.expect(!during.activeIsBody, 'focus not dropped to document.body during flight', { observed: during.activeIsBody });
+        t.expect(during.sawDisabled, 'submit affordance visibly disabled in flight', { observed: during });
+        t.expect(!during.focusDroppedToBody, 'focus not dropped to document.body during flight', { observed: during });
       }, { name: 'double-click' });
 
       // BC-A-7 rides the dish A-12 just created.
@@ -163,6 +175,22 @@ export const scenarios = [
         await fillSeed(page);
         await setValue(page, '#field-servings', '2');
         await page.focus('#field-seed');
+        // Start the in-page in-flight sampler BEFORE the Enters (same
+        // assertions as the double-click half, per the recipe).
+        await page.evaluate(() => {
+          window.__a12enter = (async () => {
+            const out = { sawDisabled: false, focusDroppedToBody: false, samples: 0 };
+            const t0 = performance.now();
+            while (performance.now() - t0 < 6000 && !location.pathname.startsWith('/dishes/')) {
+              const b = [...document.querySelectorAll('button')].find((x) => /^Develop this dish|^Developing/.test(x.textContent.trim()));
+              if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true')) out.sawDisabled = true;
+              if (document.activeElement === document.body) out.focusDroppedToBody = true;
+              out.samples += 1;
+              await new Promise((r) => setTimeout(r, 5));
+            }
+            return out;
+          })();
+        });
         const mark = ctx.net.mark();
         // Two rapid Enters through the raw input pipeline; no awaited
         // evaluates in between.
@@ -170,7 +198,12 @@ export const scenarios = [
         await page.keyboard.press('Enter');
         await page.waitForFunction(() => location.pathname.startsWith('/dishes/'), { timeout: 8000 });
         await sleep(300);
+        const during = await page.evaluate(() => window.__a12enter);
+        t.observe('duringFlight', during);
         t.expectEq(ctx.net.count({ method: 'POST', pathRe: CREATE_RE, since: mark }), 1, 'double-Enter → exactly one POST /api/dishes');
+        t.expect(await page.evaluate(() => location.pathname.startsWith('/dishes/')), 'landed on exactly one /dishes/:id');
+        t.expect(during.sawDisabled, 'submit affordance visibly disabled in flight (Enter path)', { observed: during });
+        t.expect(!during.focusDroppedToBody, 'focus not dropped to document.body (Enter path)', { observed: during });
       }, { name: 'double-enter' });
     },
   },
@@ -406,6 +439,8 @@ export const scenarios = [
         const post = net.slice(mark).find((e) => e.kind === 'request' && e.method === 'POST' && MOVE_RE.test(e.path));
         const moveType = post && post.postData ? (JSON.parse(post.postData).moveType || '') : '(none)';
         t.expect(Object.keys(MOVE_LABEL).includes(moveType), 'dispatched a concrete suggested moveType', { observed: moveType });
+        t.expectEq(chip.text, MOVE_LABEL[moveType] ?? '(unknown moveType)',
+          'clicked chip label corresponds to the dispatched moveType');
         const inst = await ctx.readInstrument();
         t.expect(inst.moments.some((m) => m.name === 'chip-proposing'), 'proposing surface appeared (BC-B-1 surface)');
         await clickVerb(page, 'accept');
@@ -420,85 +455,121 @@ export const scenarios = [
         return sw ? sw.getAttribute('aria-checked') === 'true' : null;
       });
 
+      // Chip reads are scoped to the "Just the math —" ROW: suggested-next
+      // chips render the same MOVE_LABEL strings inside the same #cc-steer
+      // container, so a container-wide label match over-counts (critic
+      // finding — a "Recompute nutrition" suggested chip would make 5).
+      const readMathChips = () => page.evaluate(() => {
+        const label = [...document.querySelectorAll('#cc-steer span')].find((s) => /^Just the math —/.test(s.textContent.trim()));
+        if (!label) return null;
+        // The auto tag is its own <span>auto</span> child (AutoTag) — the
+        // text concatenates with the label ("Convert unitsauto"), so detect
+        // the element, not a word-boundary regex.
+        return [...label.parentElement.querySelectorAll('button')].map((c) => ({
+          text: c.textContent.trim(),
+          hasAuto: [...c.querySelectorAll('span')].some((s) => s.textContent.trim().toLowerCase() === 'auto'),
+        }));
+      });
+
       await ctx.check('BC-A-6', async (t) => {
         t.expectEq(dialOn, true, 'autonomy dial is ON (dish default)');
-        const tags = await page.evaluate(() => {
-          const chips = [...document.querySelectorAll('#cc-steer button')].filter((b) => /Scale servings|Convert units|Recompute cost|Recompute nutrition/.test(b.textContent));
-          return chips.map((c) => ({ text: c.textContent.trim(), hasAuto: /auto/i.test(c.textContent) }));
-        });
-        t.expectEq(tags.length, 4, 'all four "Just the math" chips render', { observed: tags });
-        t.expect(tags.every((c) => c.hasAuto), 'dial ON → every chip carries the "auto" tag', { observed: tags });
+        const tags = await readMathChips();
+        t.expect(tags !== null, '"Just the math —" row renders', { observed: tags });
+        t.expectEq((tags || []).length, 4, 'all four "Just the math" chips render', { observed: tags });
+        t.expect((tags || []).every((c) => c.hasAuto), 'dial ON → every chip carries the "auto" tag', { observed: tags });
       }, { name: 'tags-on' });
 
-      // Fire each deterministic chip; with the dial ON each auto-applies and
-      // returns to Ready. BC-A-6 asserts the dispatch; BC-A-10 the numbers.
+      // BC-A-10 drives the four deterministic moves ITSELF, reading the
+      // draft between moves so every assertion binds to the move that
+      // caused it (a later unit conversion may legitimately change
+      // quantities — critic finding). BC-A-6's dispatch clause then asserts
+      // the wire traffic post-hoc from the NetLog. Clicks are scoped to the
+      // math row (same-label suggested chips exist).
       const targetServings = draft0.draft.constraints.servings * 2;
 
-      const fireChip = async (re, expectMoveType, t) => {
-        const mark = net.mark();
-        await clickButton(page, re);
+      const clickMathChip = (re) => page.evaluate((src, flags) => {
+        const rx = new RegExp(src, flags);
+        const label = [...document.querySelectorAll('#cc-steer span')].find((s) => /^Just the math —/.test(s.textContent.trim()));
+        const btn = label && [...label.parentElement.querySelectorAll('button')].find((b) => rx.test(b.textContent.trim()));
+        if (!btn) throw new Error(`no math chip ${src}`);
+        btn.click();
+      }, re.source, re.flags);
+
+      const fireMath = async (re) => {
+        await clickMathChip(re);
         await waitForPill(page, 'Ready', ctx.genTimeout).catch(() => {});
         await sleep(400);
-        t.expectEq(net.count({ method: 'POST', pathRe: MOVE_RE, since: mark }), 1, `${expectMoveType}: exactly one POST`);
-        const post = net.slice(mark).find((e) => e.kind === 'request' && e.method === 'POST' && MOVE_RE.test(e.path));
-        const body = post && post.postData ? JSON.parse(post.postData) : {};
-        t.expectEq(body.moveType, expectMoveType, `${expectMoveType}: correct moveType on the wire`);
       };
 
-      await ctx.check('BC-A-6', async (t) => {
-        await clickButton(page, /^Scale servings/i);
-        await page.waitForSelector('#cc-scale-servings', { timeout: 4000 });
-        await setValue(page, '#cc-scale-servings', String(targetServings));
-        await fireChip(/^Scale it/i, 'scale_servings', t);
-        await fireChip(/^Convert units/i, 'unit_convert', t);
-        await fireChip(/^Recompute cost/i, 'cost_recompute', t);
-        await fireChip(/^Recompute nutrition/i, 'nutrition_recompute', t);
-      }, { name: 'dispatch' });
+      const readUi = () => page.evaluate(() => ({
+        serves: [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && /^Serves$/i.test(e.textContent.trim()))?.parentElement?.textContent.trim() || null,
+        rows: [...document.querySelectorAll('[data-testid="ingredient-row"]')].map((r) => r.textContent.trim()),
+        body: document.body.textContent,
+      }));
+
+      const wireMark = net.mark();
 
       await ctx.check('BC-A-10', async (t) => {
-        const after = await api('GET', `/api/dishes/${dishId}`);
-        const { analysis, constraints, ingredients } = {
-          analysis: after.draft.analysis, constraints: after.draft.constraints, ingredients: after.draft.ingredients,
-        };
-        // Server-side math: quantities scaled by N/servings₀.
+        // Scale it → N: proportional quantities + servings display.
+        await clickMathChip(/^Scale servings/i);
+        await page.waitForSelector('#cc-scale-servings', { timeout: 4000 });
+        await setValue(page, '#cc-scale-servings', String(targetServings));
+        await fireMath(/^Scale it/i);
+        const afterScale = (await api('GET', `/api/dishes/${dishId}`)).draft;
         const factor = targetServings / draft0.draft.constraints.servings;
-        t.expectEq(constraints.servings, targetServings, 'servings scaled on the draft');
+        t.expectEq(afterScale.constraints.servings, targetServings, 'servings scaled on the draft');
         for (const ing0 of draft0.draft.ingredients) {
-          const now = ingredients.find((i) => i.name === ing0.name);
+          const now = afterScale.ingredients.find((i) => i.name === ing0.name);
           if (!now) continue;
           const want = ing0.qty * factor;
           t.expect(Math.abs(now.qty - want) < 0.05 * Math.max(1, want), `${ing0.name}: qty scaled proportionally`, { observed: now.qty, expected: want });
         }
-        // UI mirrors the server draft (the dish the cook shops from).
-        const ui = await page.evaluate(() => ({
-          serves: [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && /^Serves$/i.test(e.textContent.trim()))?.parentElement?.textContent.trim() || null,
-          rows: [...document.querySelectorAll('[data-testid="ingredient-row"]')].map((r) => r.textContent.trim()),
-          body: document.body.textContent,
-        }));
+        let ui = await readUi();
         t.expect(ui.serves === null || ui.serves.includes(String(targetServings)), 'servings display shows the target', { observed: ui.serves });
-        for (const ing of ingredients) {
+
+        // Convert units: each converted row matches the server draft
+        // (formatQty renders value + U+2009 thin space + unit).
+        await fireMath(/^Convert units/i);
+        const afterConvert = (await api('GET', `/api/dishes/${dishId}`)).draft;
+        ui = await readUi();
+        for (const ing of afterConvert.ingredients) {
           const row = ui.rows.find((r) => r.includes(ing.name));
           if (!row) continue;
-          const qtyRendered = `${ing.qty} ${ing.unit}`;
+          const qtyRendered = `${ing.qty}\u2009${ing.unit}`;
           t.expect(row.includes(qtyRendered) || row.includes(String(ing.qty)), `${ing.name}: row shows the server draft quantity/unit`, { observed: row.slice(0, 80), expected: qtyRendered });
         }
-        const cost = `$${analysis.cost.per_serving_usd.toFixed(2)}`;
+
+        // Recompute cost → the visible figure equals the server draft.
+        await fireMath(/^Recompute cost/i);
+        const afterCost = (await api('GET', `/api/dishes/${dishId}`)).draft;
+        ui = await readUi();
+        const cost = `$${afterCost.analysis.cost.per_serving_usd.toFixed(2)}`;
         t.expect(ui.body.includes(cost), 'cost figure equals the server draft', { expected: cost });
-        const cal = String(Math.round(analysis.nutrition.calories * 10) / 10);
-        const sodium = String(Math.round(analysis.nutrition.sodium_mg * 10) / 10);
+
+        // Recompute nutrition → headline USDA figures equal the server draft.
+        await fireMath(/^Recompute nutrition/i);
+        const afterNutrition = (await api('GET', `/api/dishes/${dishId}`)).draft;
+        ui = await readUi();
+        const cal = String(Math.round(afterNutrition.analysis.nutrition.calories * 10) / 10);
+        const sodium = String(Math.round(afterNutrition.analysis.nutrition.sodium_mg * 10) / 10);
         t.expect(ui.body.includes(`${cal} kcal`), 'calories cell equals the server draft', { expected: `${cal} kcal` });
         t.expect(ui.body.includes(`${sodium} mg`), 'sodium cell equals the server draft', { expected: `${sodium} mg` });
       });
 
-      // Dial OFF → the auto tags disappear (BC-A-6's other half).
+      await ctx.check('BC-A-6', async (t) => {
+        const posts = net.slice(wireMark).filter((e) => e.kind === 'request' && e.method === 'POST' && MOVE_RE.test(e.path));
+        const types = posts.map((p) => { try { return JSON.parse(p.postData || '{}').moveType; } catch { return '(unparsable)'; } });
+        t.expectEq(types.length, 4, 'the four chips dispatched exactly one POST each', { observed: types });
+        t.expectEq(types, ['scale_servings', 'unit_convert', 'cost_recompute', 'nutrition_recompute'], 'each chip dispatched its own moveType');
+      }, { name: 'dispatch' });
+
+      // Dial OFF → the auto tags disappear (BC-A-6's other half; math-row
+      // scoped, same reason as tags-on).
       await ctx.check('BC-A-6', async (t) => {
         await page.evaluate(() => document.querySelector('[role="switch"]').click());
         await sleep(400);
-        const tags = await page.evaluate(() =>
-          [...document.querySelectorAll('#cc-steer button')]
-            .filter((b) => /Scale servings|Convert units|Recompute cost|Recompute nutrition/.test(b.textContent))
-            .map((c) => /auto/i.test(c.textContent)));
-        t.expect(tags.length > 0 && tags.every((x) => !x), 'dial OFF → no auto tags', { observed: tags });
+        const tags = await readMathChips();
+        t.expect(tags !== null && tags.length > 0 && tags.every((c) => !c.hasAuto), 'dial OFF → no auto tags', { observed: tags });
         await page.evaluate(() => document.querySelector('[role="switch"]').click()); // back ON
         await sleep(400);
       }, { name: 'tags-off' });
@@ -521,6 +592,12 @@ export const scenarios = [
           const gate = await page.evaluate(() => !!document.querySelector('button[data-verb="accept"]'));
           if (gate) { await clickVerb(page, 'accept'); await sleep(400); }
         };
+        // The Scale move's form-submit path ("Scale it →") shares the same
+        // missing lock — race it too (critic finding).
+        await clickMathChip(/^Scale servings/i);
+        await page.waitForSelector('#cc-scale-servings', { timeout: 4000 });
+        await setValue(page, '#cc-scale-servings', String(targetServings * 2));
+        await doubleFire(/^Scale it/i, 'scale_servings form submit');
         await doubleFire(/^Convert units/i, 'unit_convert chip');
         await doubleFire(/^Recompute cost/i, 'cost_recompute chip');
         await doubleFire(/^Recompute nutrition/i, 'nutrition_recompute chip');
