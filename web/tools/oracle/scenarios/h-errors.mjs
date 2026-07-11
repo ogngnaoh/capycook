@@ -88,13 +88,15 @@ const bodyHasText = (page, textReSrc) =>
   page.evaluate((src) => new RegExp(src).test(document.body.textContent || ''), textReSrc);
 
 // Is focus on the error region itself or its escape hatch ("Back to dishes")?
+// isRegion is bounded to a tight element (the message node, ~90 chars — not a
+// broad container like app-root that merely contains the text transitively).
 const focusOnErrorTarget = (page, textReSrc) => page.evaluate((src) => {
   const re = new RegExp(src);
   const el = document.activeElement;
   if (!el || el === document.body) return { ok: false, isBody: el === document.body };
   const t = (el.textContent || '').trim();
   const isBack = el.tagName === 'BUTTON' && /back to dishes/i.test(t);
-  const isRegion = re.test(t);
+  const isRegion = re.test(t) && (t.length < 300 || el.getAttribute('role') === 'alert');
   return { ok: isBack || isRegion, isBody: false, isBack, isRegion, tag: el.tagName.toLowerCase(), text: t.slice(0, 60) };
 }, textReSrc);
 
@@ -207,7 +209,7 @@ export const scenarios = [
     criteria: ['BC-H-2', 'BC-H-6'],
     setup: seedTrials(0),
     run: async (ctx, dishId) => {
-      const { page, base, server } = ctx;
+      const { page, base, server, net, api } = ctx;
       await gotoDish(page, base, dishId);
 
       // BC-H-6 stub half: the banner tells the truth with a budget meter.
@@ -224,8 +226,25 @@ export const scenarios = [
       }, { name: 'stub-half' });
 
       // BC-H-2: SIGKILL drops the SSE (SIGTERM would drain it gracefully), the
-      // reconnect banner (role=status) shows, then clears after restart+resync.
+      // reconnect banner (role=status) shows, then clears after restart AND the
+      // dish state is RE-SYNCED VIA GET. To make the re-sync verifiably fresh
+      // (not a read of pre-drop state, which survives the drop — detail is never
+      // cleared, Workbench.tsx:184), commit a trial over the API that this page
+      // cannot already know about: accept emits no SSE, and the move's
+      // proposal-ready is ignored on the expectedMove mismatch (Workbench.tsx:149),
+      // so the page keeps rendering the pre-mutation draft (0 ingredient rows).
+      // The committed version is PERSISTED, so it survives the restart; only a
+      // fresh resync GET can surface its draft — its ingredient row appearing
+      // after reconnect proves the "re-synced via GET" clause.
+      const ingredientRows = () => page.evaluate(() => document.querySelectorAll('[data-testid="ingredient-row"]').length);
       await ctx.check('BC-H-2', async (t) => {
+        await api('POST', `/api/dishes/${dishId}/move`, { moveType: 'flavor_direction', steer: 'brighten it with fresh herbs' });
+        const prop = await waitForPending(api, dishId);
+        await api('POST', `/api/dishes/${dishId}/gate`, { proposalId: prop.id, verb: 'accept' }); // committed trial
+        await sleep(500);
+        const rowsBefore = await ingredientRows();
+        t.expectEq(rowsBefore, 0, 'the page still shows the pre-trial draft (the committed trial is not yet synced)');
+
         await sleep(800); // let the EventSource finish connecting
         await server.stop('SIGKILL');
         const appeared = await waitFor(
@@ -236,12 +255,22 @@ export const scenarios = [
         t.expect(!!region && (region.liveAncestor?.role === 'status' || region.role === 'status'),
           'the reconnect banner is a role="status" live region', { observed: region });
 
+        const mark = net.mark();
         await server.restart();
         const cleared = await waitFor(
           () => page.evaluate(() => !document.querySelector('[data-testid="reconnect-banner"]')), 30000);
         t.expect(cleared, 'reconnect banner clears after reconnect', { observed: cleared });
-        const restored = await page.evaluate(() => !!document.querySelector('#stage-heading'));
-        t.expect(restored, 'dish state re-renders after resync', { observed: restored });
+        // Proof of a genuine re-sync: the committed draft the page could NOT see
+        // pre-drop now renders (its ingredient row appears), with no user action
+        // and no reload — it can only have come from a fresh GET.
+        const resynced = await waitFor(async () => (await ingredientRows()) > rowsBefore, 15000);
+        const rowsAfter = await ingredientRows();
+        t.observe('ingredientRows', { before: rowsBefore, after: rowsAfter });
+        t.expect(resynced, 'the re-synced committed draft renders after reconnect (state came from a fresh GET)',
+          { observed: rowsAfter });
+        t.expect(net.count({ method: 'GET', pathRe: DETAIL_RE, since: mark }) >= 1,
+          'a fresh GET /api/dishes/:id fired on reconnect',
+          { observed: net.count({ method: 'GET', pathRe: DETAIL_RE, since: mark }) });
       });
     },
   },
@@ -343,10 +372,12 @@ export const scenarios = [
         t.expectEq(ctx.pageErrors.length, errBefore, 'no uncaught exception on this path');
       });
 
-      // BC-H-9: the initial dish-load wait is legible to AT. A 2s delay fault
-      // on GET /api/dishes/:id holds the workbench in its loading placeholder.
+      // BC-H-9: the initial dish-load wait is legible to AT. A 3.5s delay fault
+      // on GET /api/dishes/:id holds the workbench in its loading placeholder —
+      // wide enough that boot + first poll + sample land inside the window even
+      // on a slow host.
       const removeDelay = await installFaultInjector(page, [
-        { method: 'GET', pathRe: DETAIL_RE, action: 'delay', ms: 2000 },
+        { method: 'GET', pathRe: DETAIL_RE, action: 'delay', ms: 3500 },
       ]);
       try {
         await ctx.check('BC-H-9', async (t) => {
@@ -452,10 +483,18 @@ export const scenarios = [
 
       // Tab B: a second real page in the same browser context (not recorded).
       const pageB = await page.browserContext().newPage();
+      let removeBFault = null;
       try {
         await pageB.setViewport({ width: 1280, height: 800 });
         await pageB.goto(`${base}/dishes/${dishId}`, { waitUntil: 'domcontentloaded' });
         await pageB.waitForSelector('[data-testid="alt-card"]', { timeout: 8000 });
+        // Freeze tab B's stale view: once the alt-cards are loaded, abort any
+        // further GET /api/dishes/:id so a spontaneous re-sync can never drop the
+        // stale alternative before tab B gates it (POST /gate is untouched, so
+        // the conflict still fires). Removes the two-tab timing flake.
+        removeBFault = await installFaultInjector(pageB, [
+          { method: 'GET', pathRe: DETAIL_RE, action: 'abort' },
+        ]);
 
         await ctx.check('BC-H-5', async (t) => {
           // Tab A picks & accepts alternative A → sibling alternative B goes
@@ -495,6 +534,7 @@ export const scenarios = [
           t.expect(dismissed, 'Dismiss clears the conflict banner', { observed: dismissed });
         });
       } finally {
+        if (removeBFault) await removeBFault().catch(() => {});
         await pageB.close().catch(() => {});
       }
     },
