@@ -16,15 +16,12 @@
 //    version exists, else iterate_feedback. Both are CREATIVE, so a free-text
 //    intent always parks at the gate regardless of the dial (never a
 //    deterministic auto-apply). That is the workhorse "give me a gate" driver.
-//  - The stub's diffs only ever ADD ingredient/step/flavor rows or REPLACE an
-//    ingredient in place (ingredient_change → /ingredients/0/*). No stub move
-//    emits a `remove` op or an in-place step `replace`, so BC-C-16's
-//    removed-row and changed-step markup are NOT reachable through the stub
-//    (flagged in the report — a stub-fixture gap, not a product defect: the
-//    DishCard/mergeDiff remove+step-change paths are unit-tested). This file
-//    asserts every markup kind the stub CAN drive: added ingredient (New +
-//    "added:"), added step (New + "added:"), added flavor ("added:"), and a
-//    changed ingredient (struck old + "was:").
+//  - The `spring clean` steer fixture (B4) yields ONE proposal whose diff adds
+//    an ingredient (/ingredients/N), edits a step IN PLACE (/steps/0/text +
+//    /why), and REMOVES a flavor claim (/flavor_rationale/0) — the exact
+//    BC-C-16 recipe. Driven with a NON-flavor-adding move (technique_step) so
+//    the flavor removal surfaces as a real `remove` op (a flavor-adding
+//    template pairs it into a positional replace instead).
 import {
   sleep, clickButton, clickVerb, waitForVerb, setValue, describeActiveElement,
   timelineTrialCount, waitForTimelineTrial, clickTimelineTrial,
@@ -127,7 +124,13 @@ export const scenarios = [
       // until a verb fires, in BOTH dial states.
       // -----------------------------------------------------------------------
       await ctx.check('BC-C-1', async (t) => {
-        t.expectEq(await dialState(page), 'true', 'dial ON at journey start (dish default)');
+        // Force the dial ON rather than trust the dish default (BC-C-1 is about
+        // the dial-ON behavior, not what the seed happens to default to).
+        if (await dialState(page) === 'false') {
+          await page.evaluate(() => document.querySelector('[role="switch"]').click());
+          await sleep(300);
+        }
+        t.expectEq(await dialState(page), 'true', 'dial forced ON for the dial-ON run');
         const before = (await api('GET', `/api/dishes/${dishId}/versions`)).versions.length;
         await driveIntent('lean the whole dish smoky and bright');
         t.expect(await atGate(page), 'creative proposal parks at the gate (dial ON)', { observed: 'accept verb present' });
@@ -142,11 +145,11 @@ export const scenarios = [
       // -----------------------------------------------------------------------
       await ctx.check('BC-C-2', async (t) => {
         await driveIntent('add a bright herby finish');
-        const decide = await page.evaluate(() => ({
-          accept: !!document.querySelector('button[data-verb="accept"]'),
-          edit: !!document.querySelector('button[data-verb="edit"]'),
-        }));
-        t.expect(decide.accept && decide.edit, 'Use it + Tweak it visible up front', { observed: decide });
+        const decide = await page.evaluate(() => {
+          const vis = (v) => { const b = document.querySelector(`button[data-verb="${v}"]`); return !!b && b.offsetParent !== null; };
+          return { accept: vis('accept'), edit: vis('edit') };
+        });
+        t.expect(decide.accept && decide.edit, 'Use it + Tweak it visible (rendered, not merely present) up front', { observed: decide });
 
         // Roving tabindex on the decide row (APG toolbar): Arrow keys move focus.
         await page.focus('button[data-verb="accept"]');
@@ -193,62 +196,51 @@ export const scenarios = [
       });
 
       // -----------------------------------------------------------------------
-      // BC-C-16 — inline add/change preview with SR annotations. Driven with
-      // explicit move types (deterministic diffs) via dispatchAndReload.
-      // NOTE: removed-row + changed-step markup is unreachable through the stub
-      // (see file header) — asserted here: every markup kind the stub can drive.
+      // BC-C-16 — inline add / change / remove preview with SR annotations.
+      // ONE proposal (technique_step + the `spring clean` fixture) carries all
+      // three markup kinds the contract's recipe demands: an ADDED ingredient,
+      // an IN-PLACE-CHANGED step (steps/0), and a REMOVED flavor claim. Driven
+      // via the API + reload for a deterministic diff; technical view OFF.
       // -----------------------------------------------------------------------
       await ctx.check('BC-C-16', async (t) => {
-        await dispatchAndReload('flavor_direction'); // adds smoked paprika + a flavor claim
+        await dispatchAndReload('technique_step', 'spring clean');
         const r = await page.evaluate(() => {
-          const rows = [...document.querySelectorAll('[data-testid="ingredient-row"]')];
-          const addedIng = rows.find((x) => /smoked paprika/i.test(x.textContent));
+          const struck = (el) => !!(el && el.querySelector('.line-through'));
+          const ings = [...document.querySelectorAll('[data-testid="ingredient-row"]')];
+          const steps = [...document.querySelectorAll('[data-testid="step-row"]')];
           const flavors = [...document.querySelectorAll('[data-testid="flavor-row"]')];
+          const addedIng = ings.find((x) => /row-add/.test(x.className));
+          const chStep = steps.find((x) => /row-change/.test(x.className));
+          const remFlavor = flavors.find((x) => /removed:/.test(x.textContent));
           return {
-            addedIngText: addedIng ? addedIng.textContent.trim() : null,
-            addedIngNew: addedIng ? /New/.test(addedIng.textContent) : false,
-            addedIngSr: addedIng ? /added:/.test(addedIng.textContent) : false,
-            flavorAddedSr: flavors.some((x) => /added:/.test(x.textContent)),
+            addedIng: addedIng ? { text: addedIng.textContent.trim().slice(0, 60), New: /New/.test(addedIng.textContent), added: /added:/.test(addedIng.textContent) } : null,
+            chStep: chStep ? { text: chStep.textContent.trim().slice(0, 60), was: /was:/.test(chStep.textContent), now: /now:/.test(chStep.textContent), struck: struck(chStep) } : null,
+            remFlavor: remFlavor ? { text: remFlavor.textContent.trim().slice(0, 60), removed: /removed:/.test(remFlavor.textContent), struck: struck(remFlavor) } : null,
           };
         });
-        t.expect(!!r.addedIngText, 'added ingredient row rendered (smoked paprika)', { observed: r });
-        t.expect(r.addedIngNew, 'added ingredient carries a visible "New" marker');
-        t.expect(r.addedIngSr, 'added ingredient carries an SR-only "added:" announcement');
-        t.expect(r.flavorAddedSr, 'added flavor row carries an SR-only "added:" announcement');
-        await clickVerb(page, 'accept');
-        await page.waitForSelector('#cc-intent', { timeout: ctx.genTimeout });
-      }, { name: 'added-ingredient+flavor' });
-
-      await ctx.check('BC-C-16', async (t) => {
-        await dispatchAndReload('technique_step'); // adds a broiler-finish step
-        const s = await page.evaluate(() => {
-          const added = [...document.querySelectorAll('[data-testid="step-row"]')].find((x) => /broiler/i.test(x.textContent));
-          return added ? { text: added.textContent.trim(), hasNew: /New/.test(added.textContent), sr: /added:/.test(added.textContent) } : null;
-        });
-        t.expect(!!s, 'added step row rendered (broiler finish)', { observed: s });
-        if (s) {
-          t.expect(s.hasNew, 'added step carries a visible "New" marker');
-          t.expect(s.sr, 'added step carries an SR-only "added:" announcement');
+        // Added ingredient — "New" marker + sr-only "added:".
+        t.expect(!!r.addedIng, 'added ingredient row rendered (row-add)', { observed: r.addedIng });
+        if (r.addedIng) {
+          t.expect(r.addedIng.New, 'added ingredient carries a visible "New" marker');
+          t.expect(r.addedIng.added, 'added ingredient carries an SR-only "added:" announcement');
+        }
+        // Changed step (in place) — old struck through + new value + sr-only
+        // was/now. (This is the markup that was previously unreachable.)
+        t.expect(!!r.chStep, 'changed step row rendered (row-change)', { observed: r.chStep });
+        if (r.chStep) {
+          t.expect(r.chStep.struck, 'changed step shows the OLD value struck through');
+          t.expect(r.chStep.was, 'changed step carries an SR-only "was:" label');
+          t.expect(r.chStep.now, 'changed step carries an SR-only "now:" label');
+        }
+        // Removed flavor — struck through + sr-only "removed:".
+        t.expect(!!r.remFlavor, 'removed flavor row rendered', { observed: r.remFlavor });
+        if (r.remFlavor) {
+          t.expect(r.remFlavor.struck, 'removed flavor is struck through');
+          t.expect(r.remFlavor.removed, 'removed flavor carries an SR-only "removed:" announcement');
         }
         await clickVerb(page, 'accept');
         await page.waitForSelector('#cc-intent', { timeout: ctx.genTimeout });
-      }, { name: 'added-step' });
-
-      await ctx.check('BC-C-16', async (t) => {
-        await dispatchAndReload('ingredient_change'); // replaces ingredient[0] in place
-        const c = await page.evaluate(() => {
-          const row = [...document.querySelectorAll('[data-testid="ingredient-row"]')]
-            .find((x) => /shallot/i.test(x.textContent) && /was:/.test(x.textContent));
-          return row ? { text: row.textContent.trim(), sr: /was:/.test(row.textContent), changeClass: /row-change/.test(row.className) } : null;
-        });
-        t.expect(!!c, 'changed ingredient row rendered (shallot, with struck old value)', { observed: c });
-        if (c) {
-          t.expect(c.sr, 'changed row carries an SR-only "was:" annotation on the old value');
-          t.expect(c.changeClass, 'changed row carries the change markup (row-change)');
-        }
-        await clickVerb(page, 'accept');
-        await page.waitForSelector('#cc-intent', { timeout: ctx.genTimeout });
-      }, { name: 'changed-ingredient' });
+      });
 
       // -----------------------------------------------------------------------
       // BC-C-18 — each gate sub-form moves focus into its first input.
@@ -322,10 +314,14 @@ export const scenarios = [
         await clickButton(page, /^Save draft/i);
         await sleep(250);
         const bad = await page.evaluate(() => {
-          const alert = document.querySelector('#gate-takeover-error, [data-testid="takeover-form"] [role="alert"]');
-          return { alert: alert ? alert.textContent.trim() : null, formOpen: !!document.querySelector('[data-testid="takeover-form"]') };
+          // The error must actually carry role="alert" (the AT-announcement
+          // clause) — not merely exist by id.
+          const el = [...document.querySelectorAll('[data-testid="takeover-form"] [role="alert"]')]
+            .find((e) => e.offsetParent !== null && (e.textContent || '').trim());
+          return { role: el ? el.getAttribute('role') : null, text: el ? el.textContent.trim().slice(0, 80) : null, formOpen: !!document.querySelector('[data-testid="takeover-form"]') };
         });
-        t.expect(!!bad.alert, 'invalid JSON → visible role=alert error', { observed: bad });
+        t.expectEq(bad.role, 'alert', 'invalid JSON → the visible error carries role="alert"');
+        t.expect(!!bad.text, 'the role=alert error has visible text', { observed: bad });
         t.expect(bad.formOpen, 'take-over form stays open (Save blocked)');
         t.expectEq(net.count({ method: 'POST', pathRe: GATE_RE, since: markBad }), 0, 'invalid JSON dispatched no gate POST');
         // Valid JSON (edit the title) → new trial + role=status confirmation.
@@ -356,13 +352,18 @@ export const scenarios = [
       await ctx.check('BC-C-13', async (t) => {
         await driveIntent('brighten the whole thing');
         const before = await timelineTrialCount(page);
+        // One input per EDITABLE (non-remove) op — count from the pending
+        // proposal, not just "≥1".
+        const detailBefore = await api('GET', `/api/dishes/${dishId}`);
+        const propOps = (((detailBefore.pendingProposals || [detailBefore.pendingProposal])[0] || {}).change) || [];
+        const editableOps = propOps.filter((o) => o.op !== 'remove').length;
         await clickVerb(page, 'edit');
         await page.waitForSelector('[data-testid="tweak-form"]', { timeout: 4000 });
         const seed = await page.evaluate(() => {
           const inputs = [...document.querySelectorAll('[data-testid="tweak-form"] input')];
           return { count: inputs.length, first: inputs[0] ? inputs[0].value : null };
         });
-        t.expect(seed.count >= 1, 'tweak form shows one input per editable op', { observed: seed });
+        t.expectEq(seed.count, editableOps, 'tweak form shows exactly one input per editable (non-remove) op', { observed: { inputs: seed.count, editableOps } });
         t.expect(!!seed.first, 'the first tweak field is pre-seeded with the proposal value', { observed: seed.first });
         const edited = 'sweet char against a cold, sharp yogurt — tweaked';
         await setValue(page, '[data-testid="tweak-form"] input', edited);
@@ -391,15 +392,30 @@ export const scenarios = [
             set.call(el, ''); el.dispatchEvent(new Event('input', { bubbles: true }));
           });
         });
+        // Was Save visibly blocked BEFORE the click?
+        const saveBefore = await page.evaluate(() => {
+          const save = [...document.querySelectorAll('[data-testid="tweak-form"] button')].find((b) => /Keep with edit/.test(b.textContent));
+          return save ? (save.disabled || save.getAttribute('aria-disabled') === 'true') : null;
+        });
         const before = await timelineTrialCount(page);
         const mark = net.mark();
         await clickButton(page, /^Keep with edit/i);
         await sleep(600);
         const posts = net.count({ method: 'POST', pathRe: GATE_RE, since: mark });
         const after = await timelineTrialCount(page);
-        const formOpen = await page.evaluate(() => !!document.querySelector('[data-testid="tweak-form"]'));
+        const fb = await page.evaluate(() => {
+          const form = document.querySelector('[data-testid="tweak-form"]');
+          const save = form && [...form.querySelectorAll('button')].find((b) => /Keep with edit/.test(b.textContent));
+          const saveDisabled = save ? (save.disabled || save.getAttribute('aria-disabled') === 'true') : false;
+          const msg = form ? [...form.querySelectorAll('[role="alert"]')].some((e) => e.offsetParent !== null && (e.textContent || '').trim()) : false;
+          return { formOpen: !!form, saveDisabled, msg };
+        });
         t.expectEq(posts, 0, 'a content-free tweak fires no gate POST (empty-guard)');
-        t.expect(formOpen || after === before, 'submit is blocked — form stays open or no trial commits', { observed: { posts, before, after, formOpen } });
+        // The block must be VISIBLE (disabled Save or a validation message) — a
+        // silent non-dispatch is itself the silent-no-op defect class (BC-A-4/9).
+        t.expect(saveBefore === true || fb.saveDisabled || fb.msg,
+          'the empty tweak is visibly blocked — disabled Save or a validation message, not silently', { observed: { saveBefore, ...fb } });
+        t.expect(fb.formOpen || after === before, 'submit is blocked — form stays open or no trial commits', { observed: { posts, before, after, formOpen: fb.formOpen } });
         await ensureIdle();
       }, { name: 'empty-guard' });
 
@@ -415,10 +431,12 @@ export const scenarios = [
         await page.waitForSelector('#gate-redirect-input', { timeout: 4000 });
         await page.focus('#gate-redirect-input');
         const mark = net.mark();
-        await page.type('#gate-redirect-input', 'great'); // g/r/e/a/t are all verb keys
+        // Type a string covering ALL SIX verb letters a/e/g/l/r/t.
+        const TYPED = 'aeglrt';
+        await page.type('#gate-redirect-input', TYPED);
         await sleep(150);
         const typed = await page.evaluate(() => document.querySelector('#gate-redirect-input').value);
-        t.expectEq(typed, 'great', 'the letters land as text — not intercepted as verb shortcuts');
+        t.expectEq(typed, TYPED, 'all six verb letters land as text — none intercepted as a shortcut');
         t.expectEq(net.count({ method: 'POST', pathRe: GATE_RE, since: mark }), 0, 'no verb fired while typing in a text field');
         t.expect(await page.evaluate(() => !!document.querySelector('[data-testid="redirect-form"]')),
           'the redirect form is still open — no destructive verb fired');
@@ -426,9 +444,19 @@ export const scenarios = [
         await page.keyboard.press('Escape'); await sleep(120);
         await page.keyboard.press('Escape'); await sleep(180);
         const decideBack = await atGate(page);
-        const ae = await describeActiveElement(page);
+        const ae = await page.evaluate(() => {
+          const el = document.activeElement;
+          const gate = document.querySelector('#cc-gate');
+          return {
+            isBody: el === document.body, isConnected: el ? el.isConnected : false,
+            inGate: !!(el && gate && gate.contains(el)),
+            verb: el && el.getAttribute ? el.getAttribute('data-verb') : null,
+            text: (el && el.textContent || '').trim().slice(0, 40),
+          };
+        });
         t.expect(decideBack, 'Escape returns to decide mode (proposal still pending)');
-        t.expect(!ae.isBody && ae.isConnected, 'activeElement is a defined, attached gate control — not document.body', { observed: ae });
+        t.expect(!ae.isBody && ae.isConnected && ae.inGate,
+          'activeElement is a defined gate control inside #cc-gate — not document.body', { observed: ae });
         t.expectEq(net.count({ method: 'POST', pathRe: GATE_RE, since: mark }), 0, 'Escape never fired a destructive verb (no accept, no cancel)');
         await ensureIdle();
       });
@@ -454,8 +482,10 @@ export const scenarios = [
         const after = await timelineTrialCount(page);
         t.expectEq(after, before + 1, 'double-click accept commits exactly one trial (server idempotent)');
         const toast = await readToast(page);
-        t.expect(!!toast && toast.role === 'status' && /saved to the timeline/.test(toast.text) && /Use it/.test(toast.text),
-          'accept confirmation toast visible with role=status and "saved to the timeline"', { observed: toast });
+        // The Check requires only text containing "saved to the timeline" + a
+        // role=status/aria-live (not a specific verb label).
+        t.expect(!!toast && toast.role === 'status' && /saved to the timeline/.test(toast.text),
+          'accept confirmation toast visible, containing "saved to the timeline", carrying role=status', { observed: toast });
         const banners = await page.evaluate(() => ({
           moveFailed: !!document.querySelector('[data-testid="move-failed-banner"]'),
           errorAlerts: [...document.querySelectorAll('[role="alert"]')]
@@ -756,6 +786,21 @@ export const scenarios = [
         await waitForVerb(page, 'regenerate', 6000);
       };
 
+      // Reset the gate to decide mode between sub-checks. Today the failed
+      // submit auto-returns to decide, but the B4 fix will leave the form OPEN
+      // (that is the whole point) — so each sub-check must resolve back to
+      // decide itself rather than assume the previous one did (mirrors BC-C-18's
+      // explicit Cancel/Escape between sub-forms). Escape blurs a focused field
+      // first, then falls a form mode back to decide; the pending proposal
+      // survives (no verb fires).
+      const toDecide = async () => {
+        for (let i = 0; i < 4; i++) {
+          if (await page.$('button[data-verb="accept"]')) return;
+          await page.keyboard.press('Escape');
+          await sleep(150);
+        }
+      };
+
       // One creative proposal parks at the gate; each fault-aborted submit
       // leaves it pending (the server never processed it), so all three forms
       // exercise the same proposal.
@@ -785,6 +830,7 @@ export const scenarios = [
 
       // Take-over failure.
       await ctx.check('BC-C-21', async (t) => {
+        await toDecide();
         await openDisclosure();
         await clickVerb(page, 'take_over');
         await page.waitForSelector('[data-testid="takeover-form"] textarea', { timeout: 4000 });
@@ -808,6 +854,7 @@ export const scenarios = [
 
       // Tweak failure.
       await ctx.check('BC-C-21', async (t) => {
+        await toDecide();
         await clickVerb(page, 'edit');
         await page.waitForSelector('[data-testid="tweak-form"] input', { timeout: 4000 });
         const TWEAK = 'a tweak value that must survive a failed submit';

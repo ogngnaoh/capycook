@@ -8,16 +8,15 @@
 //
 // Scenarios here (registry.mjs ids):
 //   g/narrow-390       fast · narrow(390×844) — BC-G-5 static surfaces,
-//                      BC-G-8 @390 hit-area sweep, BC-G-14 @390 tab-overlap,
-//                      BC-G-6 judge stills.
+//                      BC-G-8 @390 hit-area sweep, BC-G-14 @390 tab-overlap
+//                      (gate + idle stage + safety hold), BC-G-6 judge stills.
 //   g/narrow-320       fast · reflow(320×800) — BC-G-12 static reflow,
-//                      BC-G-14 @320 tab-overlap.
+//                      BC-G-14 @320 tab-overlap (gate + idle stage + safety hold).
 //   g/narrow-live      live-sim · narrow — BC-G-5 mid-stream clause; a
 //                      BC-G-6 proposing still.
-//   g/narrow-live-320  live-sim · reflow — BC-G-12 mid-stream clause. NOT yet
-//                      referenced by registry.mjs (BC-G-12 still lists
-//                      'g/narrow-live', which is 390px); FLAGGED in the report
-//                      so the lead retargets BC-G-12 → g/narrow-live-320.
+//   g/narrow-live-320  live-sim · reflow — BC-G-12 mid-stream clause. Referenced
+//                      by registry.mjs (BC-G-12 → ['g/narrow-320',
+//                      'g/narrow-live-320']).
 //
 // One viewport per scenario — never resized mid-scenario. Every overflow
 // assertion goes through lib/page.mjs measureOverflow(page).
@@ -129,6 +128,16 @@ const gateLayout = (page) => page.evaluate(() => {
   const main = document.querySelector('main.wb-grid') || document.querySelector('main');
   const cs = gate ? getComputedStyle(gate) : null;
   const gcols = main ? getComputedStyle(main).gridTemplateColumns : null;
+  // Stage-first ordering (CSS `.wb-grid > section { order:-1 }`): the stage
+  // <section> renders above the timeline <aside> even though it is DOM-second.
+  // offsetTop reflects post-order layout and is scroll-independent (both are
+  // direct children of <main>, one offsetParent), so `stage < timeline` proves
+  // the stack order without racing the section's internal scroll.
+  const section = document.querySelector('#stage');
+  const aside = document.querySelector('aside[aria-label="Development timeline"]');
+  const stageTop = section ? section.offsetTop : null;
+  const timelineTop = aside ? aside.offsetTop : null;
+  const stageBeforeTimeline = (section && aside) ? stageTop < timelineTop : null;
   let rect = null, bottomOnScreen = false, rectInViewportX = false;
   if (gate) {
     gate.scrollIntoView({ block: 'end' });
@@ -143,6 +152,7 @@ const gateLayout = (page) => page.evaluate(() => {
     gridTemplateColumns: gcols,
     position: cs ? cs.position : null,
     bottom: cs ? cs.bottom : null,
+    stageBeforeTimeline, stageTop, timelineTop,
     rect, bottomOnScreen, rectInViewportX,
     innerWidth: window.innerWidth, innerHeight: window.innerHeight,
   };
@@ -259,6 +269,25 @@ async function tabOverlapSweep(page, maxStops = 30) {
   return stops;
 }
 
+// One BC-G-14 sub-check: run the Tab-overlap sweep on the surface currently on
+// screen (labelled) and assert no focus stop is majority-hidden by the sticky
+// chrome. The contract reuses BC-G-9's surfaces — gate, idle stage, and safety
+// hold all keep the sticky header (the idle stage and hold have no gate bar),
+// so each is swept at both narrow widths.
+async function tabOverlapCheck(ctx, surface, reached) {
+  const { page } = ctx;
+  await ctx.check('BC-G-14', async (t) => {
+    t.observe('surface', surface);
+    t.expect(reached, `${surface} reached for the Tab sweep`, { observed: reached ? surface : 'never' });
+    if (!reached) return;
+    const stops = await tabOverlapSweep(page, 30);
+    t.observe('stops', stops.map((s) => ({ el: s.desc, oh: s.obscuredByHeader, og: s.obscuredByGate })));
+    t.expect(stops.length > 0, `${surface}: the Tab sweep visited focusable stops`, { observed: stops.length });
+    const bad = stops.filter((s) => s.obscuredByHeader || s.obscuredByGate);
+    t.expect(bad.length === 0, `${surface}: no focus stop is majority-hidden under the sticky header or gate bar`, { observed: bad });
+  }, { name: `tab-${surface}` });
+}
+
 // Sweep the CookFlow trigger + its opened tasting form (BC-G-8 recovery-path
 // surface). The CookFlow markup carries no data-testid, so it is reached by
 // button text within the idle stage.
@@ -329,6 +358,7 @@ export const scenarios = [
         const layout = await gateLayout(page);
         t.observe('gateLayout', layout);
         t.expectEq(layout.columns, 1, 'stage renders a single column at 390');
+        t.expect(layout.stageBeforeTimeline === true, 'single column is stage-first (stage renders above the timeline)', { observed: { stageTop: layout.stageTop, timelineTop: layout.timelineTop } });
         t.expect(layout.position === 'sticky', 'gate #cc-gate is position:sticky', { observed: layout.position });
         t.expectEq(layout.bottom, '0px', 'gate #cc-gate is pinned bottom:0');
         t.expect(layout.rectInViewportX, 'gate sits within the viewport horizontally', { observed: layout.rect });
@@ -344,15 +374,8 @@ export const scenarios = [
       await sweepInto(page, hits, surfaces, 'gate-decide', '[data-testid="gate-bar"]');
       await sweepInto(page, hits, surfaces, 'header', 'header');
 
-      // --- BC-G-14 @390 tab-overlap at the gate -------------------------------
-      await ctx.check('BC-G-14', async (t) => {
-        if (!atGate) { t.expect(false, 'gate reachable for the tab sweep', { observed: 'never' }); return; }
-        const stops = await tabOverlapSweep(page, 30);
-        t.observe('stops', stops.map((s) => ({ el: s.desc, oh: s.obscuredByHeader, og: s.obscuredByGate })));
-        t.expect(stops.length > 0, 'the Tab sweep visited focusable stops', { observed: stops.length });
-        const bad = stops.filter((s) => s.obscuredByHeader || s.obscuredByGate);
-        t.expect(bad.length === 0, 'no focus stop is majority-hidden under the sticky header or gate bar', { observed: bad });
-      }, { name: 'tab-390' });
+      // --- BC-G-14 @390 tab-overlap: gate (both sticky header + gate bar) ------
+      await tabOverlapCheck(ctx, 'gate', atGate);
 
       // --- BC-G-5 at the alternatives-picker ----------------------------------
       const opened = await openAnother(page);
@@ -406,6 +429,9 @@ export const scenarios = [
         await sweepCookFlow(page, hits, surfaces);
       }
 
+      // --- BC-G-14 @390 tab-overlap: idle stage (sticky header, no gate bar) ---
+      await tabOverlapCheck(ctx, 'idle', idle);
+
       // --- BC-G-5 at the safety hold ------------------------------------------
       const hold = idle ? await toSafetyHold(ctx, 'add a slow garlic oil confit left at room temperature') : false;
       await ctx.check('BC-G-5', async (t) => {
@@ -417,6 +443,9 @@ export const scenarios = [
         t.expect(ov.offenders.length === 0, 'no leaf offender at the safety hold', { observed: ov.offenders });
       }, { name: 'safety-hold' });
       if (hold) await sweepInto(page, hits, surfaces, 'safety-hold', '[data-testid="safety-hold"]');
+
+      // --- BC-G-14 @390 tab-overlap: safety hold (sticky header, no gate bar) --
+      await tabOverlapCheck(ctx, 'safety-hold', hold);
 
       // --- BC-G-8 @390: the accumulated hit-area table ------------------------
       await ctx.check('BC-G-8', async (t) => {
@@ -468,19 +497,15 @@ export const scenarios = [
       const idle0 = await page.evaluate(() => [...document.querySelectorAll('#stage button')].some((b) => /^I cooked this/.test(b.textContent.trim())) && !!document.querySelector('#cc-intent'));
       await ctx.check('BC-G-12', reflowCheck('the idle dish-stage', { reached: idle0, label: 'idle dish-stage with intent bar + CookFlow rendered' }), { name: 'idle' });
 
+      // BC-G-14 @320 tab-overlap: idle stage (sticky header, no gate bar)
+      await tabOverlapCheck(ctx, 'idle', idle0);
+
       // gate
       const atGate = await typeIntentToGate(ctx, 'lean it brighter with lemon and fresh herbs');
       await ctx.check('BC-G-12', reflowCheck('the gate', { reached: atGate, label: 'drove the idle intent to a gate' }), { name: 'gate' });
 
-      // BC-G-14 @320 tab-overlap at the gate
-      await ctx.check('BC-G-14', async (t) => {
-        if (!atGate) { t.expect(false, 'gate reachable for the tab sweep', { observed: 'never' }); return; }
-        const stops = await tabOverlapSweep(page, 30);
-        t.observe('stops', stops.map((s) => ({ el: s.desc, oh: s.obscuredByHeader, og: s.obscuredByGate })));
-        t.expect(stops.length > 0, 'the Tab sweep visited focusable stops', { observed: stops.length });
-        const bad = stops.filter((s) => s.obscuredByHeader || s.obscuredByGate);
-        t.expect(bad.length === 0, 'no focus stop is majority-hidden under the sticky header or gate bar at 320', { observed: bad });
-      }, { name: 'tab-320' });
+      // BC-G-14 @320 tab-overlap: gate (both sticky header + gate bar)
+      await tabOverlapCheck(ctx, 'gate', atGate);
 
       // alternatives-picker
       const atAlts = await toAlternatives(ctx);
@@ -497,6 +522,9 @@ export const scenarios = [
       const idle = atGate2 ? await acceptGate(ctx) : false;
       const hold = idle ? await toSafetyHold(ctx, 'add a slow garlic oil confit left at room temperature') : false;
       await ctx.check('BC-G-12', reflowCheck('the safety hold', { reached: hold, label: 'drove a garlic-oil move to the safety hold' }), { name: 'safety-hold' });
+
+      // BC-G-14 @320 tab-overlap: safety hold (sticky header, no gate bar)
+      await tabOverlapCheck(ctx, 'safety-hold', hold);
     },
   },
 
@@ -542,10 +570,9 @@ export const scenarios = [
 
   // ---------------------------------------------------------------------------
   // g/narrow-live-320 (live-sim, reflow): BC-G-12 mid-stream clause at 320px.
-  // ⚠ registry.mjs still maps BC-G-12 → ['g/narrow-320','g/narrow-live'] — the
-  //   latter is 390px, the WRONG width for BC-G-12. FLAGGED in the report: the
-  //   lead should retarget BC-G-12 → ['g/narrow-320','g/narrow-live-320'].
-  //   Until then --only BC-G-12 will NOT resolve this scenario.
+  // registry.mjs maps BC-G-12 → ['g/narrow-320', 'g/narrow-live-320'] — this
+  // scenario carries the live-sim @320 half; g/narrow-320 carries the static
+  // reflow surfaces.
   // ---------------------------------------------------------------------------
   {
     id: 'g/narrow-live-320',

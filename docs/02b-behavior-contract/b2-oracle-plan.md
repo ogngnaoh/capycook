@@ -8,14 +8,16 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
 ## Checklist
 
 1. [x] Slice working doc materialized (this file)
-2. [ ] Stage 0 spine: registry (109 ids) + lib + CLI; `list` verified, parity
+2. [x] Stage 0 spine: registry (109 ids) + lib + CLI; `list` verified, parity
        derivation = contract snapshot (14 ids)
-3. [ ] Stage 1 area A pattern-setter; `--area A` run vs real app (A-3/A-4/A-9/
-       A-12/A-13/A-5 must FAIL — first falsifiability signal)
-4. [ ] Stage 2 Go: budget metering + 4 stub fixtures + tests (review-flagged)
-5. [ ] `.gitignore`: `docs/02b-behavior-contract/evidence/` entry
-6. [ ] Stage 3 fan-out: areas B–I built + self-verified (dedicated ports 8110+)
-7. [ ] Stage 4 fresh-context critic pass clean (findings fixed or logged)
+3. [x] Stage 1 area A pattern-setter; verified vs real app (the 6 marked
+       criteria fail as predicted — first falsifiability signal)
+4. [x] Stage 2 Go: budget metering + 4 stub fixtures + tests (review-flagged)
+5. [x] `.gitignore`: `docs/02b-behavior-contract/evidence/` entry
+6. [x] Stage 3 fan-out: areas B–I built + self-verified (2× stable runs each;
+       6 genuine unmarked defects logged under Pre-census findings)
+7. [ ] Stage 4 fresh-context critic pass clean (findings fixed or logged) — 10
+       critics running
 8. [ ] Stage 5 self-test exit 0 (artifact committed)
 9. [ ] BC-H-4 budget profile demonstrated reachable (move-failed banner)
 10. [ ] Guardrails green: freeze diff empty, suites pass, pin intact, operator DB = 6
@@ -66,6 +68,19 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
 - **Lib wart (workaround in place):** `browser.mjs` re-seeds `capycook-theme`
   on every navigation, so cross-reload persistence checks (BC-G-2) verify as
   write + boot-read halves rather than one journey.
+
+- **BC-C-16 fails today (unmarked, changed-STEP clause):** `StepRow`
+  (`DishCard.tsx:250`) has no changed branch — no struck old value, no
+  sr-only was/now; a changed step renders as a faint tint only (mergeDiff
+  produces `row.old`, StepRow ignores it; no unit test covers it). Related:
+  the sr-only "now:" label is absent even on changed ingredient rows.
+  Surfaced by the critic-demanded `spring clean` fixture — the clause was
+  previously undrivable and would have censused as PASS.
+- **BC-G-14 second offender (unmarked):** the CookFlow "I cooked this →"
+  trigger is obscured under the sticky header at the 390px idle stage — the
+  `order:-1` reflow (`index.css:74`) makes DOM order ≠ visual order and there
+  is no scroll-padding-top, so tabbing scrolls it under the z-100 header.
+  Distinct root cause from the skip-link z-index defect.
 
 ## Decisions (user, 2026-07-11)
 

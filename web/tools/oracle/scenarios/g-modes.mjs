@@ -270,12 +270,16 @@ async function newTrialDish(ctx) {
 }
 
 // Set the active theme. On the workbench the real header toggle is used
-// (system→light→dark cycle, ≤3 clicks); on the seed screen (no toggle) the
-// [data-theme] pin + localStorage are set directly — same CSS environment.
+// (system→light→dark cycle, ≤3 clicks). When there is no usable toggle — the
+// seed screen has none, and an open modal <dialog> renders the header inert —
+// the [data-theme] pin + localStorage are set directly (same CSS environment;
+// the toggle's own behaviour is proven separately by BC-G-2).
 async function setTheme(page, target) {
   const mode = await page.evaluate((tgt) => {
     const btn = [...document.querySelectorAll('button')].find((b) => /^Theme:/.test(b.textContent.trim()));
-    if (!btn) {
+    const modalOpen = !!document.querySelector('dialog[open]');
+    const usable = btn && !(modalOpen && !btn.closest('dialog[open]'));
+    if (!usable) {
       document.documentElement.setAttribute('data-theme', tgt);
       localStorage.setItem('capycook-theme', tgt);
       return 'direct';
@@ -288,6 +292,15 @@ async function setTheme(page, target) {
       if (cur === target) break;
       await clickButton(page, /^Theme:/);
       await sleep(60);
+    }
+    // Safety net — if the cycle did not land the target (e.g. a control went
+    // inert mid-flip), force the pin directly so measurement never runs off-theme.
+    const cur = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+    if (cur !== target) {
+      await page.evaluate((tgt) => {
+        document.documentElement.setAttribute('data-theme', tgt);
+        localStorage.setItem('capycook-theme', tgt);
+      }, target);
     }
   }
   await sleep(60);
@@ -331,6 +344,57 @@ async function tabSweep(page) {
   });
   stops.forEach((s, i) => { s.resting = resting[String(i)] || null; });
   return stops;
+}
+
+// Real Tab presses from a body-focused start until focus lands on the
+// proposing card's Stop control; returns its hit rect + focused/resting focus
+// styles (the live-sim-only surface no fast sweep can reach).
+async function tabToStop(page) {
+  await page.evaluate(() => {
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    window.scrollTo(0, 0);
+  });
+  const visited = [];
+  const seen = new Set();
+  let consecutiveEnd = 0;
+  for (let i = 0; i < 80; i++) {
+    await page.keyboard.press('Tab');
+    const r = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body || el === document.documentElement) return { end: true };
+      const card = el.closest('[data-testid="proposing-card"]');
+      const isStop = el.tagName === 'BUTTON' && /^Stop$/.test((el.textContent || '').trim()) && !!card;
+      const rect = el.getBoundingClientRect();
+      const sig = el.tagName + '|' + (el.id || '') + '|' + (el.textContent || '').trim().slice(0, 16) + '|' + Math.round(rect.left) + ',' + Math.round(rect.top);
+      if (!isStop) return { isStop: false, desc: window.__oracleG.descOf(el), sig, proposing: !!document.querySelector('[data-testid="proposing-card"]') };
+      el.setAttribute('data-oracle-stop', 'stop');
+      return { isStop: true, desc: window.__oracleG.descOf(el), focused: window.__oracleG.stopInfo(el),
+        w: Math.round(rect.width * 10) / 10, h: Math.round(rect.height * 10) / 10 };
+    });
+    if (r.end) {
+      // A stale focus-navigation starting point can eat the first Tab; nudge a
+      // few times before concluding, but a genuine wrap past the end still ends.
+      consecutiveEnd++;
+      if (visited.length > 0 || consecutiveEnd >= 4) break;
+      continue;
+    }
+    consecutiveEnd = 0;
+    if (r.isStop) {
+      const resting = await page.evaluate(() => {
+        const el = document.querySelector('[data-oracle-stop="stop"]');
+        if (!el) return null;
+        if (el.blur) el.blur();
+        const info = window.__oracleG.stopInfo(el);
+        el.removeAttribute('data-oracle-stop');
+        return info;
+      });
+      return { reached: true, desc: r.desc, focused: r.focused, resting, w: r.w, h: r.h };
+    }
+    visited.push(r.desc);
+    if (seen.has(r.sig)) break; // cycled without finding Stop
+    seen.add(r.sig);
+  }
+  return { reached: false, visited: visited.slice(0, 20), proposingPresent: await page.evaluate(() => !!document.querySelector('[data-testid="proposing-card"]')) };
 }
 
 const walkText = async (page, screen, theme, M) => {
@@ -636,8 +700,16 @@ export const scenarios = [
         let measured = 0;
         for (const k of Object.keys(M.tab)) {
           for (const s of M.tab[k]) {
+            // A stop with NO focus indicator is BC-G-9's concern, not G-11's.
+            if (!s.focused.hasIndicator) continue;
             const rc = s.focused.ringContrast;
-            if (rc === null || rc === undefined) continue;
+            // An indicator that IS present but whose colour can't be resolved
+            // (transparent outline, unparsed shadow) must FAIL here, never be
+            // silently skipped (critic m2).
+            if (rc === null || rc === undefined) {
+              weak.push({ where: k, desc: s.desc, ringContrast: null, reason: 'ring colour unresolved', focused: s.focused });
+              continue;
+            }
             measured++;
             if (rc + 0.02 < 3) weak.push({ where: k, desc: s.desc, ringContrast: rc, ringColor: s.focused.ringColor, adjacentBg: s.focused.adjacentBg });
           }
@@ -651,8 +723,15 @@ export const scenarios = [
       // [LIKELY FAILS TODAY — the --color-faint pairs measure ~2.7–4.0:1].
       await ctx.check('BC-G-10', async (t) => {
         t.observe('screensWalked', M.textScreens);
+        t.observe('reached', M.reached);
         t.expect(M.textScreens.some((s) => s.count > 0), 'text nodes were walked', { observed: M.textScreens.length });
-        t.expect(M.reached.seed && M.reached.idle && M.reached.gate && M.reached['safety-hold'], 'core screens walked in both themes', { observed: M.reached });
+        // The contract enumerates the walked surfaces including the critical
+        // banner + override-prompt; require them reached so a failure-swallowing
+        // guard can never green a run that skipped the highest-stakes pairs.
+        const required = ['seed', 'idle', 'gate', 'safety-hold', 'action-error', 'override'];
+        const missing = required.filter((s) => !M.reached[s]);
+        t.expectEq(missing.length, 0, `all enumerated G-10 surfaces walked (missing: ${missing.join(',') || 'none'})`);
+        t.expect(M.textScreens.some((s) => s.screen === 'cookflow' && s.theme === 'dark'), 'CookFlow caption walked in dark too', { observed: M.textScreens.filter((s) => s.screen === 'cookflow') });
         // Rank worst offenders for the evidence table.
         const sorted = [...M.text].sort((a, b) => a.ratio - b.ratio);
         t.attach('contrast-failures', sorted.slice(0, 40));
@@ -688,7 +767,10 @@ export const scenarios = [
 
   // =========================================================================
   // g/reduced-motion (live-sim, reducedMotion): motion stilled, alive-signal
-  // survives. BC-G-4 + BC-G-3 proposing stills.
+  // survives — AND the live-sim-only Stop control's hit/focus/ring (BC-G-8/9/11
+  // sub-checks), measurable only here where the proposing state persists for
+  // the ~25s latency. BC-G-4 + BC-G-3 proposing stills. NB: no transition
+  // disable here — the motion clause must read the app's own reduced-motion CSS.
   // =========================================================================
   {
     id: 'g/reduced-motion',
@@ -696,9 +778,11 @@ export const scenarios = [
     viewport: 'desktop',
     theme: 'light',
     reducedMotion: true,
-    criteria: ['BC-G-4', 'BC-G-3'],
+    criteria: ['BC-G-4', 'BC-G-3', 'BC-G-8', 'BC-G-9', 'BC-G-11'],
     run: async (ctx) => {
       const { page, base, net } = ctx;
+      await page.evaluateOnNewDocument(CONTRAST_SRC);
+      await page.evaluateOnNewDocument(G_BUNDLE);
       // A tiny renderer-side observer stamps when the streamed rationale <p>
       // first carries text (measured from move dispatch, not doc load).
       await page.evaluateOnNewDocument(() => {
@@ -722,59 +806,117 @@ export const scenarios = [
       // A-3 fails today (opens idle) — drive the first pass manually.
       const idle = await page.waitForSelector('#cc-intent', { timeout: 8000 }).then(() => true).catch(() => false);
 
-      await ctx.check('BC-G-4', async (t) => {
-        if (!idle) {
-          t.expect(false, 'idle intent bar reached to dispatch a move', { observed: 'never' });
-          return;
-        }
+      // Dispatch the first pass ONCE; the proposing state (and its Stop control)
+      // persists on screen for the ~25s stub latency window.
+      let proposing = false;
+      let mark = net.mark();
+      let motion = null;
+      if (idle) {
         await page.type('#cc-intent', 'lean the whole dish toward smoke and citrus');
-        const mark = net.mark();
-        // Reset the t0 baseline to the dispatch instant.
+        mark = net.mark();
         await page.evaluate(() => { window.__g4.t0 = performance.now(); window.__g4.firstTextT = null; });
         await clickButton(page, /^Try it/i);
-        const appeared = await page.waitForSelector('[data-testid="proposing-card"]', { timeout: ctx.genTimeout }).then(() => true).catch(() => false);
-        t.expect(appeared, 'proposing surface appeared', { observed: appeared });
+        proposing = await page.waitForSelector('[data-testid="proposing-card"]', { timeout: ctx.genTimeout }).then(() => true).catch(() => false);
+        // Measure motion + the light proposing still IMMEDIATELY — before the
+        // Stop sweep spends seconds — so both are captured well inside the 25s
+        // window even under machine load (timing-safety, not a behaviour change).
+        if (proposing) {
+          motion = await page.evaluate(() => {
+            const dur = (el) => {
+              if (!el) return null;
+              const cs = getComputedStyle(el);
+              const toS = (v) => Math.max(...String(v).split(',').map((x) => {
+                x = x.trim();
+                return x.endsWith('ms') ? parseFloat(x) / 1000 : parseFloat(x) || 0;
+              }));
+              return { animation: toS(cs.animationDuration), transition: toS(cs.transitionDuration) };
+            };
+            return {
+              card: dur(document.querySelector('[data-testid="proposing-card"]')),
+              spinner: dur(document.querySelector('[data-testid="proposing-spinner"]')),
+              caret: dur(document.querySelector('[data-testid="proposing-caret"]')),
+            };
+          });
+          await ctx.judgeStill('BC-G-3', 'proposing-light');
+        }
+      }
+
+      // Measure the Stop control in BOTH themes while proposing is on screen.
+      // Pin the theme DIRECTLY (not via the toggle) — clicking the toggle
+      // re-mounts a focused button mid-generation, leaving a stale
+      // focus-navigation starting point that eats the next real Tab. Real Tab
+      // (not .focus()) is still used to LAND on the Stop so :focus-visible fires.
+      const pinTheme = (t) => page.evaluate((th) => {
+        document.documentElement.setAttribute('data-theme', th);
+        localStorage.setItem('capycook-theme', th);
+      }, t);
+      const stopMeas = {};
+      if (proposing) {
+        for (const theme of THEMES) {
+          await pinTheme(theme);
+          await sleep(80);
+          stopMeas[theme] = await tabToStop(page);
+        }
+        await pinTheme('light');
+        await sleep(60);
+      }
+
+      // ---- BC-G-8 (live-sim half): Stop control ≥24×24 ----
+      await ctx.check('BC-G-8', async (t) => {
+        t.expect(proposing, 'proposing state reached (Stop control present)', { observed: proposing });
+        const s = stopMeas.light;
+        t.expect(!!(s && s.reached), 'Stop control reached by real Tab', { observed: s });
+        if (s && s.reached) t.expect(s.w >= 24 && s.h >= 24, `Stop control ≥24×24 (${s.w}×${s.h})`, { observed: s });
+      }, { name: 'stop-live' });
+
+      // ---- BC-G-9 (live-sim half): Stop focus indicator, both themes ----
+      await ctx.check('BC-G-9', async (t) => {
+        t.attach('stop-focus', stopMeas);
+        for (const theme of THEMES) {
+          const s = stopMeas[theme];
+          const reached = !!(s && s.reached);
+          t.expect(reached, `Stop reachable by real Tab (${theme})`, { observed: s });
+          if (!reached) continue;
+          const f = s.focused, r = s.resting || {};
+          const distinct = f.hasIndicator && (f.outlineWidth !== r.outlineWidth || f.outlineStyle !== r.outlineStyle || f.boxShadow !== r.boxShadow);
+          t.expect(distinct, `Stop focus indicator distinct from resting (${theme})`, { observed: { focused: f, resting: r } });
+        }
+      }, { name: 'stop-live' });
+
+      // ---- BC-G-11 (live-sim half): Stop focus ring ≥3:1, both themes ----
+      await ctx.check('BC-G-11', async (t) => {
+        for (const theme of THEMES) {
+          const s = stopMeas[theme];
+          if (!(s && s.reached)) { t.expect(false, `Stop reached to measure the ring (${theme})`, { observed: s }); continue; }
+          const rc = s.focused.ringContrast;
+          t.expect(rc !== null && rc !== undefined && rc + 0.02 >= 3, `Stop focus ring ≥3:1 vs adjacent bg (${theme}, ${rc})`, { observed: s.focused });
+        }
+      }, { name: 'stop-live' });
+
+      // ---- BC-G-4: motion stilled + alive-signal + BC-G-3 proposing stills ----
+      await ctx.check('BC-G-4', async (t) => {
+        t.expect(proposing, 'proposing surface appeared', { observed: proposing });
         t.expectEq(net.count({ method: 'POST', pathRe: MOVE_RE, since: mark }), 1, 'exactly one move dispatched');
+        if (!proposing) return;
 
         // Motion clause: computed animation/transition durations ~0s on the
-        // proposing surface (reduced-motion zeros them to 0.01ms).
-        const motion = await page.evaluate(() => {
-          const dur = (el) => {
-            if (!el) return null;
-            const cs = getComputedStyle(el);
-            const toS = (v) => Math.max(...String(v).split(',').map((x) => {
-              x = x.trim();
-              return x.endsWith('ms') ? parseFloat(x) / 1000 : parseFloat(x) || 0;
-            }));
-            return { animation: toS(cs.animationDuration), transition: toS(cs.transitionDuration) };
-          };
-          return {
-            card: dur(document.querySelector('[data-testid="proposing-card"]')),
-            spinner: dur(document.querySelector('[data-testid="proposing-spinner"]')),
-            caret: dur(document.querySelector('[data-testid="proposing-caret"]')),
-          };
-        });
+        // proposing surface (reduced-motion zeros them to 0.01ms). Captured at
+        // dispatch (above) to stay inside the 25s window.
         t.observe('motion', motion);
         const stilled = (m) => m && m.animation <= 0.01 && m.transition <= 0.01;
-        t.expect(stilled(motion.spinner), 'spinner animation stilled (~0s)', { observed: motion.spinner });
-        t.expect(stilled(motion.caret), 'caret animation stilled (~0s)', { observed: motion.caret });
-        t.expect(stilled(motion.card), 'proposing card rise animation stilled (~0s)', { observed: motion.card });
+        t.expect(stilled(motion && motion.spinner), 'spinner animation stilled (~0s)', { observed: motion && motion.spinner });
+        t.expect(stilled(motion && motion.caret), 'caret animation stilled (~0s)', { observed: motion && motion.caret });
+        t.expect(stilled(motion && motion.card), 'proposing card rise animation stilled (~0s)', { observed: motion && motion.card });
 
-        // Capture BC-G-3 proposing stills mid-wait (light, then dark).
-        await ctx.judgeStill('BC-G-3', 'proposing-light');
-        await clickButton(page, /^Theme:/).catch(() => {});
-        await sleep(200);
-        // ensure dark (system→light→dark cycle from light pin lands on dark in ≤2)
-        for (let i = 0; i < 3 && (await page.evaluate(() => document.documentElement.getAttribute('data-theme'))) !== 'dark'; i++) {
-          await clickButton(page, /^Theme:/).catch(() => {});
-          await sleep(120);
-        }
+        // Capture the dark BC-G-3 proposing still (light was captured at
+        // dispatch); if the proposal already landed, the still just shows the
+        // gate — legibility-judged either way. Direct pin (no click) keeps the
+        // proposing surface undisturbed.
+        await pinTheme('dark');
+        await sleep(80);
         await ctx.judgeStill('BC-G-3', 'proposing-dark');
-        // Back to light so the alive-signal poll reads the same surface.
-        for (let i = 0; i < 3 && (await page.evaluate(() => document.documentElement.getAttribute('data-theme'))) !== 'light'; i++) {
-          await clickButton(page, /^Theme:/).catch(() => {});
-          await sleep(120);
-        }
+        await pinTheme('light');
+        await sleep(60);
 
         // Alive-signal clause: rationale text appears at t ≤ 20s (renderer
         // clock). [B-3 FAILS TODAY — text streams AFTER generation, so this
@@ -881,11 +1023,17 @@ async function runJourney(ctx, dishId, M) {
       await page.evaluate(() => { const sw = document.querySelector('[role="switch"]'); if (sw && sw.getAttribute('aria-checked') !== 'true') sw.click(); });
     }
     await setTheme(page, 'light');
-    // CookFlow tasting form open (hit areas + focus in one theme).
+    // CookFlow tasting form open — walk + Tab-sweep in BOTH themes (M2: the
+    // form's #cc-tasting-notes + Rework/Cancel controls join the sweep).
     await guard('cookflow', async () => {
       await clickButton(page, /^I cooked this/i);
       await page.waitForSelector('#cc-tasting-notes', { timeout: 4000 });
-      await walkText(page, 'cookflow', 'light', M);
+      for (const theme of THEMES) {
+        await setTheme(page, theme);
+        await walkText(page, 'cookflow', theme, M);
+        await sweep(page, 'cookflow', theme, M);
+      }
+      await setTheme(page, 'light');
       await measureHit(page, 'cookflow', null, M);
       await clickButton(page, /^Cancel$/i).catch(() => {});
     });
@@ -904,6 +1052,7 @@ async function runJourney(ctx, dishId, M) {
       for (const theme of THEMES) {
         await setTheme(page, theme);
         await walkText(page, 'action-error', theme, M);
+        await sweep(page, 'action-error', theme, M); // M2: the banner's Dismiss control joins the sweep
       }
       await setTheme(page, 'light');
       await measureHit(page, 'action-error', 'div[role="alert"]', M);
@@ -935,10 +1084,10 @@ async function runJourney(ctx, dishId, M) {
       for (const theme of THEMES) {
         await setTheme(page, theme);
         await walkText(page, 'alternatives', theme, M);
+        await sweep(page, 'alternatives', theme, M); // M2: both themes
       }
       await setTheme(page, 'light');
       await measureHit(page, 'alternatives', '[data-testid="alternatives-picker"]', M);
-      await sweep(page, 'alternatives', 'light', M);
     });
   });
 
@@ -957,13 +1106,16 @@ async function runJourney(ctx, dishId, M) {
     await setValue(page, '[data-testid="takeover-form"] textarea', JSON.stringify(draft));
     await clickButton(page, /^Save draft/i);
     await page.waitForSelector('[data-testid="override-prompt"]', { timeout: ctx.genTimeout });
+    // The override is a modal <dialog> (showModal): focus is trapped to its two
+    // buttons, so the sweep reaches exactly them; setTheme direct-pins because
+    // the header toggle is inert under the modal (M2: both themes).
     for (const theme of THEMES) {
       await setTheme(page, theme);
       await walkText(page, 'override', theme, M);
+      await sweep(page, 'override', theme, M);
     }
     await setTheme(page, 'light');
     await measureHit(page, 'override', '[data-testid="override-prompt"]', M);
-    await sweep(page, 'override', 'light', M);
     await page.keyboard.press('Escape').catch(() => {});
     await sleep(120);
   });
@@ -989,6 +1141,6 @@ async function runJourney(ctx, dishId, M) {
   });
 
   // ---- Explicit swept/skipped ledger (never a silent skip) ----
-  M.notes.push('Stop control (proposing card) is a live-sim-only surface, absent in the fast g/desktop-modes profile; its focus/hit/contrast is a live-sim concern — the proposing surface is captured in g/reduced-motion.');
+  M.notes.push('Stop control (proposing card) is a live-sim-only surface, absent in the fast g/desktop-modes profile; its hit area (BC-G-8), focus indicator (BC-G-9) and focus-ring contrast (BC-G-11) are measured in g/reduced-motion, where the proposing state persists for the ~25s latency window (stop-live sub-checks, both themes).');
   M.notes.push('move-failed-banner is the budget/SSE surface (h/budget, BC-H-4) and reconnect-banner the SSE-drop surface (h/sse-drop, BC-H-2); neither renders in the fast profile. The action-error critical banner (bg-critical-surface/text-critical) is swept here in its place for the highest-stakes text pair.');
 }
