@@ -120,6 +120,10 @@ export class ScenarioChecks {
   finalize() {
     for (const id of this.scenario.criteria) {
       if (this.evaluated.has(id)) continue;
+      // Judge criteria are satisfied by captured evidence (judgeStill /
+      // sampleScreencast), not by check() calls — their report rows come
+      // from the judge manifest.
+      if (byId.get(id)?.tag === 'judge') continue;
       this.rows.push({
         id, subCheck: 'main', scenario: this.scenario.id, profile: this.profile,
         pass: false,

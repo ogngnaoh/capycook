@@ -22,6 +22,16 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
 11. [ ] B3 census: full run + judge merge → report posted to user
 12. [ ] Ship ritual: milestone.md, handoff.md rewrite, log.md — same commit
 
+## Pre-census findings (unexpected fails, investigated during B2 build)
+
+- **BC-A-14 fails today (unmarked):** "Try next —" chips never render under
+  instant generation. `setSuggestedNext` lives only in the SSE proposal-ready
+  handler gated on `expectedMove.current` (`Workbench.tsx:151`); in fast mode
+  the event can arrive before the POST response assigns the expected move id,
+  and the resync/GET recovery path never populates suggestions. Reproduced
+  deterministically in oracle runs 001/002; all other area-A fails match the
+  contract's FAILS-TODAY markers exactly.
+
 ## Decisions (user, 2026-07-11)
 
 - B2 + B3 land directly on `measure-run`; B4 branches off later.
