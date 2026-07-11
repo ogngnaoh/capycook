@@ -15,16 +15,30 @@
 // The seed CONSTRAINTS declare peanuts + crustacean shellfish, so the peanut
 // move blocks. "skip the raw garlic-in-oil step" carries NO trigger keyword
 // ("garlic-in-oil" ≠ the "garlic oil" substring) so the safer steer recovers.
+//
+// [post-critic revision] BC-C-26's disclaimer probe now enforces the
+// contract's *Visible* definition (rendered, real size, not display/
+// visibility/opacity-hidden, not shifted fully off-screen) — attribute-only
+// or CSS-hidden text no longer counts — and exercises the "one-interaction-
+// reachable" alternative. BC-C-7's focus clause asserts the pre-armed render
+// moment (container OR heading); the struck-list uses computed line-through
+// on any element, ≥1 (not exact-count), with a content match to the blocked
+// ops; the section label accepts "or equivalent"; reason matches run against
+// the hold's full text (no first-<p> coupling). BC-C-28 confirms no-commit
+// with a bounded poll and a fixed-position-safe alert-visibility test.
 import {
   sleep, clickButton, waitForVerb, setValue, SEED_TEXT,
   GARLIC_OIL_STEP, GARLIC_INGREDIENT,
 } from '../lib/page.mjs';
 import { CONSTRAINTS } from '../lib/api.mjs';
 
-// Disclaimer language a "backstop, not a guarantee" surface would carry —
-// BC-C-26. Scanned over visible text + aria-label/title so a CSS-hidden or
-// attribute-only disclaimer would still count.
+// Disclaimer language a "backstop, not a guarantee" surface would carry — BC-C-26.
 const DISCLAIMER_RE = /backstop|not a guarantee|no guarantee|does not guarantee|isn'?t a guarantee|not a substitute|does not replace|no substitute for|not a replacement/i;
+// Affordances that could reveal a disclaimer in one interaction (M-4).
+const REVEAL_RE = /disclaimer|backstop|guarantee|safety (info|note|notice|limit)|about (the )?safety|safety gate|limits of safety|learn more about safety/i;
+// A well-formed op line carries a change verb — used to reject garbage struck text.
+const OP_LINE_RE = /(added|changed|removed|remove|add|replace)/i;
+const HAPPENED = { add: 'added', replace: 'changed', remove: 'removed' };
 
 export const scenarios = [
   {
@@ -55,6 +69,16 @@ export const scenarios = [
         }
         return false;
       };
+      // Confirm the version count never leaves `expected` over a bounded window
+      // — a delayed silent commit would push it off (BC-C-28 no-commit, m-1).
+      const stayedAt = async (dishId, expected, windowMs = 1400) => {
+        const start = Date.now();
+        while (Date.now() - start < windowMs) {
+          if ((await versionCount(dishId)) !== expected) return false;
+          await sleep(150);
+        }
+        return true;
+      };
       // Drive a free-text intent to a parked proposal at the gate (safe steer).
       const driveToGate = async (dishId, intent) => {
         await gotoDish(dishId);
@@ -74,7 +98,7 @@ export const scenarios = [
         await clickButton(page, /^Try it/i);
         const seen = await page.waitForSelector('[data-testid="safety-hold"]', { timeout: ctx.genTimeout })
           .then(() => true).catch(() => false);
-        await sleep(220); // let SafetyHold's mount-focus useEffect run
+        await sleep(220); // let the hold's content settle for the DOM reads
         return seen;
       };
 
@@ -83,39 +107,111 @@ export const scenarios = [
         if (!hold) return { present: false };
         const active = document.activeElement;
         const verbBtns = [...hold.querySelectorAll('[data-verb]')];
-        const struck = [...hold.querySelectorAll('div')]
-          .filter((d) => /line-through/.test(d.className) && (d.textContent || '').trim().length > 0)
-          .map((d) => d.textContent.trim());
-        const reasonEl = hold.querySelector('p');
+        // Struck-through would-have-added lines: ANY element whose COMPUTED
+        // text-decoration is line-through, carrying its own non-empty text, and
+        // with no struck descendant (leaf carriers only — never a literal
+        // className match, per M-2).
+        const struckEls = [...hold.querySelectorAll('*')].filter((el) => {
+          const cs = getComputedStyle(el);
+          const line = `${cs.textDecorationLine || ''} ${cs.textDecoration || ''}`;
+          if (!/line-through/.test(line)) return false;
+          if (!(el.textContent || '').trim()) return false;
+          return ![...el.querySelectorAll('*')].some((d) => /line-through/.test(getComputedStyle(d).textDecorationLine || ''));
+        });
+        const struck = struckEls.map((el) => (el.textContent || '').trim());
+        const paras = [...hold.querySelectorAll('p')].map((p) => (p.textContent || '').trim()).filter((t) => t.length > 0);
+        // Accessible section label: an element (not aria-hidden, no aria-hidden
+        // ancestor inside the hold) whose own text names the would-have-added
+        // section — "What it would have added" OR an equivalent (M-3).
+        const LABEL_RE = /what (it|this) would have added|would have added|would have been added|blocked addition|held (change|addition)|changes .*blocked|would have (added|changed|removed)/i;
+        const notAriaHidden = (el) => {
+          let n = el;
+          while (n && n !== hold.parentElement) {
+            if (n.getAttribute && n.getAttribute('aria-hidden') === 'true') return false;
+            n = n.parentElement;
+          }
+          return true;
+        };
+        let sectionLabelText = null;
+        for (const el of hold.querySelectorAll('*')) {
+          let own = '';
+          for (const nd of el.childNodes) if (nd.nodeType === 3) own += nd.textContent;
+          if (LABEL_RE.test(own) && notAriaHidden(el)) { sectionLabelText = own.trim(); break; }
+        }
         return {
           present: true,
           role: hold.getAttribute('role'),
-          reason: reasonEl ? reasonEl.textContent.trim() : '',
+          bodyText: (hold.textContent || '').trim(),
+          reasonPresent: paras.length > 0,
+          reasonSample: paras[0] ? paras[0].slice(0, 180) : '',
           verbs: verbBtns.map((b) => b.getAttribute('data-verb')).sort(),
           verbTexts: verbBtns.map((b) => b.textContent.trim()),
           struck,
-          sectionLabel: /What it would have added/i.test(hold.textContent || ''),
-          activeTestid: active && active.getAttribute ? active.getAttribute('data-testid') : null,
-          activeIsBody: active === document.body,
-          activeConnected: active ? active.isConnected : false,
+          sectionLabelText,
+          active: {
+            tag: active && active.tagName ? active.tagName.toLowerCase() : null,
+            testid: active && active.getAttribute ? active.getAttribute('data-testid') : null,
+            text: active ? (active.textContent || '').trim().slice(0, 60) : '',
+            isBody: active === document.body,
+            isConnected: active ? active.isConnected : false,
+          },
         };
       });
 
-      const disclaimerPresent = () => page.evaluate((src, flags) => {
+      // A disclaimer counts only if it is actually RENDERED and legible — the
+      // contract's *Visible* definition. Rejects display/visibility/opacity
+      // hidden, 1px sr-only clips, and elements shifted fully off-screen;
+      // a below-the-fold footer (reachable by scroll) still counts (C-1).
+      const visibleDisclaimer = () => page.evaluate((src, flags) => {
         const rx = new RegExp(src, flags);
-        const bodyText = (document.body && (document.body.innerText || document.body.textContent)) || '';
-        const attrs = [];
-        document.querySelectorAll('[aria-label],[title]').forEach((el) => {
-          attrs.push(el.getAttribute('aria-label') || '', el.getAttribute('title') || '');
-        });
-        const joined = `${bodyText} ${attrs.join(' ')}`;
-        const m = joined.match(rx);
-        return { present: !!m, sample: m ? joined.slice(Math.max(0, m.index - 30), m.index + 50) : null };
+        const isVisible = (el) => {
+          const cs = window.getComputedStyle(el);
+          if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse') return false;
+          if (parseFloat(cs.opacity || '1') === 0) return false;
+          const r = el.getBoundingClientRect();
+          if (r.width <= 1 || r.height <= 1) return false;
+          if (r.left <= -r.width || r.top <= -r.height) return false; // shifted fully off-screen
+          return true;
+        };
+        // innerText already excludes display:none / visibility:hidden text.
+        const matching = [...document.querySelectorAll('body *')].filter((el) => rx.test(el.innerText || ''));
+        const carriers = matching.filter((el) => !matching.some((o) => o !== el && el.contains(o)));
+        for (const el of carriers) {
+          if (isVisible(el)) return { present: true, sample: (el.innerText || '').trim().slice(0, 90) };
+        }
+        return { present: false, sample: null };
       }, DISCLAIMER_RE.source, DISCLAIMER_RE.flags);
 
+      // One-interaction reveal: click a non-verb affordance that names a safety
+      // disclaimer, if any exists. Returns the affordance text clicked, or null.
+      const tryRevealDisclaimer = () => page.evaluate((src, flags) => {
+        const rx = new RegExp(src, flags);
+        const cands = [...document.querySelectorAll('button, [role="button"], a[href^="#"]')]
+          .filter((el) => !el.hasAttribute('data-verb'))
+          .filter((el) => rx.test(`${el.textContent || ''} ${el.getAttribute('aria-label') || ''} ${el.getAttribute('title') || ''}`));
+        if (!cands.length) return null;
+        const label = (cands[0].textContent || cands[0].getAttribute('aria-label') || '').trim().slice(0, 40);
+        cands[0].click();
+        return label || '(affordance)';
+      }, REVEAL_RE.source, REVEAL_RE.flags);
+
+      // Idle-or-hold disclaimer verdict: visible now, else revealed by one
+      // interaction, else absent.
+      const disclaimerReachable = async () => {
+        let r = await visibleDisclaimer();
+        if (r.present) return { present: true, via: 'visible', sample: r.sample };
+        const revealed = await tryRevealDisclaimer();
+        if (revealed) {
+          await sleep(250);
+          r = await visibleDisclaimer();
+          if (r.present) return { present: true, via: `revealed via "${revealed}"`, sample: r.sample };
+          return { present: false, via: `no disclaimer after clicking "${revealed}"`, sample: null };
+        }
+        return { present: false, via: 'no visible disclaimer and no reveal affordance', sample: null };
+      };
+
       // Open the take-over form from a gate (via the "Try another way"
-      // disclosure), building a draft = current draft + the seeded garlic-oil
-      // op that trips the safety gate.
+      // disclosure).
       const openTakeover = async () => {
         await page.evaluate(() => {
           const btn = [...document.querySelectorAll('#cc-gate button')].find((b) => /Try another way/i.test(b.textContent));
@@ -161,10 +257,16 @@ export const scenarios = [
         if (!btn) throw new Error(`no override button matching ${src}`);
         btn.click();
       }, re.source, re.flags);
+      // Visible role="alert" text — geometry-based so a position:fixed banner
+      // (offsetParent === null yet on screen) is not misclassified as hidden (M-5).
       const visibleAlertTexts = () => page.evaluate(() =>
-        [...document.querySelectorAll('[role="alert"]')]
-          .filter((a) => a.offsetParent !== null && (a.textContent || '').trim().length > 0)
-          .map((a) => a.textContent.trim().slice(0, 120)));
+        [...document.querySelectorAll('[role="alert"]')].filter((a) => {
+          const cs = getComputedStyle(a);
+          if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity || '1') === 0) return false;
+          const r = a.getBoundingClientRect();
+          if (r.width <= 1 || r.height <= 1) return false;
+          return (a.textContent || '').trim().length > 0;
+        }).map((a) => a.textContent.trim().slice(0, 120)));
 
       // =======================================================================
       // Dish A: the anaerobic garlic-oil journey — hold (C-7), disclaimer on
@@ -176,10 +278,10 @@ export const scenarios = [
 
       // BC-C-26 — the disclaimer on the idle workbench. [LIKELY FAILS TODAY]
       await ctx.check('BC-C-26', async (t) => {
-        const r = await disclaimerPresent();
+        const r = await disclaimerReachable();
         t.expect(r.present,
-          'a backstop/not-a-guarantee safety disclaimer is present (or one-interaction-reachable) on the idle workbench',
-          { observed: r.present ? r.sample : 'absent — no backstop/not-a-guarantee language in the DOM' });
+          'a visible OR one-interaction-reachable backstop/not-a-guarantee disclaimer is present on the idle workbench',
+          { observed: r.present ? `${r.via}: ${r.sample}` : `absent — ${r.via}` });
       }, { name: 'idle' });
 
       await page.waitForSelector('#cc-intent', { timeout: 8000 });
@@ -196,37 +298,56 @@ export const scenarios = [
         const h = await readHold();
         if (!h.present) { t.expect(false, 'hold present for assertions', { observed: 'never' }); return; }
         t.expectEq(h.role, 'alert', 'hold carries role="alert"');
-        t.expect(h.reason.length > 0 && /botulinum|garlic|oil|anaerobic/i.test(h.reason),
-          'the anaerobic reason is shown', { observed: h.reason.slice(0, 140) });
+        t.expect(h.reasonPresent, 'a safety reason paragraph is shown', { observed: h.reasonSample });
+        t.expect(/botulinum|garlic|oil|anaerobic/i.test(h.bodyText),
+          'the anaerobic reason is present in the hold text', { observed: h.reasonSample });
         t.expectEq(h.verbs.length, 2, 'exactly two data-verb recovery buttons on the hold');
         t.expectEq(h.verbs.join(','), 'redirect,regenerate', 'the two verbs are regenerate + redirect');
         const verbBlob = h.verbTexts.join(' | ');
         t.expect(/Try a different way/i.test(verbBlob) && /Ask for a safer change/i.test(verbBlob),
           'verb labels are "Try a different way" and "Ask for a safer change"', { observed: h.verbTexts });
-        // Struck would-have-added lines match the blocked ops, under an
-        // accessible section label exposed as text (not CSS-only).
+
+        // Struck would-have-added lines: ≥1, real op-line shape, content-matched
+        // to at least one actual blocked op — only "whenever the proposal
+        // carried ops" (M-2).
         const d = await api('GET', `/api/dishes/${dishA}`);
         const blockedOps = (d.blocked && d.blocked.ops) || [];
-        t.expect(blockedOps.length >= 1, 'the blocked proposal carried ops', { observed: blockedOps.length });
-        t.expect(h.struck.length >= 1, 'at least one struck-through would-have-added op line', { observed: h.struck });
-        t.expectEq(h.struck.length, blockedOps.length, 'struck lines match the blocked op count (each op rendered)');
-        t.expect(h.sectionLabel, 'accessible "What it would have added" section label exposed as text in the a11y tree',
-          { observed: h.sectionLabel });
-        // Focus lands on the hold container when it first renders.
-        t.expect(h.activeTestid === 'safety-hold', 'activeElement is the hold container when the hold first renders',
-          { observed: { testid: h.activeTestid, isBody: h.activeIsBody } });
-        t.expect(!h.activeIsBody && h.activeConnected, 'focus is attached and not document.body');
+        if (blockedOps.length > 0) {
+          t.expect(h.struck.length >= 1, 'at least one struck-through would-have-added op line', { observed: h.struck });
+          t.expect(h.struck.length > 0 && h.struck.every((s) => OP_LINE_RE.test(s)),
+            'struck lines read as op lines (carry a change verb), not arbitrary text', { observed: h.struck });
+          const wanted = [...new Set(blockedOps.map((o) => HAPPENED[o.op]).filter(Boolean))];
+          t.expect(wanted.some((w) => h.struck.some((s) => new RegExp(w, 'i').test(s))),
+            'at least one struck line matches a blocked op (its change type is rendered)',
+            { observed: { struck: h.struck, wanted } });
+          t.observe('struckVsOps', { struckCount: h.struck.length, opCount: blockedOps.length });
+        } else {
+          t.observe('blockedOps', 'none — struck-line clause not applicable (no ops on the proposal)');
+        }
+
+        t.expect(!!h.sectionLabelText && h.sectionLabelText.length > 0,
+          'accessible section label ("What it would have added" or equivalent) exposed as text in the a11y tree',
+          { observed: h.sectionLabelText });
+
+        // Focus lands on the hold container OR its heading when it first
+        // renders — asserted on the pre-armed render moment, not a settle read (M-1).
         const inst = await ctx.readInstrument();
         const moment = inst && inst.moments.find((m) => m.name === 'garlic-hold');
-        t.observe('armedMoment', moment ? moment.active : 'not-captured');
+        t.expect(!!moment, 'the hold-render focus moment was captured by the instrument', { observed: moment ? 'captured' : 'missed' });
+        if (moment) {
+          const a = moment.active;
+          const onHoldOrHeading = a.testid === 'safety-hold' || /^h[1-6]$/.test(a.tag || '') || /safety hold/i.test(a.text || '');
+          t.expect(onHoldOrHeading && !a.isBody && a.isConnected,
+            'at the render instant focus is on the hold container or its heading (not document.body)', { observed: a });
+        }
       }, { name: 'main' });
 
       // BC-C-26 — the disclaimer reachable on the safety hold. [LIKELY FAILS]
       await ctx.check('BC-C-26', async (t) => {
-        const r = await disclaimerPresent();
+        const r = await disclaimerReachable();
         t.expect(r.present,
-          'a backstop/not-a-guarantee safety disclaimer is present (or one-interaction-reachable) on a safety hold',
-          { observed: r.present ? r.sample : 'absent — no backstop/not-a-guarantee language on the hold' });
+          'a visible OR one-interaction-reachable backstop/not-a-guarantee disclaimer is present on a safety hold',
+          { observed: r.present ? `${r.via}: ${r.sample}` : `absent — ${r.via}` });
       }, { name: 'hold' });
 
       // BC-C-6 (hold-input) — the hold's own "Ask for a safer change" Send is
@@ -248,7 +369,7 @@ export const scenarios = [
         if (!hasInput) return;
         const sendState = () => page.evaluate(() => {
           const hold = document.querySelector('[data-testid="safety-hold"]');
-          const btn = [...hold.querySelectorAll('button')].find((b) => /^Send$/.test(b.textContent.trim()));
+          const btn = [...hold.querySelectorAll('button')].find((b) => /^Send/.test(b.textContent.trim()));
           return btn ? { disabled: btn.disabled } : null;
         });
         const empty = await sendState();
@@ -263,7 +384,6 @@ export const scenarios = [
       await ctx.check('BC-C-7', async (t) => {
         const formOpen = await page.evaluate(() => !!document.querySelector('#safety-hold-steer'));
         if (!formOpen) {
-          // Re-open if a prior step left it closed.
           await page.evaluate(() => {
             const hold = document.querySelector('[data-testid="safety-hold"]');
             const btn = hold && hold.querySelector('[data-verb="redirect"]');
@@ -275,7 +395,7 @@ export const scenarios = [
         await sleep(60);
         await page.evaluate(() => {
           const hold = document.querySelector('[data-testid="safety-hold"]');
-          const btn = [...hold.querySelectorAll('button')].find((b) => /^Send$/.test(b.textContent.trim()));
+          const btn = [...hold.querySelectorAll('button')].find((b) => /^Send/.test(b.textContent.trim()));
           btn.click();
         });
         const gate = await waitForVerb(page, 'accept', ctx.genTimeout).then(() => true).catch(() => false);
@@ -312,7 +432,6 @@ export const scenarios = [
       // BC-C-8 — the 409 warn-and-confirm dialog: focus on the least-destructive
       // option; Escape (and Go back) back out without committing; confirm applies.
       await ctx.check('BC-C-8', async (t) => {
-        // The "Go back" of C-27 leaves the gate in decide mode, proposal pending.
         const atGate = await waitForVerb(page, 'accept', 8000).then(() => true).catch(() => false);
         t.expect(atGate, 'gate still pending after "Go back" (nothing committed by C-27)', { observed: atGate });
         if (!atGate) return;
@@ -384,8 +503,8 @@ export const scenarios = [
         t.expect(peanutSeen, 'a peanut move renders the safety hold', { observed: peanutSeen ? 'present' : 'never' });
         const h = await readHold();
         if (!h.present) { t.expect(false, 'peanut hold present', { observed: 'never' }); return; }
-        t.expect(/peanut/i.test(h.reason) && /allergen/i.test(h.reason),
-          'the hold shows the allergen-specific reason (declared-allergen wording)', { observed: h.reason.slice(0, 160) });
+        t.expect(/peanut/i.test(h.bodyText) && /allergen/i.test(h.bodyText),
+          'the hold shows the allergen-specific reason (declared-allergen wording)', { observed: h.reasonSample });
       }, { name: 'peanut' });
 
       const dishChicken = await freshDish();
@@ -394,8 +513,8 @@ export const scenarios = [
         t.expect(chickenSeen, 'an under-temp rare-chicken move renders the safety hold', { observed: chickenSeen ? 'present' : 'never' });
         const h = await readHold();
         if (!h.present) { t.expect(false, 'chicken hold present', { observed: 'never' }); return; }
-        t.expect(/internal temperature/i.test(h.reason) && /(FSIS|165 F|74 C)/i.test(h.reason),
-          'the hold shows the min-temp-specific reason (FSIS internal-temperature wording)', { observed: h.reason.slice(0, 200) });
+        t.expect(/internal temp(erature)?/i.test(h.bodyText) && /(FSIS|165\s*°?\s*F|74\s*°?\s*C)/i.test(h.bodyText),
+          'the hold shows the min-temp-specific reason (FSIS internal-temperature wording)', { observed: h.reasonSample });
       }, { name: 'rare-chicken' });
 
       // =======================================================================
@@ -414,10 +533,12 @@ export const scenarios = [
         const badText = JSON.stringify({ ...d.draft, ingredients: 'oops all one string' });
         await openTakeover();
         await submitTakeover(badText);
-        await sleep(500);
+        await sleep(400);
         const alerts = await visibleAlertTexts();
         t.expect(alerts.length > 0, 'ingredients-as-string: Save blocked with a visible error', { observed: alerts });
-        t.expectEq(await versionCount(dishB1), vBefore, 'ingredients-as-string: no trial committed (GET /versions unchanged)');
+        const stayed = await stayedAt(dishB1, vBefore);
+        t.expect(stayed, 'ingredients-as-string: no trial committed (GET /versions stays unchanged)',
+          { observed: stayed ? `${vBefore} (held)` : `rose to ${await versionCount(dishB1)}` });
       }, { name: 'ingredients-string' });
 
       const dishB2 = await freshDish();
@@ -431,10 +552,12 @@ export const scenarios = [
         delete noSteps.steps;
         await openTakeover();
         await submitTakeover(JSON.stringify(noSteps));
-        await sleep(600);
+        await sleep(400);
         const alerts = await visibleAlertTexts();
         t.expect(alerts.length > 0, 'steps-deleted: Save blocked with a visible error', { observed: alerts });
-        t.expectEq(await versionCount(dishB2), vBefore, 'steps-deleted: no trial committed (GET /versions unchanged)');
+        const stayed = await stayedAt(dishB2, vBefore);
+        t.expect(stayed, 'steps-deleted: no trial committed (GET /versions stays unchanged)',
+          { observed: stayed ? `${vBefore} (held)` : `rose to ${await versionCount(dishB2)}` });
       }, { name: 'steps-deleted' });
     },
   },
