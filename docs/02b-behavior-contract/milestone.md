@@ -29,15 +29,20 @@ the check (the contract) is ratified before the work begins.
 - Real-DeepSeek spend in the oracle (stub-only; live-mode parity uses injected latency).
 
 **Slices** (plan of record: `docs/superpowers/specs/2026-07-11-behavior-contract-oracle-loop-design.md`)
-- B1 — milestone docs + spec + contract draft → **USER ratification gate** — active
-- B2 — oracle harness + falsifiability self-test — pending
+- B1 — milestone docs + spec + contract draft → **USER ratification gate** — shipped (2026-07-11: draft hardened by a 49-round fresh-context UX/a11y review loop, verdict APPROVE; USER ratified as-is same day, both ⚖ criteria in force)
+- B2 — oracle harness + falsifiability self-test — active
 - B3 — census run against current UI (informative, non-blocking) — pending
 - B4 — autonomous fix→judge loop to all-green ×2 or stall report — pending
 - B5 — exit: USER approval gate, GIF re-check, merge → `measure-run`, ship ritual — pending
 
 **Integration notes**
-- Contract pin: on ratification the contract commit hash is recorded here; the loop
-  never edits the contract and the oracle re-verifies the pin every iteration.
+- **Contract pin (RATIFIED 2026-07-11, as-is):**
+  `965c8ebf5dd752c2a9d23bb2a796a7935fcff6d9` — `contract.md` at HEAD must stay
+  byte-identical to that commit's version (BC-J-3, verified every iteration).
+  109 criteria (99 assert / 10 judge). Both ⚖-flagged criteria were ratified in
+  force: BC-C-26 (in-app safety disclaimer) and BC-D-12 (persisted move
+  rationale — schema/wire change is in-scope loop work). The loop never edits
+  the contract; changes go through a user ruling in `log.md` (stall-valve path).
 - Freeze guard, every iteration: `git diff 32afe54..HEAD -- internal/llm/prompts
   eval/fixtures/seeds.json internal/eval/runner.go data/safety
   eval/fixtures/move_script.json internal/llm/evidence.go internal/eval/mapping.go`

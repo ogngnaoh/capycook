@@ -28,3 +28,9 @@
   ⚖ RATIFICATION DECISIONS: BC-C-26 (in-app safety disclaimer vs README-only)
   and BC-D-12 (persist move rationale — schema change). Round 49: APPROVE,
   two nits, both applied. Awaiting USER ratification.
+- **2026-07-11 — CONTRACT RATIFIED (USER gate cleared), B1 SHIPPED.** Ratified
+  as-is; both ⚖ criteria kept in force (BC-C-26 in-app disclaimer, BC-D-12
+  persisted rationale). Pin: `965c8ebf5dd752c2a9d23bb2a796a7935fcff6d9`
+  (recorded in milestone.md; BC-J-3 verifies it every iteration). The contract
+  is now frozen — loop may never edit it; amendments only via user ruling
+  logged here. B2 (oracle harness + falsifiability self-test) active.
