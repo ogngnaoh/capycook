@@ -248,6 +248,78 @@ func TestStubSeededGarlicOil(t *testing.T) {
 	}
 }
 
+// TestStubSteerFixtures checks the B2 seeded steer keywords each inject the
+// op the behavior-contract oracle needs — a peanut allergen (BC-C-15), an
+// under-temperature chicken step (BC-C-15), an unpriced ingredient (BC-D-10),
+// and a low-confidence proposal (BC-C-25) — case-insensitively, and stay
+// inert without the keyword.
+func TestStubSteerFixtures(t *testing.T) {
+	hasIngredient := func(d draft.Draft, name string) bool {
+		for _, ing := range d.Ingredients {
+			if strings.EqualFold(ing.Name, name) {
+				return true
+			}
+		}
+		return false
+	}
+	tests := []struct {
+		name           string
+		steer          string
+		wantIngredient string // "" => no fixture ingredient expected
+		wantConfidence float64
+		wantChicken    bool
+	}{
+		{"peanut allergen", "add a peanut butter swirl", "peanut butter", 0.6, false},
+		{"peanut case-insensitive", "PEANUT please", "peanut butter", 0.6, false},
+		{"rare chicken min-temp", "give me rare chicken", "chicken breast", 0.6, true},
+		{"saffron unpriced", "a pinch of Saffron", "saffron", 0.6, false},
+		{"moonshot low confidence", "go moonshot on it", "", 0.15, false},
+		{"no fixture steer", "make it smokier", "", 0.6, false},
+		{"empty steer", "", "", 0.6, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := MoveRequest{Draft: baseDraft(), MoveType: MoveTypeIngredientChange, Steer: tt.steer}
+			p, err := Stub{}.GenerateMove(context.Background(), req)
+			if err != nil {
+				t.Fatalf("GenerateMove error: %v", err)
+			}
+			if p.Confidence != tt.wantConfidence {
+				t.Errorf("Confidence = %v, want %v", p.Confidence, tt.wantConfidence)
+			}
+			applied, err := req.Draft.Apply(p.Change)
+			if err != nil {
+				t.Fatalf("Apply(Change) error: %v", err)
+			}
+			if tt.wantIngredient != "" && !hasIngredient(applied, tt.wantIngredient) {
+				t.Errorf("applied draft missing steered ingredient %q; ingredients=%+v", tt.wantIngredient, applied.Ingredients)
+			}
+			// Fixtures are mutually exclusive: no steer smuggles in another's
+			// marker ingredient, and a plain steer adds none of them.
+			if tt.wantIngredient != "peanut butter" && hasIngredient(applied, "peanut butter") {
+				t.Errorf("unexpected peanut butter ingredient for steer %q", tt.steer)
+			}
+			if tt.wantIngredient != "saffron" && hasIngredient(applied, "saffron") {
+				t.Errorf("unexpected saffron ingredient for steer %q", tt.steer)
+			}
+			if tt.wantChicken {
+				var step *draft.Step
+				for i := range applied.Steps {
+					if applied.Steps[i].Technique == "fry" {
+						step = &applied.Steps[i]
+					}
+				}
+				if step == nil {
+					t.Fatalf("rare chicken steer added no fried chicken step")
+				}
+				if step.InternalTempC == nil || *step.InternalTempC != 55 {
+					t.Errorf("chicken step internal_temp_c = %v, want 55 (below the 74 C poultry minimum)", step.InternalTempC)
+				}
+			}
+		})
+	}
+}
+
 func TestStubSetsProvenanceFromEvidence(t *testing.T) {
 	req := MoveRequest{
 		Draft:    baseDraft(),

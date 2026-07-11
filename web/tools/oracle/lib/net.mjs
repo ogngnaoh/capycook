@@ -15,6 +15,7 @@ export class NetLog {
       this.entries.push({
         t: Date.now(), kind: 'request',
         method: req.method(), url: req.url(), path: new URL(req.url()).pathname,
+        postData: req.method() === 'POST' || req.method() === 'PATCH' ? req.postData() : undefined,
       });
     });
     page.on('response', (res) => {

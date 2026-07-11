@@ -134,6 +134,20 @@ func wire(cfg config.Config) (http.Handler, func(), error) {
 		slog.Info("llm: live DeepSeek mode", "model", ds.Model(),
 			"budget_spent_usd", meter.Spent(), "budget_cap_usd", meter.Cap())
 	} else {
+		// Wrap the stub with the same budget meter the live edge uses so the
+		// LLM_BUDGET_USD hard-stop (and BC-H-4's budget-exhaustion path) is
+		// reachable in stub mode. Stub usage is zero, so spend never accrues —
+		// only LLM_BUDGET_USD=0 trips the pre-call refusal, which the
+		// orchestrator surfaces as move_failed (never a safety hold).
+		meter, err := llm.OpenUsageMeter(cfg.DBPath+".budget.json", cfg.LLMBudgetUSD)
+		if err != nil {
+			closeStore()
+			return nil, nil, err
+		}
+		modelEdge = llm.Metered{Inner: llm.Stub{Latency: cfg.StubLatency}, Meter: meter}
+		llmStatus = func() httpapi.LLMStatus {
+			return httpapi.LLMStatus{Mode: "stub", BudgetSpentUSD: meter.Spent(), BudgetCapUSD: meter.Cap()}
+		}
 		slog.Warn("llm: stub mode — no model key (set DEEPSEEK_API_KEY to go live)")
 	}
 

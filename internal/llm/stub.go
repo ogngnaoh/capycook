@@ -52,8 +52,27 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 	proposed := clone(req.Draft)
 	before := len(proposed.FlavorRationale)
 	tmpl.mutate(&proposed)
-	if strings.Contains(strings.ToLower(req.Steer), "garlic oil") {
+	// Seeded steer fixtures (case-insensitive contains on req.Steer, any LLM
+	// move type): each drives one deterministic contract rule so the behavior
+	// oracle (B2) can exercise it end-to-end. garlic oil is the original
+	// anaerobic case; peanut/rare chicken feed the two remaining safety rules,
+	// saffron the unpriced-cost path, moonshot the low-confidence gate.
+	steer := strings.ToLower(req.Steer)
+	if strings.Contains(steer, "garlic oil") {
 		addGarlicOil(&proposed)
+	}
+	if strings.Contains(steer, "peanut") {
+		addPeanut(&proposed)
+	}
+	if strings.Contains(steer, "rare chicken") {
+		addUndercookedChicken(&proposed)
+	}
+	if strings.Contains(steer, "saffron") {
+		addSaffron(&proposed)
+	}
+	confidence := 0.6
+	if strings.Contains(steer, "moonshot") {
+		confidence = 0.15
 	}
 	// Pinned-vocabulary provenance (Amendment 1 / Tier-1 dry-run coverage):
 	// flavor claims appended by this move cite the first supplied pairing,
@@ -75,7 +94,7 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 		Change:        change,
 		Rationale:     rationale,
 		Citations:     []proposal.Citation{{Source: "stub", Ref: "template:" + req.MoveType, Date: "2026-07-06"}},
-		Confidence:    0.6,
+		Confidence:    confidence,
 		Unverified:    []string{"templated stub output — flavor claims unchecked"},
 		SuggestedNext: tmpl.next,
 	}, nil
@@ -221,6 +240,38 @@ func addGarlicOil(d *draft.Draft) {
 		Technique: "infuse_oil",
 		Why:       "slow room-temperature infusion carries the garlic through the oil",
 	})
+}
+
+// addPeanut injects a Big-9 peanut allergen: "peanut butter" resolves in the
+// FoodOn closure table (data/foodon/allergens.csv) to the "peanuts" class, so
+// a dish that declares a peanut allergen constraint blocks — the allergen
+// half of the deterministic safety gate (BC-C-15). Steer keyword: "peanut".
+func addPeanut(d *draft.Draft) {
+	d.Ingredients = append(d.Ingredients, draft.Ingredient{Name: "peanut butter", Qty: 30, Unit: "g"})
+}
+
+// addUndercookedChicken injects an under-temperature high-risk protein: a
+// chicken breast (poultry, FSIS 74 C / 165 F minimum per
+// data/safety/protein_classes.csv + min_temps.csv) whose only cooking step
+// states an internal temperature of 55 C — below the minimum — so the safety
+// gate's min-temp rule blocks (BC-C-15). Steer keyword: "rare chicken".
+func addUndercookedChicken(d *draft.Draft) {
+	temp := 55.0
+	d.Ingredients = append(d.Ingredients, draft.Ingredient{Name: "chicken breast", Qty: 300, Unit: "g"})
+	d.Steps = append(d.Steps, draft.Step{
+		Text:          "Sear the chicken breast in a hot pan, pulling it at 55 C so the centre stays pink.",
+		Technique:     "fry",
+		InternalTempC: &temp,
+		Why:           "keeps the meat rare and juicy",
+	})
+}
+
+// addSaffron injects an ingredient absent from the price table
+// (data/cost/prices.csv), so a cost recompute footnotes it in
+// analysis.cost.missing (BC-D-10). It carries no allergen or protein-class
+// rule, so the proposal passes the safety gate. Steer keyword: "saffron".
+func addSaffron(d *draft.Draft) {
+	d.Ingredients = append(d.Ingredients, draft.Ingredient{Name: "saffron", Qty: 1, Unit: "pinch"})
 }
 
 // clone deep-copies a Draft through JSON so template mutations never touch
