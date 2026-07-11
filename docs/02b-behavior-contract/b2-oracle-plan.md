@@ -32,6 +32,14 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
   deterministically in oracle runs 001/002; all other area-A fails match the
   contract's FAILS-TODAY markers exactly.
 
+- **BC-G-14 fails today (unmarked):** focused skip links paint BEHIND the
+  sticky header at 390/320 — `.skip-link` z-index 50 (`index.css:56`) vs the
+  header's z-sticky 100 (`Workbench.tsx:445`). WCAG 2.4.11.
+- **BC-G-12 fails today (unmarked):** at 320px the IntentBar "Try it →"
+  button is clipped 49px off-screen (`#cc-intent` flex-1 won't shrink,
+  `IntentBar.tsx:80`); invisible to doc-scrollWidth checks — caught by a
+  per-control clip sweep. WCAG 1.4.10.
+
 ## Decisions (user, 2026-07-11)
 
 - B2 + B3 land directly on `measure-run`; B4 branches off later.

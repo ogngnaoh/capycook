@@ -125,7 +125,7 @@ export const REGISTRY = [
   A('BC-G-9', 'focus visible at every Tab stop, both themes', ['g/desktop-modes'], { exempt: 'no-generation' }),
   A('BC-G-10', 'text contrast meets AA numerically, both themes', ['g/desktop-modes'], { failsToday: true, exempt: 'no-generation' }),
   A('BC-G-11', 'focus indicator ≥3:1 against adjacent background', ['g/desktop-modes'], { exempt: 'no-generation' }),
-  A('BC-G-12', '320px reflow without loss or clipping', ['g/narrow-320', 'g/narrow-live'], { exempt: 'no-generation' }),
+  A('BC-G-12', '320px reflow without loss or clipping', ['g/narrow-320', 'g/narrow-live-320'], { exempt: 'no-generation' }),
   A('BC-G-13', 'dial/invalid/hold boundaries ≥3:1 in both states', ['g/desktop-modes'], { exempt: 'no-generation' }),
   A('BC-G-14', 'sticky chrome never obscures the focus target', ['g/narrow-390', 'g/narrow-320'], { exempt: 'no-generation' }),
   A('BC-G-15', 'WCAG 1.4.12 text-spacing overrides break nothing', ['g/desktop-modes'], { exempt: 'no-generation' }),
