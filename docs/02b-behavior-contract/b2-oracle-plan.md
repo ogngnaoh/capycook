@@ -47,6 +47,16 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
   (Also noted: BC-B-4's trap 2 — alternatives — does NOT trip today; traps
   1/3/4 do.)
 
+- **BC-C-17 fails today (unmarked, back-to-current clause):** "Back to
+  current" drops focus to `document.body` — `Workbench.tsx:535`
+  `setSnapshot(null)` restores no focus (the accept/tweak clauses pass).
+  Same line as BC-D-2's missing return announcement; one fix serves both.
+- **Stub-fixture gap (loop work, not a product defect):** no stub template
+  emits a `remove` op or in-place step `replace`, so BC-C-16's removed-row /
+  changed-step markup is UNDRIVABLE until the loop extends the stub
+  repertoire (those render paths are unit-tested; the oracle asserts the
+  drivable clauses and documents the gap).
+
 ## Decisions (user, 2026-07-11)
 
 - B2 + B3 land directly on `measure-run`; B4 branches off later.
