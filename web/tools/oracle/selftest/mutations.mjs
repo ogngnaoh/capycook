@@ -22,8 +22,15 @@ export const MUTATIONS = [
     install: (page) => page.evaluateOnNewDocument(() => {
       // Continuously strip role="alert" so the error-summary assertions
       // cannot see it — a vacuous alert check would still pass.
-      const strip = () => document.querySelectorAll('[role="alert"]').forEach((el) => el.removeAttribute('role'));
-      new MutationObserver(strip).observe(document.documentElement, { subtree: true, childList: true, attributes: true });
+      // ⚠ documentElement is null at document-start: defer like
+      // lib/instrument.mjs does or the observer install throws silently.
+      const start = () => {
+        const strip = () => document.querySelectorAll('[role="alert"]').forEach((el) => el.removeAttribute('role'));
+        new MutationObserver(strip).observe(document.documentElement, { subtree: true, childList: true, attributes: true });
+        strip();
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+      else start();
     }),
   },
   {
@@ -52,15 +59,22 @@ export const MUTATIONS = [
     expectFail: 'BC-A-10',
     alsoAllowed: ['BC-A-4', 'BC-A-9', 'BC-A-14', 'BC-A-6', 'BC-A-5'],
     install: (page) => page.evaluateOnNewDocument(() => {
-      // Pin every ingredient-row's text to its first-seen value: the UI
-      // stops reflecting the server draft, so BC-A-10's mirror checks must
-      // fail while the server math stays correct.
-      const frozen = new WeakMap();
-      const freeze = () => document.querySelectorAll('[data-testid="ingredient-row"]').forEach((el) => {
-        if (!frozen.has(el)) frozen.set(el, el.textContent);
-        else if (el.textContent !== frozen.get(el)) el.textContent = frozen.get(el);
-      });
-      new MutationObserver(freeze).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+      // Rewrite every ingredient-row to a fixed sentinel: the UI stops
+      // reflecting the server draft, so BC-A-10's mirror checks must fail
+      // while the server math stays correct. (A first-seen WeakMap freeze
+      // is defeated by React replacing row nodes on re-render; the constant
+      // rewrite is not. Deferred install — documentElement is null at
+      // document-start.)
+      const start = () => {
+        const SENTINEL = 'sabotaged-row 999 xx';
+        const freeze = () => document.querySelectorAll('[data-testid="ingredient-row"]').forEach((el) => {
+          if (el.textContent !== SENTINEL) el.textContent = SENTINEL;
+        });
+        new MutationObserver(freeze).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+        freeze();
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+      else start();
     }),
   },
   {
@@ -107,10 +121,19 @@ export const MUTATIONS = [
     expectFail: 'BC-B-9',
     alsoAllowed: ['BC-B-1', 'BC-B-3', 'BC-B-7', 'BC-B-10'],
     install: (page) => page.evaluateOnNewDocument(() => {
-      // Blank the gate live region continuously: announcement checks must
-      // see the silence.
-      const mute = () => document.querySelectorAll('[data-testid="gate-live-region"]').forEach((el) => { if (el.textContent) el.textContent = ''; });
-      new MutationObserver(mute).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+      // REMOVE the gate live region as it mounts — the AT analog of a page
+      // that never announces. (Text-blanking races the instrument's own
+      // observer on the same mutation batch — Chrome's delivery order proved
+      // unreliable — whereas removal is ordering-proof: React keeps mutating
+      // the detached node and nothing announcement-shaped ever exists in
+      // the document.)
+      const start = () => {
+        const drop = () => document.querySelectorAll('[data-testid="gate-live-region"]').forEach((el) => el.remove());
+        new MutationObserver(drop).observe(document.documentElement, { subtree: true, childList: true });
+        drop();
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+      else start();
     }),
   },
   {

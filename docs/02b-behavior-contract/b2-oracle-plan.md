@@ -16,8 +16,10 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
 5. [x] `.gitignore`: `docs/02b-behavior-contract/evidence/` entry
 6. [x] Stage 3 fan-out: areas B–I built + self-verified (2× stable runs each;
        6 genuine unmarked defects logged under Pre-census findings)
-7. [ ] Stage 4 fresh-context critic pass clean (findings fixed or logged) — 10
-       critics running
+7. [x] Stage 4 fresh-context critic pass clean — 10 critics: 5 areas sound,
+       5 revised + re-verified (3 CRITICALs killed: invisible-disclaimer
+       vacuity, untested changed-step clause, unswept Stop control); 2 more
+       genuine defects surfaced (C-16 StepRow markup, CookFlow-under-header)
 8. [ ] Stage 5 self-test exit 0 (artifact committed)
 9. [ ] BC-H-4 budget profile demonstrated reachable (move-failed banner)
 10. [ ] Guardrails green: freeze diff empty, suites pass, pin intact, operator DB = 6
@@ -81,6 +83,15 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
   `order:-1` reflow (`index.css:74`) makes DOM order ≠ visual order and there
   is no scroll-padding-top, so tabbing scrolls it under the z-100 header.
   Distinct root cause from the skip-link z-index defect.
+
+- **BC-B-1 fails today (unmarked, visibility clause):** the proposing card can
+  mount entirely ABOVE the viewport (measured top −126..bottom −28 at
+  1280×800 in b/one-window's journey) — the app neither scrolls the
+  proposing state into view nor moves focus at dispatch, so whether the cook
+  sees the working label + Stop depends on their scroll position. Surfaced
+  by the self-test's hide-proposing-card mutation forcing a real *Visible*
+  clause into the check (DOM presence had been passing). Same
+  attention-management neglect as BC-A-5's focus clause.
 
 ## Decisions (user, 2026-07-11)
 

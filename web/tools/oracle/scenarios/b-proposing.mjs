@@ -99,16 +99,29 @@ export const scenarios = [
       const mark = net.mark();
       await page.keyboard.press('Enter'); // focus is on #cc-intent from page.type
 
-      // Capture BC-B-1's surface content while the card is live.
+      // Capture BC-B-1's surface content while the card is live. The read
+      // waits out the cc-rise entrance animation (~300ms, opacity 0→1) —
+      // waitForSelector resolves at DOM insert, mid-animation; the ≤1s
+      // timing clause is measured by the armed renderer moment, not this
+      // settled read.
       const cardSeen = await page.waitForSelector('[data-testid="proposing-card"]', { timeout: 8000 })
         .then(() => true).catch(() => false);
+      if (cardSeen) await sleep(900);
       const cardContent = cardSeen ? await page.evaluate(() => {
         const c = document.querySelector('[data-testid="proposing-card"]');
         if (!c) return null;
+        // The contract's *Visible* definition — DOM presence alone must not
+        // pass (a display:none card fails; enforced by the falsifiability
+        // self-test's 'hide-proposing-card' mutation).
+        const cs = getComputedStyle(c);
+        const r = c.getBoundingClientRect();
         return {
           text: c.textContent.trim().slice(0, 120),
           hasStop: [...c.querySelectorAll('button')].some((b) => /^Stop$/.test(b.textContent.trim())),
           hasSpinner: !!c.querySelector('[data-testid="proposing-spinner"]'),
+          visible: cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.05
+            && r.width > 10 && r.height > 10 && r.bottom > 0 && r.top < window.innerHeight,
+          visParts: { display: cs.display, visibility: cs.visibility, opacity: cs.opacity, rect: { top: Math.round(r.top), bottom: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) }, innerHeight: window.innerHeight },
         };
       }) : null;
 
@@ -151,6 +164,7 @@ export const scenarios = [
         }
         t.expect(!!cardContent, 'proposing card contents captured while live', { observed: cardContent });
         if (cardContent) {
+          t.expect(cardContent.visible, 'proposing card is VISIBLE (rendered in viewport, not CSS-hidden)', { observed: cardContent });
           t.expect(/Working on your idea/.test(cardContent.text), 'proposing card shows the working label',
             { observed: cardContent.text });
           t.expect(cardContent.hasStop, 'proposing card carries an explicit Stop control', { observed: cardContent.hasStop });

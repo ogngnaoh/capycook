@@ -532,12 +532,18 @@ export const scenarios = [
         await fireMath(/^Convert units/i);
         const afterConvert = (await api('GET', `/api/dishes/${dishId}`)).draft;
         ui = await readUi();
+        let matchedRows = 0;
         for (const ing of afterConvert.ingredients) {
           const row = ui.rows.find((r) => r.includes(ing.name));
           if (!row) continue;
+          matchedRows += 1;
           const qtyRendered = `${ing.qty}\u2009${ing.unit}`;
           t.expect(row.includes(qtyRendered) || row.includes(String(ing.qty)), `${ing.name}: row shows the server draft quantity/unit`, { observed: row.slice(0, 80), expected: qtyRendered });
         }
+        // A UI that stops naming ingredients would make every find() miss \u2014
+        // the mirror clause must not silently no-op (self-test mutation
+        // 'freeze-dish-numbers' enforces this).
+        t.expect(matchedRows > 0, 'ingredient rows identifiable by server ingredient names', { observed: matchedRows, sample: ui.rows.slice(0, 2) });
 
         // Recompute cost → the visible figure equals the server draft.
         await fireMath(/^Recompute cost/i);

@@ -104,8 +104,11 @@ export async function runScenario(def, opts) {
       gateShortcuts: def.gateShortcuts ?? null,
       reducedMotion: !!def.reducedMotion,
     });
-    await installInstrument(pageBundle.page);
+    // Sabotage installs BEFORE the instrument so sabotage-registered
+    // observers fire first on each mutation batch — a muting sabotage must
+    // be able to blank text before the instrument's scan reads it.
     if (sabotage) await sabotage(pageBundle.page);
+    await installInstrument(pageBundle.page);
     const net = new NetLog(pageBundle.page);
 
     const wantRecord = def.record ?? (profile === 'live-sim');
