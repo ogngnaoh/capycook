@@ -16,3 +16,7 @@ web/node_modules/
 web/dist/*
 !web/dist/.gitkeep
 web/*.tsbuildinfo
+
+# 02b oracle evidence runs (bulky screenshots/screencasts; the FINAL run is
+# un-ignored at B5 exit per the milestone's exit criteria)
+docs/02b-behavior-contract/evidence/
