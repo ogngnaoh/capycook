@@ -40,6 +40,13 @@ assert poisons the loop, so falsifiability is a deliverable, not a nicety.
   `IntentBar.tsx:80`); invisible to doc-scrollWidth checks — caught by a
   per-control clip sweep. WCAG 1.4.10.
 
+- **BC-B-5 fails today (unmarked, focus clause only):** after Stop→cancel,
+  `document.activeElement === body` — `cancelMove()` (`Workbench.tsx:320-330`)
+  never calls `focusDecision()`, unlike `runGate` (`:287`); the Stop control
+  unmounts and focus drops. Same defect class as BC-A-5's marked clause.
+  (Also noted: BC-B-4's trap 2 — alternatives — does NOT trip today; traps
+  1/3/4 do.)
+
 ## Decisions (user, 2026-07-11)
 
 - B2 + B3 land directly on `measure-run`; B4 branches off later.
