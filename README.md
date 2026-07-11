@@ -251,7 +251,8 @@ live-model + telemetry pins, then the arm summary with its skip reported, not si
 Live 3-arm campaign, 2026-07-10 (13 ratified seeds × 5 moves × 3 arms, deepseek-v4-pro,
 instruments frozen at PREREG §9's T1 re-pin; total model spend $0.87). Seeds completed:
 **12/13 in every arm** — bench-12 (the tree-nuts stress seed) was blocked by the
-deterministic allergen gate on all four generation attempts in all three arms
+deterministic allergen gate on all four generation attempts (one initial + three
+Amendment-2 retries) in all three arms
 (`allergen-unresolved`; Amendment-2 skip, reported not silent).
 
 ### Provenance rates — PREREG §7a (per arm, checkable denominator)
