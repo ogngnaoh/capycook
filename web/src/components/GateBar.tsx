@@ -83,12 +83,15 @@ export default function GateBar({
 }: {
   proposal: Proposal
   draft: Draft
-  onAccept: () => Promise<void> | void
-  onEditSubmit: (ops: Op[]) => Promise<void> | void
-  onRegenerate: () => Promise<void> | void
-  onAlternatives: () => Promise<void> | void
-  onRedirectSubmit: (steer: string) => Promise<void> | void
-  onTakeoverSubmit: (draft: Draft) => Promise<void> | void
+  // Promise-returning handlers report their outcome: resolving `false` marks
+  // a failed or held submission (the mode stays open — BC-C-21/BC-C-27);
+  // anything else counts as success.
+  onAccept: () => Promise<boolean | void> | void
+  onEditSubmit: (ops: Op[]) => Promise<boolean | void> | void
+  onRegenerate: () => Promise<boolean | void> | void
+  onAlternatives: () => Promise<boolean | void> | void
+  onRedirectSubmit: (steer: string) => Promise<boolean | void> | void
+  onTakeoverSubmit: (draft: Draft) => Promise<boolean | void> | void
   disabled?: boolean
 }) {
   const [mode, setModeState] = useState<GateMode>('decide')
@@ -116,15 +119,18 @@ export default function GateBar({
 
   // dispatch runs one of the six verbs. A void return is instant (no lock);
   // a promise locks the bar (aria-disabled + spinner) until it settles, and
-  // only a *successful* settle returns the bar to decide — mirroring the
-  // pre-redesign runGate, which only closed the open panel on success and
-  // left it open (so the cook's typed edit isn't lost) on failure.
-  const dispatch = useCallback((key: GateVerb, run: () => void | Promise<void>) => {
+  // only a *successful* settle returns the bar to decide. A handler that
+  // resolves `false` — a failed gate POST, or a safety-override hold — keeps
+  // the current mode mounted, so the cook's exact steer text / JSON / tweak
+  // values survive the failure (BC-C-21) and the safety-override's "Go back"
+  // returns to a take-over textarea byte-identical to what was submitted
+  // (BC-C-27). A rejected promise likewise keeps the mode.
+  const dispatch = useCallback((key: GateVerb, run: () => void | Promise<boolean | void>) => {
     if (locked) return
     const result = run()
     if (result instanceof Promise) {
       setPending(key)
-      result.then(() => setModeState('decide')).finally(() => setPending(null))
+      result.then((ok) => { if (ok !== false) setModeState('decide') }).finally(() => setPending(null))
     } else {
       setModeState('decide')
     }

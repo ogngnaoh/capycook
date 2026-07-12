@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CookFlow from './CookFlow'
 
 function renderFlow(onSubmit = vi.fn()) {
@@ -83,4 +83,28 @@ test('submitting also hands focus back to the trigger while the dish is still id
 test('the version label is surfaced to the cook', () => {
   renderFlow()
   expect(screen.getByText('Trial 2')).toBeInTheDocument()
+})
+
+// ---- typed-input preservation (BC-E-5) ----
+
+test('an onSubmit resolving false keeps the form open with the exact notes (BC-E-5)', async () => {
+  const onSubmit = vi.fn(() => Promise.resolve(false))
+  renderFlow(onSubmit)
+  fireEvent.click(screen.getByRole('button', { name: /i cooked this/i }))
+  fireEvent.change(screen.getByLabelText(/tasting notes/i), { target: { value: 'silky, but too salty by the end' } })
+  fireEvent.click(screen.getByRole('button', { name: /rework from these notes/i }))
+  expect(onSubmit).toHaveBeenCalledWith('silky, but too salty by the end')
+  // Let the failed outcome settle, then confirm nothing closed or cleared.
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+  expect(screen.getByLabelText(/tasting notes/i)).toHaveValue('silky, but too salty by the end')
+})
+
+test('an onSubmit resolving without a failure closes and clears once settled', async () => {
+  const onSubmit = vi.fn(() => Promise.resolve())
+  renderFlow(onSubmit)
+  fireEvent.click(screen.getByRole('button', { name: /i cooked this/i }))
+  fireEvent.change(screen.getByLabelText(/tasting notes/i), { target: { value: 'great crust' } })
+  fireEvent.click(screen.getByRole('button', { name: /rework from these notes/i }))
+  await waitFor(() => expect(screen.queryByLabelText(/tasting notes/i)).not.toBeInTheDocument())
+  expect(screen.getByRole('button', { name: /i cooked this/i })).toBeInTheDocument()
 })

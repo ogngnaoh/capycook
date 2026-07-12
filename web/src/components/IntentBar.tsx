@@ -1,5 +1,14 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { INTENT_EMPTY_ERROR, MOVE_LABEL, SCALE_INVALID_ERROR } from '../vocab'
+
+// IntentRestore is a failed or cancelled move's typed input, handed back by
+// Workbench (BC-A-13): the bar clears its fields at dispatch — and unmounts
+// entirely while the move is proposing — so it cannot carry the text across
+// the outcome itself.
+export interface IntentRestore {
+  intent?: string
+  scale?: string
+}
 
 // IntentBar is the idle-state initiation surface (design 406-421): the
 // free-text "what do you want to try next?" field the kitchen classifies
@@ -14,12 +23,13 @@ function AutoTag() {
   return <span className="text-[9px] tracking-[0.06em] uppercase text-success">auto</span>
 }
 
-export default function IntentBar({ canPropose, autonomyOn, servings, suggestedNext, onMove }: {
+export default function IntentBar({ canPropose, autonomyOn, servings, suggestedNext, onMove, restore }: {
   canPropose: boolean
   autonomyOn: boolean // renders the 'auto' tag on deterministic chips
   servings: number // current, for the scale prompt default (×2)
   suggestedNext: string[] // wire move-type slugs
   onMove: (moveType: string, steer: string) => void
+  restore?: IntentRestore | null // a failed/cancelled move's typed input (BC-A-13)
 }) {
   const [intent, setIntent] = useState('')
   const [intentError, setIntentError] = useState(false)
@@ -28,6 +38,21 @@ export default function IntentBar({ canPropose, autonomyOn, servings, suggestedN
   const [scaleError, setScaleError] = useState(false)
   const intentRef = useRef<HTMLInputElement>(null)
   const scaleRef = useRef<HTMLInputElement>(null)
+
+  // Typed-input preservation (BC-A-13): a failed or cancelled move never
+  // discards what the cook typed. The intent text returns to the field; a
+  // scale value reopens the inline scale form pre-filled. Applies on mount
+  // (the post-cancel remount) and whenever a fresh restore lands (a failed
+  // POST while the bar is still mounted).
+  useEffect(() => {
+    if (!restore) return
+    if (restore.intent !== undefined) setIntent(restore.intent)
+    if (restore.scale !== undefined) {
+      setScaleTo(restore.scale)
+      setScaleError(false)
+      setScaling(true)
+    }
+  }, [restore])
 
   if (!canPropose) return null
 

@@ -622,6 +622,161 @@ test('move-failed offers Try again, which re-posts the identical move', async ()
   })
 })
 
+// --- typed-input preservation (BC-A-13 / BC-C-21 / BC-C-27 / BC-E-5) --------
+
+test('a failed move POST hands the typed intent back to the field (BC-A-13)', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ error: 'kitchen unreachable' }, 502)
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  const input = screen.getByLabelText(/what do you want to try next/i)
+  fireEvent.change(input, { target: { value: 'a distinctly lemony finish' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  // The dispatch clears the field; the failure banner arrives with the text
+  // restored, never discarded.
+  await screen.findByText(/kitchen unreachable/)
+  await waitFor(() => expect(input).toHaveValue('a distinctly lemony finish'))
+})
+
+test('a failed scale POST reopens the scale form with the typed servings (BC-A-13)', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ error: 'kitchen unreachable' }, 502)
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: /scale servings/i }))
+  fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '12' } })
+  fireEvent.click(screen.getByRole('button', { name: /scale it/i }))
+  await screen.findByText(/kitchen unreachable/)
+  await waitFor(() => expect(screen.getByRole('spinbutton')).toHaveValue(12))
+})
+
+test('a move that fails after dispatch (SSE move-failed) restores the intent text (BC-A-13)', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ moveId: 'mv_9' })
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  const es = await mount()
+  fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'punchier dressing' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/dishes/d1/move')).toBe(true))
+  await flush() // settle propose's GET → the bar is still idle, field cleared
+  expect(screen.getByLabelText(/what do you want to try next/i)).toHaveValue('')
+  act(() => es.emit('move-failed', { moveId: 'mv_9', reason: 'llm: parse error' }))
+  expect(screen.getByTestId('move-failed-banner')).toBeInTheDocument()
+  expect(screen.getByLabelText(/what do you want to try next/i)).toHaveValue('punchier dressing')
+})
+
+test('Stop mid-generation restores the in-flight intent once Ready (BC-A-13 cancel variant)', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ moveId: 'mv_9' })
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  // The move's follow-up GET finds the dish proposing.
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
+  fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'rephrase me later' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument())
+  // The cancel's re-sync finds the dish idle again — Ready.
+  detail = dishDetail()
+  fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+  await waitFor(() => expect(screen.getByLabelText(/what do you want to try next/i)).toHaveValue('rephrase me later'))
+})
+
+test('a failed gate POST keeps the redirect form open with the exact steer text (BC-C-21)', async () => {
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal(), pendingProposals: [sampleProposal()] })
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ error: 'kitchen unreachable' }, 502)
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: GATE_ANOTHER_LABEL }))
+  fireEvent.click(within(bar).getByRole('button', { name: VERB_LABEL.redirect }))
+  const form = await screen.findByTestId('redirect-form')
+  // Trailing spaces on purpose: the dispatch trims, the field must not.
+  fireEvent.change(form.querySelector('input')!, { target: { value: 'keep the salt, add acid  ' } })
+  fireEvent.click(screen.getByRole('button', { name: /send/i }))
+  await screen.findByText(/kitchen unreachable/)
+  await flush()
+  expect(screen.getByTestId('redirect-form')).toBeInTheDocument()
+  expect(form.querySelector('input')).toHaveValue('keep the salt, add acid  ')
+})
+
+test('"Go back — I\'ll change it" returns to take-over with the typed JSON byte-identical (BC-C-27)', async () => {
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal(), pendingProposals: [sampleProposal()] })
+  const reason = 'Room-temperature garlic-in-oil supports Clostridium botulinum growth.'
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ error: `orchestrator: safety warning requires confirm override: ${reason}` }, 409)
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: /try another way/i }))
+  fireEvent.click(within(bar).getByRole('button', { name: new RegExp(VERB_LABEL.take_over, 'i') }))
+  const form = await screen.findByTestId('takeover-form')
+  const typed = '{\n  "title": "Confit Garlic Oil",\n  "note": "my own edit"\n}'
+  fireEvent.change(form.querySelector('textarea')!, { target: { value: typed } })
+  fireEvent.click(within(bar).getByRole('button', { name: /save draft/i }))
+  const prompt = await screen.findByTestId('override-prompt')
+  fireEvent.click(within(prompt).getByRole('button', { name: /go back/i }))
+  await flush()
+  // Back in take-over mode — never a reset to decide or a fresh dump of the
+  // pre-edit draft — with the cook's own edit byte-identical.
+  expect(screen.queryByTestId('override-prompt')).not.toBeInTheDocument()
+  const textarea = screen.getByTestId('takeover-form').querySelector('textarea')!
+  expect(textarea.value).toBe(typed)
+})
+
+test('a failed rework POST keeps the tasting form open with the exact notes (BC-E-5)', async () => {
+  versionsData = {
+    currentVersionId: 'ver_1',
+    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() }],
+  }
+  detail = dishDetail({ currentVersionId: 'ver_1' })
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ error: 'kitchen unreachable' }, 502)
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: /i cooked this/i }))
+  fireEvent.change(screen.getByLabelText(/tasting notes/i), { target: { value: 'too salty — cut the feta by half' } })
+  fireEvent.click(screen.getByRole('button', { name: /rework from these notes/i }))
+  await screen.findByText(/kitchen unreachable/)
+  await flush()
+  expect(screen.getByLabelText(/tasting notes/i)).toHaveValue('too salty — cut the feta by half')
+})
+
 // --- reconnect -------------------------------------------------------------
 
 test('a dropped stream shows the reconnecting banner and re-syncs via GET on reopen', async () => {

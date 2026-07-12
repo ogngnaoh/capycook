@@ -17,7 +17,7 @@ import SafetyHold from './SafetyHold'
 import ProposalHeader from './ProposalHeader'
 import AlternativesPicker from './AlternativesPicker'
 import { Toast } from './Toast'
-import IntentBar from './IntentBar'
+import IntentBar, { type IntentRestore } from './IntentBar'
 import CookFlow from './CookFlow'
 import DialToggle from './DialToggle'
 import ThemeToggle from './ThemeToggle'
@@ -88,6 +88,24 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   const [snapshot, setSnapshot] = useState<VersionItem | null>(null)
   const [status, setStatus] = useState<LLMStatusResponse | null>(null)
   const lastMove = useRef<LastMove | null>(null)
+  // The in-flight intent-bar submission (free-text intent or scale value),
+  // stashed at dispatch: the bar clears its fields the moment it dispatches
+  // (and unmounts while proposing), so a failed or cancelled move restores
+  // the typed input from here instead of discarding it (BC-A-13). moveId is
+  // filled once the 202 answers; every success path (proposal-ready,
+  // auto-advance, blocked) drops the stash so a later move's failure can
+  // never resurrect stale text.
+  const inFlightIntent = useRef<{ moveId: string | null; restore: IntentRestore } | null>(null)
+  const [intentRestore, setIntentRestore] = useState<IntentRestore | null>(null)
+  // restoreIntent hands the stashed submission back to the intent bar once
+  // the move it rode out on actually failed or was cancelled — keyed off the
+  // resolved moveId, never a timer (BC-A-13).
+  const restoreIntent = useCallback((moveId: string | null) => {
+    const stash = inFlightIntent.current
+    if (!stash || stash.moveId === null || stash.moveId !== moveId) return
+    inFlightIntent.current = null
+    setIntentRestore(stash.restore)
+  }, [])
   // expectedMove is the move id this view is waiting a proposal for: set on
   // POST /move, on gate verbs that spawn a move, and from inFlightMoveId on
   // re-sync; cleared when the gate resolves. The SSE hub replays rationale
@@ -147,6 +165,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       },
       onProposalReady: (e) => {
         if (e.moveId !== expectedMove.current) return // stale replay tail
+        inFlightIntent.current = null // the move succeeded — nothing to restore
         setStreamText('')
         setSuggestedNext(list(e.proposal.suggested_next))
         setSelectedProposalId((cur) => cur ?? e.proposal.id)
@@ -159,6 +178,9 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         focusDecision()
       },
       onProposalBlocked: (e) => {
+        // Blocked is a resolution, not a failure: the hold's own verbs carry
+        // the flow forward, so the stash must not linger (BC-A-13 scope).
+        inFlightIntent.current = null
         setStreamText('')
         setDetail((d) => (d ? {
           ...d, state: 'blocked', blocked: e,
@@ -166,9 +188,10 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
           inFlightMoveId: undefined,
         } : d))
       },
-      onMoveCancelled: () => {
+      onMoveCancelled: (e) => {
         setStreamText('')
         announce(ANNOUNCE_MOVE_CANCELLED)
+        restoreIntent(e.moveId) // a Stop is often precisely to rephrase (BC-A-13)
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
           : d))
@@ -177,6 +200,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         setStreamText('')
         announce(ANNOUNCE_MOVE_FAILED)
         setMoveFailed(e)
+        restoreIntent(e.moveId) // a failed move never discards typed input (BC-A-13)
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
           : d))
@@ -188,7 +212,8 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       },
     })
     return () => stream.close()
-    // focusDecision/announce are stable callbacks; resync is the only real dep.
+    // focusDecision/announce/restoreIntent are stable callbacks; resync is
+    // the only real dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dishId, resync])
 
@@ -246,6 +271,12 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   const focusDecisionNow = useCallback(() => {
     const gateBtn = document.querySelector<HTMLElement>('[data-testid="gate-bar"] button[data-verb]')
     if (gateBtn) { gateBtn.focus(); return }
+    // A gate form held open across a failed submit or a safety-override
+    // "Go back" (BC-C-21/BC-C-27) is the live decision surface: land in its
+    // field rather than skipping past it to the stage heading.
+    const gateField = document.querySelector<HTMLElement>(
+      '[data-testid="gate-bar"] input, [data-testid="gate-bar"] textarea')
+    if (gateField) { gateField.focus(); return }
     const heading = document.querySelector<HTMLElement>('[data-testid="proposing-heading"]')
     if (heading) {
       heading.focus()
@@ -284,18 +315,27 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
 
   // propose starts a move; with baseVersion it is the post-cook flow — the
   // feedback rides as steer and the move runs against the cooked version.
-  const propose = useCallback(async (moveType: string, steer: string, baseVersion?: string) => {
-    if (moveInFlight.current) return
+  // Resolves true when the move dispatched (gate pending or auto-advanced),
+  // false when it never got off the ground — a caller preserving typed input
+  // (CookFlow, BC-E-5) keys its close off this outcome.
+  const propose = useCallback(async (moveType: string, steer: string, baseVersion?: string): Promise<boolean> => {
+    if (moveInFlight.current) return false
     moveInFlight.current = true
     announce(ANNOUNCE_PROPOSING)
     setMoveFailed(null)
     setActionError(null)
     setStreamText('')
     lastMove.current = { moveType, steer, baseVersion }
+    // Stash what the cook typed into the intent bar before it clears
+    // (BC-A-13); a fresh dispatch also retires any restore still showing.
+    const restore = intentBarInput(moveType, steer, baseVersion)
+    inFlightIntent.current = restore ? { moveId: null, restore } : null
+    setIntentRestore(null)
     const beforeVersion = detail?.currentVersionId ?? null
     try {
       const mv = await postMove(dishId, moveType, steer, baseVersion)
       expectedMove.current = mv.moveId ?? null
+      if (inFlightIntent.current) inFlightIntent.current.moveId = mv.moveId ?? null
       const d = await getDish(dishId)
       // Arm the same-commit dispatch focus before the state leaves idle: the
       // layout effect above fires inside the very commit that unmounts the
@@ -306,6 +346,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       // (move_auto_advanced has no SSE event): confirm it with a toast and
       // refresh the timeline — no gate.
       if (d.state === 'idle' && d.currentVersionId && d.currentVersionId !== beforeVersion) {
+        inFlightIntent.current = null // resolved successfully — nothing to restore
         const label = MOVE_LABEL[moveType as MoveType] ?? (moveType || 'move')
         flash(`${label} — applied automatically (safe step)`)
         announce(`${label} — applied automatically`)
@@ -316,14 +357,26 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         // competing commit moved it (BC-A-5).
         focusDecision()
       }
+      return true
     } catch (err) {
       setActionError(errMessage(err))
+      // The POST itself failed: hand the typed input straight back to the
+      // still-idle intent bar (BC-A-13).
+      if (inFlightIntent.current) {
+        setIntentRestore(inFlightIntent.current.restore)
+        inFlightIntent.current = null
+      }
+      return false
     } finally {
       moveInFlight.current = false
     }
   }, [announce, detail?.currentVersionId, dishId, flash, focusDecision, refreshVersions])
 
-  const runGate = useCallback(async (body: GateRequestBody) => {
+  // runGate resolves true on success and false on a failed or held (409
+  // safety-override) submission — the GateBar keeps its open form mode, and
+  // the typed steer text / take-over JSON / tweak values, on a false settle
+  // (BC-C-21/BC-C-27).
+  const runGate = useCallback(async (body: GateRequestBody): Promise<boolean> => {
     announce(GATE_ANNOUNCE[body.verb])
     setActionError(null)
     setMoveFailed(null)
@@ -339,6 +392,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       await resync()
       void refreshVersions()
       focusDecision()
+      return true
     } catch (err) {
       // Human writes (edit/take_over) warn-and-confirm on a safety hit: the
       // orchestrator answers 409 confirm-required until the cook explicitly
@@ -348,9 +402,10 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         // Show the cook the safety reasons only — the wire prefix is plumbing.
         const message = err.message.replace(/^.*?confirm override:\s*/i, '')
         setOverride({ message, resend: { ...body, confirmOverride: true } })
-        return
+        return false
       }
       setActionError(errMessage(err))
+      return false
     }
   }, [announce, dishId, flash, focusDecision, refreshVersions, resync])
 
@@ -365,7 +420,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   // onVerb dispatches the three verbs that resolve or respawn straight from a
   // decision surface (accept/regenerate/alternatives); the form verbs
   // (edit/redirect/take_over) submit from inside the GateBar/SafetyHold forms.
-  function onVerb(v: Extract<GateVerb, 'accept' | 'regenerate' | 'alternatives'>): Promise<void> | void {
+  function onVerb(v: Extract<GateVerb, 'accept' | 'regenerate' | 'alternatives'>): Promise<boolean> | void {
     const target = gateTarget()
     if (!target) return
     return runGate({ proposalId: target, verb: v })
@@ -375,9 +430,15 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     setActionError(null)
     setStreamText('')
     try {
+      const cancelled = expectedMove.current
       await postCancel(dishId)
       expectedMove.current = null
       await resync()
+      // Once the cancel has resolved to Ready, hand the in-flight intent
+      // back to the bar — a Stop is often precisely to rephrase (BC-A-13).
+      // The SSE move-cancelled event restores too; the stash is consumed
+      // exactly once, so whichever lands first wins.
+      restoreIntent(cancelled)
       // Stop unmounts with the proposing card: land focus on whatever
       // decision surface the cancel resolved to — post-cancel that is the
       // stage heading — never dropped to document.body (BC-B-5).
@@ -610,7 +671,9 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
                     onSubmit={(notes) => {
                       const fb = notes.trim() === '' ? 'Cooked it.' : notes
                       setCookNotes((prev) => ({ ...prev, [snapshot.id]: fb }))
-                      void propose('iterate_feedback', fb, snapshot.id)
+                      // The outcome drives the form's close: a failed rework
+                      // keeps the notes on screen (BC-E-5).
+                      return propose('iterate_feedback', fb, snapshot.id)
                     }} />
                 )}
               </>
@@ -648,11 +711,13 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
                         if (!cur) return
                         const fb = notes.trim() === '' ? 'Cooked it.' : notes
                         setCookNotes((prev) => ({ ...prev, [cur]: fb }))
-                        void propose('iterate_feedback', fb, cur)
+                        // The outcome drives the form's close: a failed rework
+                        // keeps the notes on screen (BC-E-5).
+                        return propose('iterate_feedback', fb, cur)
                       }} />
                     <IntentBar canPropose={detail.state === 'idle'} autonomyOn={detail.autonomyDial}
                       servings={detail.draft.constraints.servings} suggestedNext={suggestedNext}
-                      onMove={(mt, steer) => void propose(mt, steer)} />
+                      onMove={(mt, steer) => void propose(mt, steer)} restore={intentRestore} />
                   </>
                 )}
               </>
@@ -721,6 +786,18 @@ function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'request failed'
 }
 
+// intentBarInput extracts the typed input a move carried out of the intent
+// bar (BC-A-13): the free-text intent (empty moveType — server-side
+// classification) or the scale form's servings value. Chips carry no typed
+// input, and post-cook reworks (baseVersion set) are CookFlow's to preserve
+// (BC-E-5), so both stash nothing.
+function intentBarInput(moveType: string, steer: string, baseVersion?: string): IntentRestore | null {
+  if (baseVersion !== undefined) return null
+  if (moveType === '' && steer !== '') return { intent: steer }
+  if (moveType === 'scale_servings') return { scale: steer }
+  return null
+}
+
 // OverridePrompt is the warn-and-confirm step for human writes that hit the
 // safety gate: proceeding resends the same gate call with confirmOverride,
 // recorded server-side as safety_warning_overridden. A native modal <dialog>
@@ -743,12 +820,12 @@ function OverridePrompt({ message, onConfirm, onCancel }: {
       else dialog.setAttribute('open', '')
     }
     backRef.current?.focus()
-    // The gate bar that spawned this write resets to its decide mode when the
-    // (409-swallowing) gate promise resolves, and that reset synchronously
-    // re-focuses one of its own buttons in a later commit. A real browser's
-    // showModal() traps focus so it can't; jsdom's fallback can't, so re-claim
-    // focus one macrotask later — after that reset — so the least-destructive
-    // action reliably holds it.
+    // The gate bar that spawned this write now keeps its form mode open
+    // across the 409 (BC-C-27) rather than resetting to decide, so nothing
+    // re-focuses its own buttons anymore — but jsdom's fallback still can't
+    // trap focus the way a real showModal() does, so keep the one-macrotask
+    // re-claim as a backstop so the least-destructive action reliably holds
+    // focus against any late commit.
     const t = setTimeout(() => backRef.current?.focus(), 0)
     return () => clearTimeout(t)
   }, [])

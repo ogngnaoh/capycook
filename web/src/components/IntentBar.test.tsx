@@ -199,6 +199,37 @@ test('a non-positive scale value does not submit', () => {
   expect(onMove).not.toHaveBeenCalled()
 })
 
+// ---- typed-input preservation (BC-A-13) ----
+
+test('a restore hands a failed move intent text back to the field', () => {
+  const { rerender } = render(
+    <IntentBar canPropose autonomyOn={false} servings={2} suggestedNext={[]} onMove={vi.fn()} />,
+  )
+  // Workbench stashes the submission at dispatch and hands it back once the
+  // failure is known — while the bar is still mounted (a failed POST).
+  rerender(
+    <IntentBar canPropose autonomyOn={false} servings={2} suggestedNext={[]} onMove={vi.fn()}
+      restore={{ intent: 'make it cheaper' }} />,
+  )
+  expect(screen.getByLabelText(/what do you want to try next/i)).toHaveValue('make it cheaper')
+})
+
+test('mounting with a restore applies it — the post-cancel remount path', () => {
+  render(
+    <IntentBar canPropose autonomyOn={false} servings={2} suggestedNext={[]} onMove={vi.fn()}
+      restore={{ intent: 'punchier dressing' }} />,
+  )
+  expect(screen.getByLabelText(/what do you want to try next/i)).toHaveValue('punchier dressing')
+})
+
+test('a scale restore reopens the scale form pre-filled with the failed value', () => {
+  render(
+    <IntentBar canPropose autonomyOn={false} servings={2} suggestedNext={[]} onMove={vi.fn()}
+      restore={{ scale: '12' }} />,
+  )
+  expect(screen.getByRole('spinbutton')).toHaveValue(12)
+})
+
 // ---- autonomy "auto" tag ----
 
 test('deterministic chips show a tiny "auto" tag only when autonomyOn', () => {

@@ -12,7 +12,10 @@ const ghostBtn = 'border border-hairline-strong bg-panel text-ink uppercase font
 
 export default function CookFlow({ versionLabel, onSubmit }: {
   versionLabel: string // "Trial 2"
-  onSubmit: (notes: string) => void
+  // A promise-returning onSubmit reports its outcome: resolving `false`
+  // marks a failed rework dispatch — the form stays open with the cook's
+  // exact notes (BC-E-5) — while anything else closes and clears.
+  onSubmit: (notes: string) => Promise<boolean | void> | void
 }) {
   const [tasting, setTasting] = useState(false)
   const [notes, setNotes] = useState('')
@@ -31,10 +34,24 @@ export default function CookFlow({ versionLabel, onSubmit }: {
     wasTasting.current = tasting
   }, [tasting])
 
+  // Typed-input preservation (BC-E-5): never clear/close fire-and-forget at
+  // dispatch. A promise-returning submit closes only once the outcome is
+  // known — a `false` resolve (failed rework POST) keeps the form open with
+  // the exact notes, and by design the E-4 close-restore then never fires
+  // (nothing closed). On success the dish usually leaves idle, unmounting
+  // this form before the close lands; both paths are safe no-ops.
   function submit() {
-    onSubmit(notes)
-    setTasting(false)
-    setNotes('')
+    const result = onSubmit(notes)
+    if (result instanceof Promise) {
+      void result.then((ok) => {
+        if (ok === false) return
+        setTasting(false)
+        setNotes('')
+      })
+    } else {
+      setTasting(false)
+      setNotes('')
+    }
   }
 
   function cancel() {

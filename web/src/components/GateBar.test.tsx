@@ -215,6 +215,64 @@ test('takeover invalid JSON shows a focused error and does not submit', async ()
   expect(textarea).toHaveAttribute('aria-describedby', error.id)
 })
 
+// ---- typed-input preservation on failure (BC-C-21 / BC-C-27) ----
+
+test('a redirect resolving false keeps the form open with the exact steer text (BC-C-21)', async () => {
+  const onRedirectSubmit = vi.fn(() => Promise.resolve(false))
+  renderBar({ onRedirectSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.redirect }))
+  const form = await screen.findByTestId('redirect-form')
+  const input = form.querySelector('input')!
+  fireEvent.change(input, { target: { value: 'keep the salt, add acid' } })
+  fireEvent.click(screen.getByRole('button', { name: /send/i }))
+  // The dispatch settles as a failure: the bar unlocks without leaving the
+  // mode, and the cook's text is still there.
+  await waitFor(() => expect(screen.getByRole('button', { name: /send/i })).toHaveAttribute('aria-disabled', 'false'))
+  expect(screen.getByTestId('redirect-form')).toBeInTheDocument()
+  expect(input).toHaveValue('keep the salt, add acid')
+})
+
+test('a tweak resolving false keeps the edited values in the open form (BC-C-21)', async () => {
+  const onEditSubmit = vi.fn(() => Promise.resolve(false))
+  renderBar({ onEditSubmit })
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.edit }))
+  const form = await screen.findByTestId('tweak-form')
+  const input = form.querySelector('input')!
+  fireEvent.change(input, { target: { value: 'My Tweaked Title' } })
+  fireEvent.click(screen.getByRole('button', { name: /keep with edit/i }))
+  await waitFor(() => expect(screen.getByRole('button', { name: /keep with edit/i })).toHaveAttribute('aria-disabled', 'false'))
+  expect(screen.getByTestId('tweak-form')).toBeInTheDocument()
+  expect(input).toHaveValue('My Tweaked Title')
+})
+
+test('a take-over resolving false keeps the typed JSON byte-identical (BC-C-27 mechanics)', async () => {
+  const onTakeoverSubmit = vi.fn(() => Promise.resolve(false))
+  renderBar({ onTakeoverSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.take_over }))
+  const form = await screen.findByTestId('takeover-form')
+  const textarea = form.querySelector('textarea')!
+  const typed = '{\n  "title": "My Own Edit"\n}'
+  fireEvent.change(textarea, { target: { value: typed } })
+  fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
+  await waitFor(() => expect(screen.getByRole('button', { name: /save draft/i })).toHaveAttribute('aria-disabled', 'false'))
+  expect(screen.getByTestId('takeover-form')).toBeInTheDocument()
+  expect(textarea.value).toBe(typed)
+})
+
+test('a redirect resolving true still returns the bar to decide', async () => {
+  const onRedirectSubmit = vi.fn(() => Promise.resolve(true))
+  renderBar({ onRedirectSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.redirect }))
+  const form = await screen.findByTestId('redirect-form')
+  fireEvent.change(form.querySelector('input')!, { target: { value: 'add brightness' } })
+  fireEvent.click(screen.getByRole('button', { name: /send/i }))
+  await waitFor(() => expect(screen.queryByTestId('redirect-form')).not.toBeInTheDocument())
+  expect(screen.getByRole('button', { name: VERB_LABEL.accept })).toBeInTheDocument()
+})
+
 // ---- APG toolbar: roving tabindex ----
 
 test('ArrowRight cycles focus around the decide toolbar; one tab stop', () => {
