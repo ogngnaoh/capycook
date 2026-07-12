@@ -224,6 +224,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
         announce(ANNOUNCE_MOVE_CANCELLED)
         if (alternativesExpectedMoveId.current === e.moveId) alternativesExpectedMoveId.current = null
         restoreIntent(e.moveId) // a Stop is often precisely to rephrase (BC-A-13)
+        setOptimisticProposing(false) // defensive: reconcile if still armed (BC-A-14)
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
           : d))
@@ -234,6 +235,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
         setMoveFailed(e)
         if (alternativesExpectedMoveId.current === e.moveId) alternativesExpectedMoveId.current = null
         restoreIntent(e.moveId) // a failed move never discards typed input (BC-A-13)
+        setOptimisticProposing(false) // defensive: reconcile if still armed (BC-A-14)
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
           : d))
@@ -326,10 +328,22 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
     setTimeout(focusDecisionNow, 0)
   }, [focusDecisionNow])
 
-  // dispatchFocusPending marks a local move dispatch whose next detail commit
-  // unmounts the intent affordances. The layout effect consumes it inside that
-  // same commit — synchronously, before any MutationObserver microtask can
-  // catch focus resting on document.body — so focus is already on the
+  // optimisticProposing mounts the proposing surface the INSTANT a move is
+  // dispatched (BC-A-14): under the fast stub the follow-up GET in propose()
+  // below can resolve straight to awaiting_gate before React ever paints an
+  // intermediate 'proposing' commit, so detail.state alone is not a reliable
+  // mount signal for the oracle's MutationObserver (or a real cook). This
+  // flag renders the same ProposingCard surface synchronously with dispatch;
+  // propose()'s own continuation reconciles it moments later against the
+  // GET/SSE truth — a brief proposing beat under instant completion is
+  // correct UX, a live-sim move's real 25s wait is unchanged (detail.state
+  // itself carries 'proposing' by then).
+  const [optimisticProposing, setOptimisticProposing] = useState(false)
+
+  // dispatchFocusPending marks a local move dispatch whose next commit
+  // unmounts the intent affordances. The layout effect consumes it inside
+  // that same commit — synchronously, before any MutationObserver microtask
+  // can catch focus resting on document.body — so focus is already on the
   // proposing card's heading the instant the intent bar leaves the DOM
   // (BC-A-5). Ref-gated to local dispatch only: a deep-link or reload into an
   // already-proposing dish must never have focus stolen (audit #9).
@@ -338,7 +352,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
     if (!dispatchFocusPending.current) return
     dispatchFocusPending.current = false
     focusDecisionNow()
-  }, [detail, focusDecisionNow])
+  }, [detail, optimisticProposing, focusDecisionNow])
 
   // moveInFlight is the synchronous dispatch lock: a double activation (a
   // chip double-click, Enter twice on the intent field) reaches this ref
@@ -354,6 +368,24 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
   const propose = useCallback(async (moveType: string, steer: string, baseVersion?: string): Promise<boolean> => {
     if (moveInFlight.current) return false
     moveInFlight.current = true
+    // Enter proposing OPTIMISTICALLY, synchronously with dispatch (BC-A-14):
+    // mounts the surface in the SAME commit as this call, before any await —
+    // see optimisticProposing's declaration above for why detail.state alone
+    // cannot be trusted here. Scoped to the intent-bar-originated paths
+    // (free text, chips, the auto-fired first pass — every caller with no
+    // baseVersion) only: the post-cook rework flow (CookFlow, baseVersion
+    // set) keeps its OWN local form state alive across a failed submission
+    // by never unmounting today (BC-E-5) — an optimistic mount here would
+    // tear that down for no BC-A-14 benefit (the criterion never touches
+    // CookFlow's dispatch).
+    if (baseVersion === undefined) {
+      setOptimisticProposing(true)
+      // Arm the same-commit dispatch focus in lockstep: the layout effect
+      // above fires inside the very commit that unmounts the intent
+      // affordances, which now happens on this same optimistic entry, not
+      // on the later GET (BC-A-5).
+      dispatchFocusPending.current = true
+    }
     announce(ANNOUNCE_PROPOSING)
     setMoveFailed(null)
     setActionError(null)
@@ -377,11 +409,13 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
       // lands suggested_next regardless of whether that SSE event survives.
       const suggested = pendingSuggestedNext(d)
       if (suggested) setSuggestedNext(suggested)
-      // Arm the same-commit dispatch focus before the state leaves idle: the
-      // layout effect above fires inside the very commit that unmounts the
-      // intent affordances (BC-A-5).
-      if (d.state !== 'idle') dispatchFocusPending.current = true
       setDetail(d)
+      // Reconcile the optimistic proposing beat armed at dispatch above with
+      // the truth this GET just landed: a still-'proposing' outcome (a slow,
+      // live-sim move) keeps the surface up via detail.state itself; any
+      // other outcome — awaiting_gate, blocked, or an auto-advanced idle —
+      // drops the flag in this same commit (BC-A-14).
+      setOptimisticProposing(false)
       // A deterministic move with the dial ON resolved before the 202 returned
       // (move_auto_advanced has no SSE event): confirm it with a toast and
       // refresh the timeline — no gate.
@@ -391,6 +425,15 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
         flash(`${label} — applied automatically (safe step)`)
         announce(`${label} — applied automatically`)
         void refreshVersions()
+        // The optimistic proposing beat above (intent-bar-originated
+        // dispatches only, baseVersion undefined) already unmounted the
+        // intent affordances; without a defined refocus here they would
+        // remount focus-less, dropped to document.body once the auto-advance
+        // resolves back to idle (BC-A-5's prohibition, same spirit). A
+        // CookFlow-originated rework never entered that beat and manages its
+        // own focus on close (BC-E-4) — this backstop must stay scoped to
+        // baseVersion-less dispatches or it would fight that mechanism.
+        if (baseVersion === undefined) focusDecision()
       } else if (d.state !== 'idle') {
         // Backstop for the layout-effect dispatch focus above: one macrotask
         // later, re-land focus on the surviving decision surface in case a
@@ -400,12 +443,26 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
       return true
     } catch (err) {
       setActionError(errMessage(err))
+      // The move never got off the ground: drop the optimistic proposing
+      // beat and its focus arm right away — nothing else will ever reconcile
+      // them, since no GET/SSE truth is coming for this dispatch (BC-A-14).
+      // Both are already no-ops for a CookFlow rework (baseVersion set),
+      // which never armed them in the first place.
+      setOptimisticProposing(false)
+      dispatchFocusPending.current = false
       // The POST itself failed: hand the typed input straight back to the
       // still-idle intent bar (BC-A-13).
       if (inFlightIntent.current) {
         setIntentRestore(inFlightIntent.current.restore)
         inFlightIntent.current = null
       }
+      // An intent-bar-originated dispatch just had its affordances remount
+      // (the optimistic proposing beat above unmounted them momentarily) —
+      // land focus on a defined target rather than letting it drop to
+      // document.body (BC-A-5's own prohibition, same spirit here). A
+      // CookFlow rework never unmounted, so it needs no such backstop and
+      // keeps managing its own focus/state (BC-E-4/BC-E-5).
+      if (baseVersion === undefined) focusDecision()
       return false
     } finally {
       moveInFlight.current = false
@@ -614,7 +671,10 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
   // Which surface owns the stage. Snapshot (read-only) wins; then the
   // lifecycle state; alternatives yield to the picked proposal's diff view.
   const isBlocked = !snapshot && detail.state === 'blocked' && !!detail.blocked
-  const isProposing = !snapshot && detail.state === 'proposing'
+  // optimisticProposing (BC-A-14) mounts this surface synchronously with
+  // dispatch even before detail.state itself has left idle; see its
+  // declaration above.
+  const isProposing = !snapshot && (detail.state === 'proposing' || optimisticProposing)
   const showAlternatives = !snapshot && detail.state === 'awaiting_gate' && pending.length >= 2 && !picked
   // BC-C-20: the lone alt-card of an in-flight "Compare two options" move,
   // still short its second option — never a stage the cook can gate-decide

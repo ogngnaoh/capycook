@@ -1139,3 +1139,50 @@ test('a proposal-ready SSE event that races ahead of expectedMove.current still 
   expect(screen.getByText('Try next —')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: MOVE_LABEL.cost_recompute })).toBeInTheDocument()
 })
+
+test('BC-A-14 retry: a chip click mounts the proposing surface synchronously, even when the follow-up GET resolves instantly (no intermediate proposing state)', async () => {
+  // The oracle's scenario for this clause: the fast stub's follow-up GET can
+  // jump straight from idle to awaiting_gate with no intermediate
+  // 'proposing' commit at all — a MutationObserver armed on
+  // [data-testid="proposing-card"] before the click must still see it mount.
+  const first = sampleProposal({ id: 'pr_5', move_id: 'mv_5', suggested_next: ['technique_step'] })
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: first, pendingProposals: [first] })
+  let phase: 'initial' | 'accepted' | 'moved' = 'initial'
+  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (url === '/api/dishes/d1' && method === 'GET') {
+      if (phase === 'initial') return jsonResponse(detail)
+      if (phase === 'accepted') return jsonResponse(dishDetail({ state: 'idle', currentVersionId: 'ver_2' }))
+      // phase === 'moved': instant completion under the fast stub — the
+      // chip's own follow-up GET already shows the move resolved straight
+      // to awaiting_gate, never an intermediate 'proposing' state.
+      const second = sampleProposal({ id: 'pr_9', move_id: 'mv_9' })
+      return jsonResponse(dishDetail({ state: 'awaiting_gate', pendingProposal: second, pendingProposals: [second] }))
+    }
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    if (url === '/api/dishes/d1/gate' && method === 'POST') {
+      phase = 'accepted'
+      return jsonResponse({ verb: 'accept', proposalId: 'pr_5' })
+    }
+    if (url === '/api/dishes/d1/move' && method === 'POST') {
+      phase = 'moved'
+      return jsonResponse({ moveId: 'mv_9' })
+    }
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: new RegExp(VERB_LABEL.accept, 'i') }))
+  await flush()
+  const chip = screen.getByRole('button', { name: MOVE_LABEL.technique_step })
+  expect(screen.queryByTestId('proposing-card')).not.toBeInTheDocument()
+  fireEvent.click(chip)
+  // Synchronous assertion — no await/waitFor: the proposing surface must
+  // already be in the DOM the instant the click's event handler returns,
+  // before postMove's promise (let alone the follow-up GET) has resolved.
+  expect(screen.getByTestId('proposing-card')).toBeInTheDocument()
+  await flush()
+})
