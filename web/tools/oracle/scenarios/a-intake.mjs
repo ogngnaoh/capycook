@@ -161,9 +161,17 @@ export const scenarios = [
       // BC-A-12 double-click half — the form is valid at this point.
       await ctx.check('BC-A-12', async (t) => {
         const mark = net.mark();
-        // Arm the in-flight watch BEFORE the clicks, then double-click
-        // synchronously in one evaluate (both land before React commits the
-        // disabled state — the dedup race under test).
+        // Focus the submit affordance first — a real mouse click focuses it, and
+        // this scopes the focus clause to the button's aria-disabled retention
+        // rather than BC-A-2's error summary (a focused <div role="alert">)
+        // tearing down as setErrors([]) fires on this now-valid submit.
+        await page.evaluate(() => {
+          const btn = [...document.querySelectorAll('button')].find((b) => /^Develop this dish|^Developing/.test(b.textContent.trim()));
+          btn.focus();
+        });
+        // Arm the in-flight watch, then double-click synchronously in one
+        // evaluate (both land before React commits the disabled state — the
+        // dedup race under test).
         await armInflightWatch(page);
         await page.evaluate(() => {
           const btn = [...document.querySelectorAll('button')].find((b) => /^Develop this dish|^Developing/.test(b.textContent.trim()));
@@ -195,7 +203,12 @@ export const scenarios = [
         await page.waitForSelector('#field-seed', { timeout: 8000 });
         await fillSeed(page);
         await setValue(page, '#field-servings', '2');
-        await page.focus('#field-seed');
+        // Focus a single-line input, not the #field-seed <textarea> where Enter
+        // inserts a newline instead of submitting (the double-Enter never fired a
+        // POST from the textarea — this half timed out at the nav wait). Enter in
+        // the servings <input> submits the form, exercising the keyboard
+        // double-submit the clause is about.
+        await page.focus('#field-servings');
         // Arm the same in-flight watch BEFORE the Enters (same assertions as
         // the double-click half, per the recipe).
         await armInflightWatch(page);
