@@ -26,10 +26,10 @@ Root causes reference run-073 + `b2-oracle-plan.md` "Pre-census findings".
 | # | Cluster | Criteria | Root cause pointers | Status |
 |---|---------|----------|---------------------|--------|
 | 1 | focus-at-dispatch + return | BC-A-5, BC-B-1, BC-B-5, BC-C-17, BC-D-2 | `Workbench.tsx` focus paths: cancelMove `:320-330` never calls focusDecision; `setSnapshot(null)` `:535` restores no focus + no announcement; proposing card can mount above viewport (b/one-window, top −126); A-5 also has a double-submit clause (scale_servings form) | 4/5 green @ 4256505 (iter 1); A-5 → cluster 2 |
-| 2 | focus second wave + A-5 retry | BC-A-5 (retry), BC-B-4, BC-E-4 | A-5 focus clause: armMoment 'disappear' samples AT the unmount mutation — post-GET focus too late; fix = gated useLayoutEffect on ProposingCard mount (brief cluster-02); B-4 likely fixed by 4256505's retarget, verify 4 trap moments; CookFlow Cancel drops focus to body | active (iter 2) |
-| 3 | roles / live regions | BC-H-1, BC-H-7, BC-H-8, BC-H-9 | error card plain `<p>` + focus effect gated on loaded dish (`Workbench.tsx:423-431`); loading `<div>` no role (`:433`); list-failure `<p>` no live region (`App.tsx:73-75`) | active (iter 3) |
-| 4 | empty-guard validation | BC-A-4, BC-A-9, BC-C-13 (+@live-sim) | `IntentBar.tsx:32` silent return on empty intent; message not programmatically associated; content-free tweak still fires gate POST | pending |
-| 5 | typed-input preservation | BC-A-13, BC-C-21, BC-C-27, BC-E-5 | typed input discarded on failed/cancelled submissions across IntentBar, redirect form, take-over "Go back", tasting form | pending |
+| 2 | focus second wave + A-5 retry | BC-A-5 (retry), BC-B-4, BC-E-4 | A-5 focus clause: armMoment 'disappear' samples AT the unmount mutation — post-GET focus too late; fix = gated useLayoutEffect on ProposingCard mount (brief cluster-02); B-4 likely fixed by 4256505's retarget, verify 4 trap moments; CookFlow Cancel drops focus to body | 3/3 green @ cd422df (iter 2) |
+| 3 | roles / live regions | BC-H-1, BC-H-7, BC-H-8, BC-H-9 | error card plain `<p>` + focus effect gated on loaded dish (`Workbench.tsx:423-431`); loading `<div>` no role (`:433`); list-failure `<p>` no live region (`App.tsx:73-75`) | 4/4 green @ 8093a4f (iter 3) |
+| 4 | empty-guard validation | BC-A-4, BC-A-9, BC-C-13 (+@live-sim) | `IntentBar.tsx:32` silent return on empty intent; message not programmatically associated; content-free tweak still fires gate POST | active (iter 4) |
+| 5 | typed-input preservation | BC-A-13, BC-C-21, BC-C-27, BC-E-5 | typed input discarded on failed/cancelled submissions across IntentBar, redirect form, take-over "Go back", tasting form | active (iter 5) |
 | 6 | first pass + suggestions | BC-A-3, BC-A-14 | no auto first pass on create; `setSuggestedNext` only in SSE handler gated on `expectedMove.current` (`Workbench.tsx:151`), race under fast mode, no GET-recovery population | pending |
 | 7 | streaming rationale | BC-B-3, BC-G-4, BC-B-10, BC-I-2 (judge) | rationale replays only after generation completes (`internal/transport/hub.go`); no intermediate live-region values during 25s wait; the founding live-latency finding — Go+web token streaming allowed | pending |
 | 8 | gate semantics | BC-C-10 (+@live-sim), BC-C-20, BC-C-22, BC-C-28 | card accessible names lack "Option A"; partial-alternatives shows committing verb; disclosure lacks aria-expanded; steps-deleted take-over saves silently (Go zero-value decode) | pending |
@@ -47,14 +47,20 @@ Only criteria whose count moved (id · attempts · status). Everything else: 0.
 
 | id | attempts | status |
 |----|----------|--------|
-| BC-A-5 | 1 | failing (focus-timing clause only; lock + banner clauses fixed) — retry iter 2 |
-| BC-B-1 | 1 | GREEN (iter 1, run-001) |
-| BC-B-5 | 1 | GREEN (iter 1, run-001) |
-| BC-C-17 | 1 | GREEN (iter 1, run-001) |
-| BC-D-2 | 1 | GREEN (iter 1, run-001) |
+| BC-A-5 | 2 | GREEN (iter 2, run-002 — layout-effect dispatch focus) |
+| BC-B-1 | 1 | GREEN (iter 1, run-001; held runs 002) |
+| BC-B-4 | 1 | GREEN (iter 2, run-002 — verified covered by 4256505 retarget, pinning test added, no product edit) |
+| BC-B-5 | 1 | GREEN (iter 1, run-001; held runs 002) |
+| BC-C-17 | 1 | GREEN (iter 1, run-001; held runs 002) |
+| BC-D-2 | 1 | GREEN (iter 1, run-001; held runs 002) |
+| BC-E-4 | 1 | GREEN (iter 2, run-002) |
+| BC-H-1 | 1 | GREEN (iter 3, run-002) |
+| BC-H-7 | 1 | GREEN (iter 3, run-002) |
+| BC-H-8 | 1 | GREEN (iter 3, run-002) |
+| BC-H-9 | 1 | GREEN (iter 3, run-002) |
 
 previouslyGreen (cumulative --only regression set): BC-B-1, BC-B-5, BC-C-17,
-BC-D-2.
+BC-D-2, BC-A-5, BC-B-4, BC-E-4, BC-H-1, BC-H-7, BC-H-8, BC-H-9 (11).
 
 ## Check-change log (harness edits during B4)
 
@@ -71,6 +77,15 @@ BC-D-2.
   fresh worktree: `evidence/` is gitignored so never checked out, and the
   first self-test ran all 27 probes then crashed at the write (ENOENT). Probe
   logic untouched.
+- **2026-07-12 · after iteration 3 (commit 007123a):** `lib/record.mjs` —
+  screencast freshness watchdog. Chrome pauses the screencast when a
+  fire-and-forget ack is lost mid-paint-flood; the writer loop then re-stamps
+  the stale buffer every 200ms. Runs 001/002 fed BC-B-8's judges a frozen
+  pre-handoff frame labeled t=26–29s while the renderer instrument shows
+  'Proposal ready' at 25817ms — both B-8 FAILs adjudicated as harness
+  artifacts (NO strikes). Watchdog restarts the screencast after 1.5s without
+  a fresh frame. Self-test re-run after commit: result recorded in iteration
+  records.
 
 ## Iteration records
 
@@ -103,3 +118,25 @@ BC-D-2.
   vocabulary; passed the census under a different fresh judge) — adjudicated
   as real drift risk at exit, folded into cluster 8 (verb wording; check
   oracle selectors before renaming).
+- **Iterations 2–3 (invocation wf_543ecafa-b39, builder runs 2-3/12):**
+  cluster 2 focus-second-wave @ `cd422df` — **A-5 (attempt 2), B-4, E-4 all
+  GREEN** (run-002). A-5: dispatchFocusPending ref + useLayoutEffect calling
+  synchronous focusDecisionNow() in the commit that unmounts #cc-intent,
+  local-dispatch-gated (deep-link steals no focus); B-4: no product edit —
+  all four trap moments traced to paths already retargeted by 4256505, grep
+  confirms nothing can focus Stop, pinning regression test added; E-4:
+  CookFlow triggerRef restore on close. Deviations accepted by lead: (1)
+  Workbench-level layout effect instead of ProposingCard mount effect — same
+  timing, also covers fast-profile idle→awaiting_gate jumps; (2) E-4 restore
+  fires on submit-collapse too (contract names only Cancel) — better UX, same
+  class, focus hands off to A-5's mechanism at dispatch. Cluster 3
+  roles-live-regions @ `8093a4f` — **H-1, H-7, H-8, H-9 all GREEN**
+  (run-002). Deviation accepted: error-card focus fires on cold-load
+  deep-links too — H-7's own check IS a deep-link scenario; audit-#9's
+  no-focus-on-cold-load rule read as scoped to successful loads. Gates all
+  green both clusters; web suite 212/212 then +roles tests; **no regressions
+  across the 11-strong green set**. Out-of-scope judge signal: B-2, D-7 PASS
+  again; **B-8 FAIL ×2 adjudicated as harness artifact** (recorder stall —
+  see check-change log, fix 007123a); C-11 REGENERATE wording FAIL repeats
+  (consistent → cluster 8 confirmed); **E-3 FAIL with solid evidence** (WHY
+  IT WORKS identical pre/post rework — real defect, already in cluster 10).
