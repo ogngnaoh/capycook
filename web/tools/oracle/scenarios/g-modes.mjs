@@ -430,16 +430,25 @@ export const scenarios = [
       const { page, base } = ctx;
       await page.evaluateOnNewDocument(CONTRAST_SRC);
       await page.evaluateOnNewDocument(G_BUNDLE);
-      // Zero CSS transitions so a theme flip settles instantly — otherwise a
-      // contrast/boundary walk taken mid-transition reads an interpolated
-      // background (e.g. ivory fading into dark panel), a measurement
-      // artifact, not the settled truth. Transitions are cosmetic 120–150ms
-      // fades; no G check depends on their timing.
+      // Zero CSS transitions AND keyframe animations so a theme flip and any
+      // entrance fade settle instantly. A contrast/boundary walk taken
+      // mid-transition reads an interpolated background (e.g. ivory fading
+      // into a dark panel); one taken during the `.cc-rise` entrance fade
+      // (opacity 0→1, .18s, index.css) reads a partially-transparent
+      // foreground composited toward the background. Both are measurement
+      // artifacts, not the settled truth a user reads — the cc-rise case was
+      // the BC-G-10 root cause (25 light-theme pairs flagged at opacity
+      // 0.45–0.72, every one clearing AA at its final opacity 1). cc-rise uses
+      // `animation-fill-mode: both`, so `animation-duration:0s` snaps it to its
+      // `to` state (opacity 1). Transitions/animations are cosmetic ≤180ms; no
+      // G check depends on their timing. Scoped to this scenario only —
+      // g/reduced-motion never injects this (its motion clause must read the
+      // app's own reduced-motion CSS).
       await page.evaluateOnNewDocument(() => {
         const add = () => {
           const s = document.createElement('style');
-          s.id = 'oracle-no-transition';
-          s.textContent = '*,*::before,*::after{transition-duration:0s !important;transition-delay:0s !important;}';
+          s.id = 'oracle-no-motion';
+          s.textContent = '*,*::before,*::after{transition-duration:0s !important;transition-delay:0s !important;animation-duration:0s !important;animation-delay:0s !important;}';
           (document.head || document.documentElement).appendChild(s);
         };
         if (document.head) add(); else document.addEventListener('DOMContentLoaded', add);
