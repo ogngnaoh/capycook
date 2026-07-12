@@ -24,8 +24,8 @@ import ThemeToggle from './ThemeToggle'
 import { buildTimeline } from '../lib/trials'
 import { mergeDiff } from '../lib/mergeDiff'
 import {
-  ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED, ANNOUNCE_PROPOSING,
-  GATE_ANNOUNCE, MOVE_LABEL, STATE_LABEL, VERB_LABEL,
+  ANNOUNCE_BACK_TO_CURRENT, ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED,
+  ANNOUNCE_PROPOSING, GATE_ANNOUNCE, MOVE_LABEL, STATE_LABEL, VERB_LABEL,
   announceAlternatives, announceProposalReady, promotedToService, shortRef,
   trialAlias,
 } from '../vocab'
@@ -228,22 +228,39 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   }, [routeNonce, detail])
 
   // focusDecision lands focus on whatever decision surface survives a
-  // transition (P1): the gate bar's first verb when awaiting, the Stop control
-  // while proposing, the stage heading otherwise. The blocked hold focuses
-  // itself on mount, so it needs nothing here.
+  // transition (P1): the gate bar's first verb when awaiting, the proposing
+  // card's heading while proposing (never Stop — BC-B-4's prohibition), the
+  // stage heading otherwise. The blocked hold focuses itself on mount, so it
+  // needs nothing here.
   const focusDecision = useCallback(() => {
     setTimeout(() => {
       const gateBtn = document.querySelector<HTMLElement>('[data-testid="gate-bar"] button[data-verb]')
       if (gateBtn) { gateBtn.focus(); return }
-      const stop = document.querySelector<HTMLElement>('[data-testid="proposing-card"] button')
-      if (stop) { stop.focus(); return }
+      const heading = document.querySelector<HTMLElement>('[data-testid="proposing-heading"]')
+      if (heading) {
+        heading.focus()
+        // The card can mount above the fold; bring the whole of it into view
+        // (BC-B-1). jsdom has no scrollIntoView — guard as OverridePrompt
+        // guards showModal.
+        const card = heading.closest<HTMLElement>('[data-testid="proposing-card"]')
+        if (card && typeof card.scrollIntoView === 'function') card.scrollIntoView({ block: 'nearest' })
+        return
+      }
       document.getElementById('stage-heading')?.focus()
     }, 0)
   }, [])
 
+  // moveInFlight is the synchronous dispatch lock: a double activation (a
+  // chip double-click, Enter twice on the intent field) reaches this ref
+  // before any await, so the second activation can never fire a second
+  // POST /move while the first is on the wire (BC-A-5).
+  const moveInFlight = useRef(false)
+
   // propose starts a move; with baseVersion it is the post-cook flow — the
   // feedback rides as steer and the move runs against the cooked version.
   const propose = useCallback(async (moveType: string, steer: string, baseVersion?: string) => {
+    if (moveInFlight.current) return
+    moveInFlight.current = true
     announce(ANNOUNCE_PROPOSING)
     setMoveFailed(null)
     setActionError(null)
@@ -263,11 +280,18 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         flash(`${label} — applied automatically (safe step)`)
         announce(`${label} — applied automatically`)
         void refreshVersions()
+      } else if (d.state !== 'idle') {
+        // The intent affordances unmount the moment the dish leaves idle:
+        // land focus on the surviving decision surface (the proposing card's
+        // heading) rather than letting it drop to document.body (BC-A-5).
+        focusDecision()
       }
     } catch (err) {
       setActionError(errMessage(err))
+    } finally {
+      moveInFlight.current = false
     }
-  }, [announce, detail?.currentVersionId, dishId, flash, refreshVersions])
+  }, [announce, detail?.currentVersionId, dishId, flash, focusDecision, refreshVersions])
 
   const runGate = useCallback(async (body: GateRequestBody) => {
     announce(GATE_ANNOUNCE[body.verb])
@@ -324,6 +348,10 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       await postCancel(dishId)
       expectedMove.current = null
       await resync()
+      // Stop unmounts with the proposing card: land focus on whatever
+      // decision surface the cancel resolved to — post-cancel that is the
+      // stage heading — never dropped to document.body (BC-B-5).
+      focusDecision()
     } catch (err) {
       setActionError(errMessage(err))
     }
@@ -363,6 +391,15 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     if (i < 0) return
     setSnapshot(vs[i])
     announce(`Viewing ${trialAlias(i + 1)}, read-only.`)
+  }
+
+  // backToCurrent leaves the read-only snapshot for the live view: announced
+  // — the return direction is never a silent swap (BC-D-2) — with focus landing
+  // on the stage heading, never left on the removed banner button (BC-C-17).
+  function backToCurrent() {
+    setSnapshot(null)
+    announce(ANNOUNCE_BACK_TO_CURRENT)
+    document.getElementById('stage-heading')?.focus()
   }
 
   // Skip links (audit #10): jump the keyboard straight past the header to the
@@ -532,7 +569,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
                   <span className="text-muted">
                     Viewing a past trial — <strong className="text-ink font-medium">{trialAlias(snapshotIndex + 1)}</strong>, read-only.
                   </span>
-                  <button onClick={() => setSnapshot(null)}
+                  <button onClick={backToCurrent}
                     className="inline-flex items-center min-h-[32px] px-3 uppercase font-medium text-[11px] tracking-[0.06em] border border-hairline-strong bg-panel text-ink transition hover:bg-ink hover:text-page">
                     Back to current
                   </button>

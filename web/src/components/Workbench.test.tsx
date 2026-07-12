@@ -2,9 +2,9 @@ import { render, screen, fireEvent, waitFor, within, act } from '@testing-librar
 import Workbench from './Workbench'
 import { MockEventSource, dishDetail, jsonResponse, sampleDraft, sampleProposal } from '../fixtures'
 import {
-  ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED, ANNOUNCE_PROPOSING,
-  BLOCKED_REDIRECT, BLOCKED_REGEN, GATE_ANNOUNCE, GATE_ANOTHER_LABEL,
-  MOVE_LABEL, STATE_LABEL, VERB_LABEL, announceProposalReady,
+  ANNOUNCE_BACK_TO_CURRENT, ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED,
+  ANNOUNCE_PROPOSING, BLOCKED_REDIRECT, BLOCKED_REGEN, GATE_ANNOUNCE,
+  GATE_ANOTHER_LABEL, MOVE_LABEL, STATE_LABEL, VERB_LABEL, announceProposalReady,
 } from '../vocab'
 import type { DishDetail, LLMStatusResponse, VersionsResponse } from '../types'
 
@@ -428,6 +428,27 @@ test('the override prompt is a modal alert dialog: named, described, least-destr
   await waitFor(() => expect(bar.contains(document.activeElement)).toBe(true))
 })
 
+// --- move dispatch: focus + lock (BC-A-5) ------------------------------------
+
+test('dispatching a move lands focus on the proposing card’s heading, never Stop', async () => {
+  await mount()
+  // The move's follow-up GET finds the dish proposing.
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
+  fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'brighter' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  await waitFor(() => expect(screen.getByTestId('proposing-heading')).toHaveFocus())
+  expect(screen.getByRole('button', { name: 'Stop' })).not.toHaveFocus()
+})
+
+test('a chip double-click dispatches exactly one move (synchronous lock)', async () => {
+  await mount()
+  const chip = screen.getByRole('button', { name: new RegExp(MOVE_LABEL.unit_convert, 'i') })
+  fireEvent.click(chip)
+  fireEvent.click(chip)
+  await flush()
+  expect(fetchMock.mock.calls.filter(([u]) => String(u) === '/api/dishes/d1/move')).toHaveLength(1)
+})
+
 // --- cancel ----------------------------------------------------------------
 
 test('while proposing, the Stop control cancels the move (no gate bar)', async () => {
@@ -436,6 +457,15 @@ test('while proposing, the Stop control cancels the move (no gate bar)', async (
   expect(screen.queryByTestId('gate-bar')).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
   await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/dishes/d1/cancel', expect.anything()))
+})
+
+test('cancelling restores focus to the stage heading once Stop unmounts', async () => {
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_5' })
+  await mount()
+  // The cancel's re-sync finds the dish idle again — Stop is gone.
+  detail = dishDetail()
+  fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+  await waitFor(() => expect(document.getElementById('stage-heading')).toHaveFocus())
 })
 
 test('the status region narrates the gate lifecycle, never the token stream', async () => {
@@ -528,6 +558,26 @@ test('viewing a past trial shows a read-only banner with a way back; a trial pro
     expect(call).toBeTruthy()
     expect(JSON.parse((call![1] as RequestInit).body as string)).toMatchObject({ versionId: 'ver_1' })
   })
+})
+
+test('Back to current announces the return and focuses the stage heading', async () => {
+  versionsData = {
+    currentVersionId: 'ver_2',
+    versions: [
+      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() },
+      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft() },
+    ],
+  }
+  detail = dishDetail({ currentVersionId: 'ver_2' })
+  await mount()
+  const region = screen.getByTestId('gate-live-region')
+  fireEvent.click(screen.getByRole('button', { name: /trial 1/i }))
+  expect(region).toHaveTextContent(/viewing trial 1, read-only/i)
+  fireEvent.click(screen.getByRole('button', { name: /back to current/i }))
+  // The return direction is never a silent swap: a distinct announcement plus
+  // focus on the stage heading, not the removed banner button.
+  expect(region).toHaveTextContent(ANNOUNCE_BACK_TO_CURRENT)
+  expect(document.getElementById('stage-heading')).toHaveFocus()
 })
 
 // --- cook flow -------------------------------------------------------------

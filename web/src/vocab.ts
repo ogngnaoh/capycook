@@ -79,6 +79,11 @@ export const ANNOUNCE_PROPOSING = 'Proposing a move…'
 export const ANNOUNCE_MOVE_FAILED = 'Move failed'
 export const ANNOUNCE_MOVE_CANCELLED = 'Move cancelled'
 
+// Snapshot navigation speaks both directions (BC-D-2): entering the read-only
+// trial announces "Viewing Trial N, read-only."; leaving it announces this —
+// never a silent swap back to the live, decidable state.
+export const ANNOUNCE_BACK_TO_CURRENT = 'Back to the current version.'
+
 export function announceProposalReady(changes: number): string {
   return `Proposal ready — ${changes} ${changes === 1 ? 'change' : 'changes'} to review`
 }
