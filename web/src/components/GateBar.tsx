@@ -27,7 +27,7 @@ export type GateMode = 'decide' | 'another' | 'tweak' | 'redirect' | 'takeover'
 // button rows — the tweak/redirect/takeover modes are real forms (a text
 // field plus two buttons), and hijacking Left/Right there would break
 // caret movement inside the input, so those keep plain tab order instead.
-const base = 'uppercase transition aria-disabled:opacity-40 leading-[1]'
+const base = 'uppercase transition disabled:opacity-40 aria-disabled:opacity-40 leading-[1]'
 const primaryBtn = `${base} border border-accent bg-accent text-on-accent font-medium text-[12px] tracking-[0.06em] px-[18px] min-h-[44px] inline-flex items-center justify-center`
 
 function bigGhostBtn(locked: boolean) {
@@ -239,9 +239,15 @@ export default function GateBar({
     btnRefs.current[next]?.focus()
   }
 
+  // BC-C-13 empty-guard: a content-free edit — every editable field cleared
+  // and nothing being removed (a remove op is real content) — can never
+  // dispatch. Save disables (dimmed via `disabled:opacity-40`, mirroring the
+  // redirect Send guard) and the submit handler backstops it.
+  const tweakEmpty = ops.every((op, i) => op.op !== 'remove' && (editValues[i] ?? '').trim() === '')
+
   function submitTweak(e: FormEvent) {
     e.preventDefault()
-    if (locked) return
+    if (locked || tweakEmpty) return
     const nextOps = ops.map((op, i) => (op.op === 'remove' ? op : { ...op, value: parseEdited(editValues[i], op.value) }))
     dispatch('edit', () => onEditSubmit(nextOps))
   }
@@ -386,7 +392,7 @@ export default function GateBar({
               ))}
             </div>
             <div className="flex gap-[10px]">
-              <button type="submit" aria-disabled={locked} className={primaryBtn}>
+              <button type="submit" disabled={tweakEmpty} aria-disabled={locked} className={primaryBtn}>
                 {pending === 'edit' && <Spinner />}Keep with edit
               </button>
               <button type="button" aria-disabled={locked} onClick={backToDecide} className={smallGhostBtn(locked)}>

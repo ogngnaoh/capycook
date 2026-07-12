@@ -140,6 +140,37 @@ test('tweak mode lists one input per op (removals excluded) and submits the edit
   expect(submitted[2]).toEqual({ op: 'remove', path: '/steps/1' })
 })
 
+test('clearing every tweak field disables Save and blocks a content-free dispatch (BC-C-13 empty-guard)', async () => {
+  const onEditSubmit = vi.fn()
+  renderBar({ onEditSubmit })
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.edit }))
+  const form = await screen.findByTestId('tweak-form')
+  const input = form.querySelector('input')!
+  expect(input).toHaveValue('New Title') // pre-seeded from the proposal
+  const save = screen.getByRole('button', { name: /keep with edit/i })
+  expect(save).not.toBeDisabled()
+  fireEvent.change(input, { target: { value: '   ' } }) // whitespace counts as cleared
+  expect(save).toBeDisabled()
+  fireEvent.submit(form) // even a forced submit is backstopped
+  expect(onEditSubmit).not.toHaveBeenCalled()
+  fireEvent.change(input, { target: { value: 'Restored Title' } })
+  expect(save).not.toBeDisabled()
+  fireEvent.click(save)
+  expect(onEditSubmit).toHaveBeenCalledTimes(1)
+})
+
+test('a removal-only tweak still submits — a remove op is real content, not an empty edit', async () => {
+  const ops: Op[] = [{ op: 'remove', path: '/steps/1' }]
+  const onEditSubmit = vi.fn()
+  renderBar({ proposal: sampleProposal({ change: ops }), onEditSubmit })
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.edit }))
+  await screen.findByTestId('tweak-form')
+  const save = screen.getByRole('button', { name: /keep with edit/i })
+  expect(save).not.toBeDisabled()
+  fireEvent.click(save)
+  expect(onEditSubmit).toHaveBeenCalledWith(ops)
+})
+
 test('tweak Cancel discards the edit and returns focus to Tweak it', async () => {
   renderBar()
   const tweakIt = screen.getByRole('button', { name: VERB_LABEL.edit })

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import IntentBar from './IntentBar'
-import { MOVE_LABEL } from '../vocab'
+import { INTENT_EMPTY_ERROR, MOVE_LABEL, SCALE_INVALID_ERROR } from '../vocab'
 
 type Props = React.ComponentProps<typeof IntentBar>
 
@@ -63,6 +63,63 @@ test('blank (or whitespace-only) input does not fire, on Enter or on click', () 
   fireEvent.keyDown(input, { key: 'Enter' })
   fireEvent.click(screen.getByRole('button', { name: /try it/i }))
   expect(onMove).not.toHaveBeenCalled()
+})
+
+// ---- empty-guard validation (BC-A-4 / BC-A-9) ----
+
+test('an empty "Try it" shows a field-linked alert, focuses the intent field, and does not fire', () => {
+  const onMove = vi.fn()
+  renderBar({ onMove })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  const error = screen.getByRole('alert')
+  expect(error).toHaveTextContent(INTENT_EMPTY_ERROR)
+  const input = screen.getByLabelText(/what do you want to try next/i)
+  expect(input).toHaveFocus()
+  expect(input).toHaveAttribute('aria-invalid', 'true')
+  expect(input).toHaveAttribute('aria-describedby', error.id)
+  expect(onMove).not.toHaveBeenCalled()
+})
+
+test('the intent error clears on the next valid submit', () => {
+  const onMove = vi.fn()
+  renderBar({ onMove })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  expect(screen.getByRole('alert')).toBeInTheDocument()
+  const input = screen.getByLabelText(/what do you want to try next/i)
+  fireEvent.change(input, { target: { value: 'make it cheaper' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  expect(onMove).toHaveBeenCalledWith('', 'make it cheaper')
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(input).not.toHaveAttribute('aria-invalid')
+})
+
+test.each(['', '0', '-1'])('scale value %j shows a field-linked alert, keeps focus, and does not fire', (bad) => {
+  const onMove = vi.fn()
+  renderBar({ onMove })
+  fireEvent.click(screen.getByRole('button', { name: /scale servings/i }))
+  const numberInput = screen.getByRole('spinbutton')
+  fireEvent.change(numberInput, { target: { value: bad } })
+  fireEvent.click(screen.getByRole('button', { name: /scale it/i }))
+  const error = screen.getByRole('alert')
+  expect(error).toHaveTextContent(SCALE_INVALID_ERROR)
+  expect(numberInput).toHaveFocus()
+  expect(numberInput).toHaveAttribute('aria-invalid', 'true')
+  expect(numberInput).toHaveAttribute('aria-describedby', error.id)
+  expect(onMove).not.toHaveBeenCalled()
+})
+
+test('reopening the scale form starts clean — no stale error from the last attempt', () => {
+  renderBar()
+  fireEvent.click(screen.getByRole('button', { name: /scale servings/i }))
+  fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '0' } })
+  fireEvent.click(screen.getByRole('button', { name: /scale it/i }))
+  expect(screen.getByRole('alert')).toBeInTheDocument()
+  // Close by submitting a valid value, then reopen.
+  fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '4' } })
+  fireEvent.click(screen.getByRole('button', { name: /scale it/i }))
+  fireEvent.click(screen.getByRole('button', { name: /scale servings/i }))
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(screen.getByRole('spinbutton')).not.toHaveAttribute('aria-invalid')
 })
 
 test('the intent input carries the design placeholder', () => {

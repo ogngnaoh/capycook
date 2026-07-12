@@ -55,6 +55,12 @@ export const MOVE_LABEL: Record<MoveType, string> = {
   nutrition_recompute: 'Recompute nutrition',
 }
 
+// Intent-bar empty-guard validation (BC-A-4 / BC-A-9): a submit with nothing
+// to act on is never a silent no-op — the message names what to fix, in the
+// same register as the seed form's errors.
+export const INTENT_EMPTY_ERROR = 'Enter an intent — say what you want to try next.'
+export const SCALE_INVALID_ERROR = 'Enter servings as a whole number, at least 1.'
+
 // Fixed copy, naming map §6. Failure is rigor: an intentional kill is never
 // "something went wrong".
 export const SAFETY_HOLD_TITLE = 'Safety hold — this change was stopped'

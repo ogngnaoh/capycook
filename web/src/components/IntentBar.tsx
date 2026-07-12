@@ -1,5 +1,5 @@
-import { useState, type KeyboardEvent } from 'react'
-import { MOVE_LABEL } from '../vocab'
+import { useRef, useState, type KeyboardEvent } from 'react'
+import { INTENT_EMPTY_ERROR, MOVE_LABEL, SCALE_INVALID_ERROR } from '../vocab'
 
 // IntentBar is the idle-state initiation surface (design 406-421): the
 // free-text "what do you want to try next?" field the kitchen classifies
@@ -22,14 +22,26 @@ export default function IntentBar({ canPropose, autonomyOn, servings, suggestedN
   onMove: (moveType: string, steer: string) => void
 }) {
   const [intent, setIntent] = useState('')
+  const [intentError, setIntentError] = useState(false)
   const [scaling, setScaling] = useState(false)
   const [scaleTo, setScaleTo] = useState('')
+  const [scaleError, setScaleError] = useState(false)
+  const intentRef = useRef<HTMLInputElement>(null)
+  const scaleRef = useRef<HTMLInputElement>(null)
 
   if (!canPropose) return null
 
+  // Empty-guard (BC-A-4): an empty or whitespace-only intent is never a
+  // silent no-op — the field is marked invalid, a linked error appears, and
+  // focus stays on the field. No move is dispatched.
   function submitIntent() {
     const text = intent.trim()
-    if (text === '') return
+    if (text === '') {
+      setIntentError(true)
+      intentRef.current?.focus()
+      return
+    }
+    setIntentError(false)
     onMove('', text)
     setIntent('')
   }
@@ -43,12 +55,20 @@ export default function IntentBar({ canPropose, autonomyOn, servings, suggestedN
 
   function openScale() {
     setScaleTo(String(servings * 2))
+    setScaleError(false)
     setScaling(true)
   }
 
+  // Empty-guard (BC-A-9): blank/zero/negative servings never no-op silently
+  // (non-numeric text is the native number input's job, not this guard's).
   function submitScale() {
     const n = Math.trunc(Number(scaleTo))
-    if (!Number.isFinite(n) || n < 1) return
+    if (scaleTo.trim() === '' || !Number.isFinite(n) || n < 1) {
+      setScaleError(true)
+      scaleRef.current?.focus()
+      return
+    }
+    setScaleError(false)
     onMove('scale_servings', String(n))
     setScaling(false)
   }
@@ -77,14 +97,21 @@ export default function IntentBar({ canPropose, autonomyOn, servings, suggestedN
         What do you want to try next?
       </label>
       <div className="flex gap-[10px] items-start">
-        <input id="cc-intent" value={intent} onChange={(e) => setIntent(e.target.value)}
+        <input id="cc-intent" ref={intentRef} value={intent} onChange={(e) => setIntent(e.target.value)}
           onKeyDown={onIntentKeyDown}
+          aria-invalid={intentError ? true : undefined}
+          aria-describedby={intentError ? 'cc-intent-error' : undefined}
           placeholder="make it cheaper · add a crunchy element · what pairs with miso?"
           className="flex-1 border border-hairline-strong bg-panel text-ink text-[15px] px-[13px] min-h-[44px]" />
         <button type="button" onClick={submitIntent} className={primaryBtn}>
           Try it →
         </button>
       </div>
+      {intentError && (
+        <p id="cc-intent-error" role="alert" className="mt-[6px] text-[12px] text-critical">
+          <span className="sr-only">Error: </span>{INTENT_EMPTY_ERROR}
+        </p>
+      )}
 
       <div className="flex items-center gap-[8px] flex-wrap mt-[12px]">
         <span className="text-[11px] tracking-[0.08em] uppercase text-faint">Just the math —</span>
@@ -92,9 +119,11 @@ export default function IntentBar({ canPropose, autonomyOn, servings, suggestedN
         {scaling ? (
           <span className="inline-flex items-center gap-[6px]">
             <label htmlFor="cc-scale-servings" className="sr-only">Scale servings to</label>
-            <input id="cc-scale-servings" type="number" min={1} step={1} value={scaleTo}
+            <input id="cc-scale-servings" ref={scaleRef} type="number" min={1} step={1} value={scaleTo}
               onChange={(e) => setScaleTo(e.target.value)}
               onKeyDown={onScaleKeyDown}
+              aria-invalid={scaleError ? true : undefined}
+              aria-describedby={scaleError ? 'cc-scale-servings-error' : undefined}
               className="w-[64px] min-h-[32px] border border-hairline-strong bg-panel text-ink font-mono text-[13px] px-[8px]" />
             <button type="button" onClick={submitScale} className={chipBtn}>
               Scale it →
@@ -120,6 +149,11 @@ export default function IntentBar({ canPropose, autonomyOn, servings, suggestedN
           {autonomyOn && <AutoTag />}
         </button>
       </div>
+      {scaling && scaleError && (
+        <p id="cc-scale-servings-error" role="alert" className="mt-[6px] text-[12px] text-critical">
+          <span className="sr-only">Error: </span>{SCALE_INVALID_ERROR}
+        </p>
+      )}
     </div>
   )
 }
