@@ -29,10 +29,10 @@ Root causes reference run-073 + `b2-oracle-plan.md` "Pre-census findings".
 | 2 | focus second wave + A-5 retry | BC-A-5 (retry), BC-B-4, BC-E-4 | A-5 focus clause: armMoment 'disappear' samples AT the unmount mutation — post-GET focus too late; fix = gated useLayoutEffect on ProposingCard mount (brief cluster-02); B-4 likely fixed by 4256505's retarget, verify 4 trap moments; CookFlow Cancel drops focus to body | 3/3 green @ cd422df (iter 2) |
 | 3 | roles / live regions | BC-H-1, BC-H-7, BC-H-8, BC-H-9 | error card plain `<p>` + focus effect gated on loaded dish (`Workbench.tsx:423-431`); loading `<div>` no role (`:433`); list-failure `<p>` no live region (`App.tsx:73-75`) | 4/4 green @ 8093a4f (iter 3) |
 | 4 | empty-guard validation | BC-A-4, BC-A-9, BC-C-13 (+@live-sim) | `IntentBar.tsx:32` silent return on empty intent; message not programmatically associated; content-free tweak still fires gate POST | 3/3 green @ 89a5046 (iter 4) |
-| 5 | typed-input preservation | BC-A-13, BC-C-21, BC-C-27, BC-E-5 | typed input discarded on failed/cancelled submissions across IntentBar, redirect form, take-over "Go back", tasting form | built @ 24e6576, UNVERIFIED (gate agent lost to session limit) — verify in invocation 3b |
-| 6 | first pass + suggestions | BC-A-3, BC-A-14 | no auto first pass on create; `setSuggestedNext` only in SSE handler gated on `expectedMove.current` (`Workbench.tsx:151`), race under fast mode, no GET-recovery population | pending |
+| 5 | typed-input preservation | BC-A-13, BC-C-21, BC-C-27, BC-E-5 | typed input discarded on failed/cancelled submissions across IntentBar, redirect form, take-over "Go back", tasting form | 4/4 green @ 24e6576 (iter 5; verified by invocation 3b audit + run-005) |
+| 6 | first pass + suggestions | BC-A-3, BC-A-14 | no auto first pass on create; `setSuggestedNext` only in SSE handler gated on `expectedMove.current` (`Workbench.tsx:151`), race under fast mode, no GET-recovery population | active (iter 6) |
 | 7 | streaming rationale | BC-B-3, BC-G-4, BC-B-10, BC-I-2 (judge), **BC-B-8 (judge, folded 2026-07-12)** | rationale replays only after generation completes (`internal/transport/hub.go`); no intermediate live-region values during 25s wait; the founding live-latency finding — Go+web token streaming allowed. B-8 folded in: the end-of-generation replay burst (~26 rapid updates + gate mount) delays the visible handoff paint past the ±3s window AND floods the screencast; streaming during generation removes the burst by design | pending |
-| 8 | gate semantics | BC-C-10 (+@live-sim), BC-C-20, BC-C-22, BC-C-28 | card accessible names lack "Option A"; partial-alternatives shows committing verb; disclosure lacks aria-expanded; steps-deleted take-over saves silently (Go zero-value decode) | pending |
+| 8 | gate semantics + C-11 wording | BC-C-10 (+@live-sim), BC-C-20, BC-C-22, BC-C-28, BC-C-11 (judge, folded 2026-07-12) | card accessible names lack "Option A"; partial-alternatives shows committing verb; disclosure lacks aria-expanded; steps-deleted take-over saves silently (Go zero-value decode); REGENERATE label = model vocabulary (4 consecutive fresh-judge FAILs; oracle selects via data-verb, label rename safe) | active (iter 7) |
 | 9 | diff repertoire | BC-C-16 (+@live-sim) | `StepRow` (`DishCard.tsx:250`) has no changed branch (row.old ignored, no sr-only was/now); PLUS sanctioned harness work: stub gains remove-op / in-place-replace templates so the clause is drivable (self-test re-run required) | pending |
 | 10 | durable trial metadata | BC-D-12 (⚖), BC-F-3 (+@live-sim), BC-E-3 (judge) | persist move rationale (schema/wire change sanctioned); auto-applied trial lacks durable attribution marker; feedback→proposal connection not legible | pending |
 | 11 | contrast tokens | BC-G-10, BC-G-13 | 98 text pairs below AA both themes (`--color-faint` family); `--color-border-strong` ~1.7:1 on dial-OFF track (`DialToggle.tsx:13,17`) + invalid seed border (`SeedSetup.tsx:49`); token-level work, design bar applies | pending |
@@ -61,10 +61,14 @@ Only criteria whose count moved (id · attempts · status). Everything else: 0.
 | BC-A-4 | 1 | GREEN (iter 4, run-004) |
 | BC-A-9 | 1 | GREEN (iter 4, run-004) |
 | BC-C-13 | 1 | GREEN (iter 4, run-004) |
+| BC-A-13 | 1 | GREEN (iter 5, run-005 — verified via 3b audit) |
+| BC-C-21 | 1 | GREEN (iter 5, run-005) |
+| BC-C-27 | 1 | GREEN (iter 5, run-005) |
+| BC-E-5 | 1 | GREEN (iter 5, run-005) |
 
 previouslyGreen (cumulative --only regression set): BC-B-1, BC-B-5, BC-C-17,
 BC-D-2, BC-A-5, BC-B-4, BC-E-4, BC-H-1, BC-H-7, BC-H-8, BC-H-9, BC-A-4,
-BC-A-9, BC-C-13 (14).
+BC-A-9, BC-C-13, BC-A-13, BC-C-21, BC-C-27, BC-E-5 (18).
 
 ## Check-change log (harness edits during B4)
 
@@ -166,3 +170,17 @@ BC-A-9, BC-C-13 (14).
 - **2026-07-12 — workflow agents switched to Sonnet** (USER directive on
   resume): every agent() in `b4-iteration.workflow.mjs` now passes
   `model: 'sonnet'` (args-overridable). Lead unchanged.
+- **Iteration 5 closed (invocation 3b, wf_8548db50-cf6, Sonnet agents):**
+  verify pass on `24e6576` — implementation audited complete clause-by-clause
+  against cluster-05, suites independently re-run (tsc clean, 240/240),
+  NO gaps, no new commit. Oracle run-005: **A-13, C-21, C-27, E-5 GREEN;
+  full 18-id set green, zero regressions.** Gate all green. Judge signal:
+  **BC-B-8 PASS on fresh evidence** ("by t26.3s the header badge swapped to
+  NEEDS YOUR CALL … holds through t29.1s") — run-004's post-watchdog FAIL
+  was residual capture flake, not product paint-lag; B-8 stays folded in
+  cluster 7 (streaming removes the flood that triggers the flake) and must
+  hold at the ×2 exit runs. B-2, D-7 PASS again. **C-11 FAIL (4th
+  consecutive fresh judge)** — REGENERATE wording + faint-gray label;
+  wording → cluster 8 (folded), contrast → cluster 11. Verified: oracle
+  addresses verbs by `data-verb` attribute only, so the label rename is
+  selector-safe.
