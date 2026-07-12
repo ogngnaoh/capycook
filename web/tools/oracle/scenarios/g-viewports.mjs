@@ -367,6 +367,11 @@ export const scenarios = [
         t.observe('overflow', ov);
         t.expect(ov.docScrollWidth <= VW_NARROW + 1, `no horizontal overflow at the gate (scrollWidth ${ov.docScrollWidth} ≤ ${VW_NARROW})`, { observed: ov });
         t.expect(ov.offenders.length === 0, 'no leaf element extends past the viewport at the gate', { observed: ov.offenders });
+        // Frame the still from the top of the scroll so no card is sliced under
+        // the sticky header (a mid-scroll capture read as clipped content to the
+        // judge); the sticky gate bar stays pinned on-screen regardless.
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await sleep(120);
         await ctx.judgeStill('BC-G-6', 'gate');
       }, { name: 'gate' });
 
@@ -411,9 +416,29 @@ export const scenarios = [
       if (atOverride) await sweepInto(page, hits, surfaces, 'override', '[data-testid="override-prompt"]');
 
       // --- BC-G-5 at the idle dish-stage + CookFlow (post-accept) -------------
+      // Reach idle+CookFlow reliably for the still, DECOUPLED from the
+      // alternatives/take-over churn above. The override "Go back" can strand us
+      // off a gate (no accept verb); acceptGate's clickVerb('accept') then THREW,
+      // crashing the scenario before this still and the safety-hold one were
+      // captured — BC-G-6's judge saw only seed+gate. Reload to a known dish
+      // state, ensure a gate (a fresh proposal if the reload didn't restore one),
+      // then accept.
       if (atOverride) await dismissOverride(page);
-      const idle = atGate2 ? await acceptGate(ctx) : false;
+      await gotoDish(page, base, dishId);
+      // The reload may restore a gate, the idle intent bar, or the pending
+      // alternatives-picker (BC-D-4 — the take-over churn left the dish there).
+      // Normalize whichever it is to a gate with an accept verb, then accept.
+      let atGateForAccept = await page.$('button[data-verb="accept"]').then(Boolean);
+      let via = atGateForAccept ? 'restored-gate' : 'none';
+      if (!atGateForAccept && (await page.$('[data-testid="alternatives-picker"]').then(Boolean))) {
+        atGateForAccept = await pickAlt(page); via = 'picker';
+      }
+      if (!atGateForAccept && (await page.$('#cc-intent').then(Boolean))) {
+        atGateForAccept = await typeIntentToGate(ctx, 'brighten it with lemon and fresh herbs'); via = 'fresh-proposal';
+      }
+      const idle = atGateForAccept ? await acceptGate(ctx) : false;
       await ctx.check('BC-G-5', async (t) => {
+        t.observe('idleReachedVia', { via, idle });
         t.expect(idle, 'accepted a proposal → idle dish-stage', { observed: idle ? 'idle' : 'never' });
         if (!idle) return;
         const cookflow = await page.evaluate(() => [...document.querySelectorAll('#stage button')].some((b) => /^I cooked this/.test(b.textContent.trim())));
@@ -422,6 +447,13 @@ export const scenarios = [
         t.observe('overflow', ov);
         t.expect(ov.docScrollWidth <= VW_NARROW + 1, `no horizontal overflow at idle + CookFlow (scrollWidth ${ov.docScrollWidth})`, { observed: ov });
         t.expect(ov.offenders.length === 0, 'no leaf offender at idle + CookFlow', { observed: ov.offenders });
+        // Frame the CookFlow reference (the "phone-in-kitchen" CTA the criterion
+        // names) into view — at 390px it sits below the dish card's fold.
+        await page.evaluate(() => {
+          const cf = [...document.querySelectorAll('#stage button')].find((b) => /^I cooked this/.test(b.textContent.trim()));
+          if (cf) cf.scrollIntoView({ block: 'center' });
+        });
+        await sleep(120);
         await ctx.judgeStill('BC-G-6', 'idle-cookflow');
       }, { name: 'idle-cookflow' });
       if (idle) {
