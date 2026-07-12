@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { sampleDraft } from '../fixtures'
 import type { Ingredient, Op } from '../types'
 import { mergeDiff } from '../lib/mergeDiff'
-import { SR_ADDED, SR_REMOVED, SR_WAS } from '../vocab'
+import { SR_ADDED, SR_NOW, SR_REMOVED, SR_WAS } from '../vocab'
 import DishCard, { extractStepMeta, formatQty } from './DishCard'
 
 const ing = (name: string, qty: number, unit: string, over: Partial<Ingredient> = {}): Ingredient => ({
@@ -45,7 +45,7 @@ test('diff mode: an added ingredient row carries row-add, a New chip, and the SR
   expect(row.textContent).toContain(SR_ADDED)
 })
 
-test('diff mode: a changed ingredient row carries row-change and shows the struck old qty', () => {
+test('diff mode: a changed ingredient row carries row-change, an SR_NOW-prefixed new value, and the struck old qty', () => {
   const base = sampleDraft()
   const ops: Op[] = [{ op: 'replace', path: '/ingredients/1/qty', from: 2, value: 3 }]
   const diff = mergeDiff(base, ops)
@@ -53,6 +53,7 @@ test('diff mode: a changed ingredient row carries row-change and shows the struc
   const row = screen.getAllByTestId('ingredient-row').find((r) => r.textContent?.includes('thyme'))!
   expect(row.className).toMatch(/row-change/)
   expect(row).toHaveTextContent('3 sprig')
+  expect(row.textContent).toContain(SR_NOW)
   const struck = row.querySelector('.line-through')
   expect(struck).toHaveTextContent('2 sprig')
   expect(struck?.textContent).toContain(SR_WAS)
@@ -84,6 +85,31 @@ test('diff mode: an added step row carries row-add and the New chip', () => {
   expect(row).toHaveTextContent('New')
 })
 
+test('diff mode: a changed step row carries row-change, shows the struck old text, and SR was/now labels', () => {
+  const base = sampleDraft()
+  const oldText = base.steps![0].text
+  const ops: Op[] = [{ op: 'replace', path: '/steps/0/text', from: oldText, value: 'Sear skin-side down until deeply golden.' }]
+  const diff = mergeDiff(base, ops)
+  render(<DishCard draft={base} diff={diff} technical={false} showDetail={false} />)
+  const row = screen.getAllByTestId('step-row').find((r) => r.textContent?.includes('deeply golden'))!
+  expect(row.className).toMatch(/row-change/)
+  expect(row.textContent).toContain(SR_NOW)
+  const struck = row.querySelector('.line-through')
+  expect(struck).toHaveTextContent(oldText)
+  expect(struck?.textContent).toContain(SR_WAS)
+})
+
+test('diff mode: a removed step row is struck, carries no tint class, and is SR_REMOVED-prefixed', () => {
+  const base = sampleDraft()
+  const ops: Op[] = [{ op: 'remove', path: '/steps/0' }]
+  const diff = mergeDiff(base, ops)
+  render(<DishCard draft={base} diff={diff} technical={false} showDetail={false} />)
+  const row = screen.getAllByTestId('step-row').find((r) => r.textContent?.includes('crisp'))!
+  expect(row.className).not.toMatch(/row-add|row-change/)
+  expect(row.querySelector('.line-through')).not.toBeNull()
+  expect(row.textContent).toContain(SR_REMOVED)
+})
+
 // --- diff mode: header concept ---
 
 test('diff mode: a concept change shows the Reworked badge and the struck old concept', () => {
@@ -98,6 +124,43 @@ test('diff mode: a concept change shows the Reworked badge and the struck old co
   const struck = card.querySelector('.line-through')
   expect(struck).toHaveTextContent(base.concept)
   expect(struck?.textContent).toContain(SR_WAS)
+})
+
+// --- diff mode: flavor claims ---
+
+test('diff mode: an added flavor row carries row-add and SR_ADDED', () => {
+  const base = sampleDraft()
+  const ops: Op[] = [{ op: 'add', path: '/flavor_rationale/-', value: { claim: 'char loves acid', provenance: null, cuisine_context: 'western' } }]
+  const diff = mergeDiff(base, ops)
+  render(<DishCard draft={base} diff={diff} technical={false} showDetail={false} />)
+  const row = screen.getAllByTestId('flavor-row').find((r) => r.textContent?.includes('char loves acid'))!
+  expect(row.className).toMatch(/row-add/)
+  expect(row.textContent).toContain(SR_ADDED)
+})
+
+test('diff mode: a changed flavor row carries row-change, the struck old claim, and SR was/now labels', () => {
+  const base = sampleDraft()
+  const oldClaim = base.flavor_rationale![0].claim
+  const ops: Op[] = [{ op: 'replace', path: '/flavor_rationale/0/claim', from: oldClaim, value: 'thyme sharpens rendered chicken fat' }]
+  const diff = mergeDiff(base, ops)
+  render(<DishCard draft={base} diff={diff} technical={false} showDetail={false} />)
+  const row = screen.getAllByTestId('flavor-row').find((r) => r.textContent?.includes('sharpens rendered'))!
+  expect(row.className).toMatch(/row-change/)
+  expect(row.textContent).toContain(SR_NOW)
+  const struck = row.querySelector('.line-through')
+  expect(struck).toHaveTextContent(oldClaim)
+  expect(struck?.textContent).toContain(SR_WAS)
+})
+
+test('diff mode: a removed flavor row is struck, carries no tint class, and is SR_REMOVED-prefixed', () => {
+  const base = sampleDraft()
+  const ops: Op[] = [{ op: 'remove', path: '/flavor_rationale/0' }]
+  const diff = mergeDiff(base, ops)
+  render(<DishCard draft={base} diff={diff} technical={false} showDetail={false} />)
+  const row = screen.getAllByTestId('flavor-row').find((r) => r.textContent?.includes('thyme pairs with chicken'))!
+  expect(row.className).not.toMatch(/row-add|row-change/)
+  expect(row.querySelector('.line-through')).not.toBeNull()
+  expect(row.textContent).toContain(SR_REMOVED)
 })
 
 // --- flavor rationale provenance ---

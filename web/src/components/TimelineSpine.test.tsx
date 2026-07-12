@@ -69,6 +69,38 @@ test('a cooked node renders the Cooked badge and its cook-note quote', () => {
   expect(screen.getByText(/Needed more salt/)).toBeInTheDocument()
 })
 
+// BC-D-7 de-risk: the BRANCH badge alone is color/label-only self-explanation
+// ("Branch" carries no context on its own); a branch trial also carries a
+// quiet text note naming the trial it forked from, exposed as real text in
+// the accessibility tree (not merely implied by position on the rail). A
+// dedicated node list (rather than the shared `nodes` fixture) keeps the
+// "Trial 1" the note names from colliding with other cards' own "Trial 1"
+// accessible names in unrelated tests above.
+test('a branch node carries an inline "Branched from Trial N" note naming its parent trial', () => {
+  const branchNodes: TimelineNode[] = [
+    {
+      id: 'ver_1', n: 1, head: 'Trial 1', note: 'First concept', when: 'Mon 1:00p',
+      cooked: false, cookNote: undefined, branch: false,
+      isCurrent: false, isViewing: false, pending: false,
+    },
+    {
+      id: 'ver_2', n: 2, head: 'Trial 2', note: 'Second concept', when: 'Mon 2:00p',
+      cooked: false, cookNote: undefined, branch: true, branchFromN: 1,
+      isCurrent: true, isViewing: true, pending: false,
+    },
+  ]
+  mount({ nodes: branchNodes })
+  const branchCard = screen.getByRole('button', { name: /^Trial 2\b/ })
+  expect(branchCard).toHaveTextContent(/Branched from/)
+  expect(branchCard.textContent).toMatch(/Branched from.*Trial 1/)
+})
+
+test('a non-branch node renders no "Branched from" note even when cooked', () => {
+  mount()
+  const trial1Card = screen.getByRole('button', { name: /^Trial 1\b/ })
+  expect(trial1Card).not.toHaveTextContent('Branched from')
+})
+
 test('technical toggles the ver-id line', () => {
   const { rerender } = render(<TimelineSpine nodes={nodes} summary="s" nextHint="n" technical={false} onView={vi.fn()} onPromote={vi.fn()} />)
   expect(screen.queryByText('ver_1')).not.toBeInTheDocument()

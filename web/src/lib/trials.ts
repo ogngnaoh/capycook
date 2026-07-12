@@ -22,6 +22,7 @@ export interface TimelineNode {
   cooked: boolean
   cookNote?: string
   branch: boolean // parent already had an earlier child
+  branchFromN?: number // 1-based trial number of the parent trial (branch nodes only)
   isCurrent: boolean
   isViewing: boolean
   pending: boolean
@@ -41,6 +42,12 @@ export function buildTimeline(
   const nodes: TimelineNode[] = versions.map((v, i) => {
     const branch = versions.some((other, j) => j < i && other.parentVersionId === v.parentVersionId)
     const cooked = Object.hasOwn(opts.cookNotes, v.id)
+    // branchFromN: the parent trial's 1-based number (BC-D-7 — the "Branch"
+    // badge's inline self-explanation needs a concrete trial to point at).
+    // Only meaningful (and only rendered) when branch is true; computed here
+    // regardless since the lookup is cheap and keeps this the single place
+    // that maps parentVersionId → trial number.
+    const parentIndex = v.parentVersionId ? versions.findIndex((x) => x.id === v.parentVersionId) : -1
     return {
       id: v.id,
       n: i + 1,
@@ -50,6 +57,7 @@ export function buildTimeline(
       cooked,
       cookNote: cooked ? opts.cookNotes[v.id] : undefined,
       branch,
+      branchFromN: parentIndex >= 0 ? parentIndex + 1 : undefined,
       isCurrent: v.id === data.currentVersionId,
       isViewing: v.id === opts.viewingId,
       pending: false,
