@@ -28,10 +28,10 @@ Root causes reference run-073 + `b2-oracle-plan.md` "Pre-census findings".
 | 1 | focus-at-dispatch + return | BC-A-5, BC-B-1, BC-B-5, BC-C-17, BC-D-2 | `Workbench.tsx` focus paths: cancelMove `:320-330` never calls focusDecision; `setSnapshot(null)` `:535` restores no focus + no announcement; proposing card can mount above viewport (b/one-window, top −126); A-5 also has a double-submit clause (scale_servings form) | 4/5 green @ 4256505 (iter 1); A-5 → cluster 2 |
 | 2 | focus second wave + A-5 retry | BC-A-5 (retry), BC-B-4, BC-E-4 | A-5 focus clause: armMoment 'disappear' samples AT the unmount mutation — post-GET focus too late; fix = gated useLayoutEffect on ProposingCard mount (brief cluster-02); B-4 likely fixed by 4256505's retarget, verify 4 trap moments; CookFlow Cancel drops focus to body | 3/3 green @ cd422df (iter 2) |
 | 3 | roles / live regions | BC-H-1, BC-H-7, BC-H-8, BC-H-9 | error card plain `<p>` + focus effect gated on loaded dish (`Workbench.tsx:423-431`); loading `<div>` no role (`:433`); list-failure `<p>` no live region (`App.tsx:73-75`) | 4/4 green @ 8093a4f (iter 3) |
-| 4 | empty-guard validation | BC-A-4, BC-A-9, BC-C-13 (+@live-sim) | `IntentBar.tsx:32` silent return on empty intent; message not programmatically associated; content-free tweak still fires gate POST | active (iter 4) |
-| 5 | typed-input preservation | BC-A-13, BC-C-21, BC-C-27, BC-E-5 | typed input discarded on failed/cancelled submissions across IntentBar, redirect form, take-over "Go back", tasting form | active (iter 5) |
+| 4 | empty-guard validation | BC-A-4, BC-A-9, BC-C-13 (+@live-sim) | `IntentBar.tsx:32` silent return on empty intent; message not programmatically associated; content-free tweak still fires gate POST | 3/3 green @ 89a5046 (iter 4) |
+| 5 | typed-input preservation | BC-A-13, BC-C-21, BC-C-27, BC-E-5 | typed input discarded on failed/cancelled submissions across IntentBar, redirect form, take-over "Go back", tasting form | built @ 24e6576, UNVERIFIED (gate agent lost to session limit) — verify in invocation 3b |
 | 6 | first pass + suggestions | BC-A-3, BC-A-14 | no auto first pass on create; `setSuggestedNext` only in SSE handler gated on `expectedMove.current` (`Workbench.tsx:151`), race under fast mode, no GET-recovery population | pending |
-| 7 | streaming rationale | BC-B-3, BC-G-4, BC-B-10, BC-I-2 (judge) | rationale replays only after generation completes (`internal/transport/hub.go`); no intermediate live-region values during 25s wait; the founding live-latency finding — Go+web token streaming allowed | pending |
+| 7 | streaming rationale | BC-B-3, BC-G-4, BC-B-10, BC-I-2 (judge), **BC-B-8 (judge, folded 2026-07-12)** | rationale replays only after generation completes (`internal/transport/hub.go`); no intermediate live-region values during 25s wait; the founding live-latency finding — Go+web token streaming allowed. B-8 folded in: the end-of-generation replay burst (~26 rapid updates + gate mount) delays the visible handoff paint past the ±3s window AND floods the screencast; streaming during generation removes the burst by design | pending |
 | 8 | gate semantics | BC-C-10 (+@live-sim), BC-C-20, BC-C-22, BC-C-28 | card accessible names lack "Option A"; partial-alternatives shows committing verb; disclosure lacks aria-expanded; steps-deleted take-over saves silently (Go zero-value decode) | pending |
 | 9 | diff repertoire | BC-C-16 (+@live-sim) | `StepRow` (`DishCard.tsx:250`) has no changed branch (row.old ignored, no sr-only was/now); PLUS sanctioned harness work: stub gains remove-op / in-place-replace templates so the clause is drivable (self-test re-run required) | pending |
 | 10 | durable trial metadata | BC-D-12 (⚖), BC-F-3 (+@live-sim), BC-E-3 (judge) | persist move rationale (schema/wire change sanctioned); auto-applied trial lacks durable attribution marker; feedback→proposal connection not legible | pending |
@@ -58,9 +58,13 @@ Only criteria whose count moved (id · attempts · status). Everything else: 0.
 | BC-H-7 | 1 | GREEN (iter 3, run-002) |
 | BC-H-8 | 1 | GREEN (iter 3, run-002) |
 | BC-H-9 | 1 | GREEN (iter 3, run-002) |
+| BC-A-4 | 1 | GREEN (iter 4, run-004) |
+| BC-A-9 | 1 | GREEN (iter 4, run-004) |
+| BC-C-13 | 1 | GREEN (iter 4, run-004) |
 
 previouslyGreen (cumulative --only regression set): BC-B-1, BC-B-5, BC-C-17,
-BC-D-2, BC-A-5, BC-B-4, BC-E-4, BC-H-1, BC-H-7, BC-H-8, BC-H-9 (11).
+BC-D-2, BC-A-5, BC-B-4, BC-E-4, BC-H-1, BC-H-7, BC-H-8, BC-H-9, BC-A-4,
+BC-A-9, BC-C-13 (14).
 
 ## Check-change log (harness edits during B4)
 
@@ -140,3 +144,25 @@ BC-D-2, BC-A-5, BC-B-4, BC-E-4, BC-H-1, BC-H-7, BC-H-8, BC-H-9 (11).
   see check-change log, fix 007123a); C-11 REGENERATE wording FAIL repeats
   (consistent → cluster 8 confirmed); **E-3 FAIL with solid evidence** (WHY
   IT WORKS identical pre/post rework — real defect, already in cluster 10).
+- **Iteration 4 + interrupted iteration 5 (invocation wf_4dffd1cc-dba, builder
+  runs 4-5/12):** cluster 4 empty-guard @ `89a5046` — **A-4, A-9, C-13 all
+  GREEN** (run-004; full 14-id set green, no regressions; gate green, web
+  suite 224/224). Deviations accepted by lead: (1) `disabled:opacity-40` on
+  GateBar's shared button class — redirect Send now also dims when empty,
+  accepted surface change; (2) zero-editable-op tweak counted as content-free
+  (Save disabled) — matches BC-C-13's intent. Cluster 5 typed-input builder
+  COMMITTED `24e6576` (self-reported suite green) but the GATE AGENT died on
+  the session usage limit → invocation aborted; cluster 5 is UNVERIFIED.
+  Resume = invocation 3b: verify-complete builder (reads 24e6576's diff
+  against brief cluster-05, fixes gaps only) → gate → oracle → judges.
+  **B-8 re-adjudication:** run-004 FAILED again POST-watchdog (six
+  byte-identical tail frames; renderer 'Proposal ready' at 25824ms) — the
+  watchdog is insufficient, and the paint-side handoff plausibly really does
+  lag past ±3s under the end-of-generation replay burst (census passed with
+  ~2s lag — marginal). Folded B-8 into cluster 7, whose streaming work
+  removes the burst by design; recorder freshness logging to be added when
+  cluster 7 is prepped (harness edit → self-test re-run then). Attempts for
+  B-8 stay 0 (out-of-cluster signal; never a strike so far).
+- **2026-07-12 — workflow agents switched to Sonnet** (USER directive on
+  resume): every agent() in `b4-iteration.workflow.mjs` now passes
+  `model: 'sonnet'` (args-overridable). Lead unchanged.

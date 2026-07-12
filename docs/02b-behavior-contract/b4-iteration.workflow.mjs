@@ -28,6 +28,9 @@ if (!A || !A.worktree || !A.contractPin || !A.branchBase || !Array.isArray(A.clu
 const WT = A.worktree
 const PIN = A.contractPin
 const BASE = A.branchBase
+// All workflow agents run on Sonnet (USER directive 2026-07-12, after a
+// session-limit abort killed a gate agent); override per-invocation via args.
+const MODEL = A.model || 'sonnet'
 const FROZEN = 'internal/llm/prompts eval/fixtures/seeds.json internal/eval/runner.go data/safety eval/fixtures/move_script.json internal/llm/evidence.go internal/eval/mapping.go'
 const prevGreen = Array.isArray(A.previouslyGreen) ? A.previouslyGreen : []
 
@@ -192,7 +195,7 @@ Return: flipped (count it reported) and the updated summary object from ${runDir
 
 // ------------------------------------------------------------------ run ---
 phase('Preflight')
-const pre = await agent(preflightPrompt(), { schema: PREFLIGHT_SCHEMA, label: 'preflight', effort: 'low' })
+const pre = await agent(preflightPrompt(), { schema: PREFLIGHT_SCHEMA, label: 'preflight', effort: 'low', model: MODEL })
 if (!pre || !pre.ok) {
   log(`preflight REFUSED: ${pre ? pre.detail : 'agent lost'}`)
   return { aborted: 'preflight', preflight: pre }
@@ -205,7 +208,7 @@ for (let i = 0; i < A.clusters.length; i++) {
   const cluster = A.clusters[i]
   const record = { cluster: cluster.name, criteria: cluster.criteria }
 
-  const build = await agent(builderPrompt(cluster), { schema: BUILD_SCHEMA, label: `build:${cluster.name}`, phase: 'Build' })
+  const build = await agent(builderPrompt(cluster), { schema: BUILD_SCHEMA, label: `build:${cluster.name}`, phase: 'Build', model: MODEL })
   record.build = build
   if (!build || !build.committed) {
     log(`builder for ${cluster.name} did not commit — aborting invocation`)
@@ -215,7 +218,7 @@ for (let i = 0; i < A.clusters.length; i++) {
   }
   log(`built ${cluster.name} @ ${build.commit.slice(0, 7)}${build.deviations ? ' — DEVIATIONS flagged' : ''}`)
 
-  const gate = await agent(gatePrompt(cluster), { schema: GATE_SCHEMA, label: `gate:${cluster.name}`, phase: 'Gate', effort: 'low' })
+  const gate = await agent(gatePrompt(cluster), { schema: GATE_SCHEMA, label: `gate:${cluster.name}`, phase: 'Gate', effort: 'low', model: MODEL })
   record.gate = gate
   if (!gate || !gate.pass) {
     log(`guardrail gate FAILED after ${cluster.name}: ${gate ? gate.detail : 'agent lost'} — aborting invocation`)
@@ -225,7 +228,7 @@ for (let i = 0; i < A.clusters.length; i++) {
   }
 
   const onlyIds = [...new Set([...greenSoFar, ...cluster.criteria])]
-  const oracle = await agent(oraclePrompt(cluster, onlyIds), { schema: ORACLE_SCHEMA, label: `oracle:${cluster.name}`, phase: 'Oracle', effort: 'low' })
+  const oracle = await agent(oraclePrompt(cluster, onlyIds), { schema: ORACLE_SCHEMA, label: `oracle:${cluster.name}`, phase: 'Oracle', effort: 'low', model: MODEL })
   record.oracle = oracle
   if (!oracle || oracle.exitCode >= 2) {
     log(`oracle run aborted (exit ${oracle ? oracle.exitCode : '?'}) — stopping invocation`)
@@ -237,11 +240,11 @@ for (let i = 0; i < A.clusters.length; i++) {
   if (oracle.judgeEntries.length) {
     log(`judging ${oracle.judgeEntries.length} criteria (fresh contexts)`)
     const judged = await parallel(oracle.judgeEntries.map((entry) => () =>
-      agent(judgePrompt(entry, oracle.runDir), { schema: JUDGE_SCHEMA, label: `judge:${entry.id}`, phase: 'Judge' })
+      agent(judgePrompt(entry, oracle.runDir), { schema: JUDGE_SCHEMA, label: `judge:${entry.id}`, phase: 'Judge', model: MODEL })
         .then((v) => v && { id: entry.id, verdict: v.verdict, reason: v.reason, evidenceSuspect: v.evidenceSuspect })))
     record.judges = judged.filter(Boolean)
     record.merge = await agent(mergePrompt(record.judges.map(({ id, verdict, reason }) => ({ id, verdict, reason })), oracle.runDir),
-      { schema: MERGE_SCHEMA, label: `merge:${cluster.name}`, phase: 'Judge', effort: 'low' })
+      { schema: MERGE_SCHEMA, label: `merge:${cluster.name}`, phase: 'Judge', effort: 'low', model: MODEL })
   }
 
   // Judge verdicts override assert-side status for judge-tagged rows.
