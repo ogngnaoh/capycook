@@ -27,11 +27,13 @@ export class Recorder {
     this.client = await this.page.target().createCDPSession();
     this.client.on('Page.screencastFrame', (frame) => {
       this.latest = Buffer.from(frame.data, 'base64');
+      this.lastFreshAt = Date.now();
       this.client.send('Page.screencastFrameAck', { sessionId: frame.sessionId }).catch(() => {});
     });
     await this.client.send('Page.startScreencast', { format: 'png', everyNthFrame: 2 });
     this.running = true;
     this.startedAt = Date.now();
+    this.lastFreshAt = Date.now();
     this.done = (async () => {
       let n = 0;
       while (this.running) {
@@ -41,6 +43,19 @@ export class Recorder {
           const file = `frame-${String(n).padStart(5, '0')}.png`;
           writeFileSync(join(this.dir, file), this.latest);
           this.frames.push({ t: Date.now() - this.startedAt, file });
+        }
+        // Watchdog: Chrome pauses the screencast when an ack is lost (the ack
+        // send is fire-and-forget), which wedges it permanently mid-flood —
+        // frames then go stale while this loop keeps re-stamping them
+        // (run-001/002 fed judges a frozen pre-handoff frame labeled 26–29s,
+        // mis-failing BC-B-8). No fresh frame for 1.5s on a live page →
+        // restart the screencast.
+        if (this.running && Date.now() - this.lastFreshAt > 1500) {
+          try { await this.client.send('Page.stopScreencast'); } catch { /* gone */ }
+          try {
+            await this.client.send('Page.startScreencast', { format: 'png', everyNthFrame: 2 });
+            this.lastFreshAt = Date.now();
+          } catch { /* session gone; stop() will clean up */ }
         }
         const rest = CAP_MS - (Date.now() - t0);
         if (rest > 0) await sleep(rest);
