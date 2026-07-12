@@ -838,6 +838,16 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
                     Back to current
                   </button>
                 </div>
+                {technical && snapshot.rationale && (
+                  // BC-D-12: the accept-time prose recovered on this trial's
+                  // snapshot — present only in technical view (an expander of
+                  // one, always open: the text just needs to be in the
+                  // accessibility tree, not collapsed away by default).
+                  <div data-testid="trial-rationale" className="cc-rise mb-4 px-[14px] py-[11px] border border-hairline bg-surface">
+                    <span className="block text-2xs uppercase tracking-[0.08em] text-faint mb-[4px]">Why this trial — the accepted rationale</span>
+                    <p className="text-[14px] leading-[1.6] text-ink max-w-[64ch] m-0">{snapshot.rationale}</p>
+                  </div>
+                )}
                 <DishCard draft={snapshot.draft} technical={technical} showDetail />
                 {detail.state === 'idle' && (
                   <CookFlow versionLabel={trialAlias(snapshotIndex + 1)}

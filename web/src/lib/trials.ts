@@ -26,6 +26,10 @@ export interface TimelineNode {
   isCurrent: boolean
   isViewing: boolean
   pending: boolean
+  // auto (BC-F-3): this trial landed via a dial-ON auto-applied deterministic
+  // move, never a human gate decision — the spine's durable attribution
+  // marker, since the "applied automatically" toast itself evaporates.
+  auto: boolean
 }
 
 export function buildTimeline(
@@ -61,6 +65,7 @@ export function buildTimeline(
       isCurrent: v.id === data.currentVersionId,
       isViewing: v.id === opts.viewingId,
       pending: false,
+      auto: v.origin === 'auto',
     }
   })
 
@@ -84,6 +89,7 @@ export function buildTimeline(
       isCurrent: PENDING_ID === data.currentVersionId,
       isViewing: PENDING_ID === opts.viewingId,
       pending: true,
+      auto: false,
     })
   }
 

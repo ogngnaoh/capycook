@@ -109,6 +109,13 @@ function TimelineCardBody({ node, technical, highlighted }: {
         {node.branch && (
           <span className="px-[6px] py-[1px] text-[10px] uppercase tracking-[0.08em] border border-hairline-strong text-faint">Branch</span>
         )}
+        {node.auto && (
+          // BC-F-3: the durable, text-exposed attribution the ~2.6s toast
+          // alone can't provide — a plain badge, never color-only, in the
+          // accessibility tree beside Cooked/Branch (unconditional, not
+          // gated behind technical view — attribution matters to every cook).
+          <span className="px-[6px] py-[1px] text-[10px] uppercase tracking-[0.08em] border border-hairline-strong text-faint">Auto-applied</span>
+        )}
       </div>
       <div className="mt-[3px] leading-[1.5] text-muted">{node.note}</div>
       {node.branch && node.branchFromN !== undefined && (

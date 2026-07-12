@@ -602,13 +602,13 @@ func (o *Orchestrator) runDeterministic(ctx context.Context, ds *dishState, k mo
 		if err != nil {
 			return nil, fmt.Errorf("orchestrator: apply deterministic move: %w", err)
 		}
-		verID, err := o.commitVersion(ctx, dish, applied, k.baseVersion)
+		verID, err := o.commitVersion(ctx, dish, applied, k.baseVersion, prop.Rationale, store.VersionOriginAuto)
 		if err != nil {
 			return nil, err
 		}
 		if err := o.append(ctx, k.dishID, k.sessionID, eventlog.TypeMoveAutoAdvanced, autoAdvancedPayload{
 			MoveID: k.moveID, MoveType: k.moveType, ProposalID: prop.ID,
-			NewVersionID: verID, AutonomyDial: true,
+			NewVersionID: verID, AutonomyDial: true, Rationale: prop.Rationale,
 		}); err != nil {
 			return nil, err
 		}
@@ -878,8 +878,11 @@ func (o *Orchestrator) enrichOps(cur draft.Draft, ops []proposal.Op) []proposal.
 // in-accept recompute is also what satisfies the "auto-enqueue
 // deterministic recomputes after ingredient-touching accepts" rule in v0:
 // the analysis is already fresh in the snapshot, so no separate
-// move_auto_advanced fires (no double events). Caller holds mu.
-func (o *Orchestrator) commitVersion(ctx context.Context, dish store.Dish, applied draft.Draft, baseVersion string) (string, error) {
+// move_auto_advanced fires (no double events). rationale and origin persist
+// onto the version row (BC-D-12/BC-F-3: the accept-time "why" and how the
+// version was committed, recoverable later from the technical view/spine).
+// Caller holds mu.
+func (o *Orchestrator) commitVersion(ctx context.Context, dish store.Dish, applied draft.Draft, baseVersion, rationale, origin string) (string, error) {
 	parent := dish.CurrentVersionID
 	if baseVersion != "" {
 		parent = &baseVersion
@@ -901,6 +904,7 @@ func (o *Orchestrator) commitVersion(ctx context.Context, dish store.Dish, appli
 	verID := newID("ver")
 	if err := o.store.CreateVersion(ctx, store.Version{
 		ID: verID, DishID: dish.ID, ParentVersionID: parent, DraftJSON: string(raw),
+		Rationale: rationale, Origin: origin,
 	}); err != nil {
 		return "", fmt.Errorf("orchestrator: store version: %w", err)
 	}
@@ -984,6 +988,10 @@ type gatePayload struct {
 	NewMoveID    string `json:"new_move_id,omitempty"`
 	NewVersionID string `json:"new_version_id,omitempty"`
 	AutonomyDial bool   `json:"autonomy_dial"`
+	// Rationale rides accept/edit/take_over gate events only (BC-D-12): the
+	// prose that accompanied the committed version, mirroring the store
+	// column so a full replay recovers it without re-reading the version row.
+	Rationale string `json:"rationale,omitempty"`
 }
 
 type overridePayload struct {
@@ -999,6 +1007,9 @@ type autoAdvancedPayload struct {
 	ProposalID   string `json:"proposal_id"`
 	NewVersionID string `json:"new_version_id"`
 	AutonomyDial bool   `json:"autonomy_dial"`
+	// Rationale mirrors the deterministic proposal's prose onto the event
+	// (BC-D-12), matching the auto-advanced version's stored rationale.
+	Rationale string `json:"rationale"`
 }
 
 // --- small helpers ---

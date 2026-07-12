@@ -201,11 +201,23 @@ export interface GateResponse {
   overridden?: boolean
 }
 
+// origin distinguishes how a version was committed (BC-F-3): 'accepted' for
+// any human gate decision (accept/edit/take_over), 'auto' for a
+// dial-ON deterministic move that landed with no gate stop. Widened past the
+// two known values so an older/newer server's origin never throws away a
+// version — unrecognized values just render as a non-'auto' (human) trial.
+export type VersionOrigin = 'accepted' | 'auto' | (string & {})
+
 export interface VersionItem {
   id: string
   parentVersionId: string | null
   createdAt: string
   draft: Draft
+  // rationale (BC-D-12): the accepted proposal's prose at accept time; ''
+  // for a take_over with no natural proposal behind it is never expected —
+  // the server always fills a fallback note — but render defensively anyway.
+  rationale: string
+  origin: VersionOrigin
 }
 
 export interface VersionsResponse {

@@ -859,7 +859,7 @@ test('"Go back — I\'ll change it" returns to take-over with the typed JSON byt
 test('a failed rework POST keeps the tasting form open with the exact notes (BC-E-5)', async () => {
   versionsData = {
     currentVersionId: 'ver_1',
-    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() }],
+    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' }],
   }
   detail = dishDetail({ currentVersionId: 'ver_1' })
   fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
@@ -897,8 +897,8 @@ test('viewing a past trial shows a read-only banner with a way back; a trial pro
   versionsData = {
     currentVersionId: 'ver_2',
     versions: [
-      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() },
-      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft() },
+      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' },
+      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' },
     ],
   }
   detail = dishDetail({ currentVersionId: 'ver_2' })
@@ -917,12 +917,54 @@ test('viewing a past trial shows a read-only banner with a way back; a trial pro
   })
 })
 
+// BC-D-12: a past trial's accept-time rationale is recoverable in technical
+// view — present as real text on the snapshot, absent when technical is off
+// (so the default, non-technical stage never reads as cluttered).
+test('technical view exposes a past trial\'s accepted rationale; off, it does not', async () => {
+  versionsData = {
+    currentVersionId: 'ver_2',
+    versions: [
+      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: 'kumquat-marmalade-note-7f3', origin: 'accepted' },
+      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft(), rationale: 'second trial rationale', origin: 'accepted' },
+    ],
+  }
+  detail = dishDetail({ currentVersionId: 'ver_2' })
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: /trial 1/i }))
+  expect(screen.queryByText(/kumquat-marmalade-note-7f3/)).not.toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole('button', { name: /technical view/i }))
+  expect(screen.getByTestId('trial-rationale')).toHaveTextContent('kumquat-marmalade-note-7f3')
+
+  fireEvent.click(screen.getByRole('button', { name: /technical view/i }))
+  expect(screen.queryByTestId('trial-rationale')).not.toBeInTheDocument()
+})
+
+// BC-F-3: an auto-applied trial stays durably attributable on the spine
+// (never only the ~2.6s toast) — text-exposed, distinguishing it from a
+// human-accepted trial beside it.
+test('an auto-applied trial carries a durable text marker a human-accepted one lacks', async () => {
+  versionsData = {
+    currentVersionId: 'ver_2',
+    versions: [
+      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'auto' },
+      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' },
+    ],
+  }
+  detail = dishDetail({ currentVersionId: 'ver_2' })
+  await mount()
+  const autoCard = screen.getByRole('button', { name: /trial 1/i })
+  const humanCard = screen.getByRole('button', { name: /trial 2/i })
+  expect(autoCard).toHaveTextContent('Auto-applied')
+  expect(humanCard).not.toHaveTextContent('Auto-applied')
+})
+
 test('Back to current announces the return and focuses the stage heading', async () => {
   versionsData = {
     currentVersionId: 'ver_2',
     versions: [
-      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() },
-      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft() },
+      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' },
+      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' },
     ],
   }
   detail = dishDetail({ currentVersionId: 'ver_2' })
@@ -942,7 +984,7 @@ test('Back to current announces the return and focuses the stage heading', async
 test('the cook flow dispatches iterate_feedback against the current version', async () => {
   versionsData = {
     currentVersionId: 'ver_1',
-    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() }],
+    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' }],
   }
   detail = dishDetail({ currentVersionId: 'ver_1' })
   await mount()
@@ -963,7 +1005,7 @@ test('the cook flow dispatches iterate_feedback against the current version', as
 test('a cook-note round-trip renders in the timeline node for that version', async () => {
   versionsData = {
     currentVersionId: 'ver_1',
-    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() }],
+    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' }],
   }
   detail = dishDetail({ currentVersionId: 'ver_1' })
   await mount()

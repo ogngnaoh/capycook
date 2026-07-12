@@ -229,7 +229,7 @@ func TestRunCommandStubAllArms(t *testing.T) {
 	}
 	mustContain(t, "run summary", stdout, "stub",
 		"label_r1/label_r2 are EMPTY — author R1 and judge R2 label Tier-2 claims (PREREG §9 Amendment 1)")
-	// 2 synthetic seeds × 3 claims each (arithmetic in internal/eval/runner_test.go).
+	// 2 synthetic seeds × 4 claims each (arithmetic in internal/eval/runner_test.go).
 	for _, arm := range eval.Arms {
 		path := filepath.Join(outDir, "claims_"+arm+".jsonl")
 		mustContain(t, "run summary", stdout, path)
@@ -242,8 +242,8 @@ func TestRunCommandStubAllArms(t *testing.T) {
 		if err != nil {
 			t.Fatalf("arm %s: ReadClaims: %v", arm, err)
 		}
-		if len(claims) != 6 {
-			t.Errorf("arm %s: %d claims, want 6", arm, len(claims))
+		if len(claims) != 8 {
+			t.Errorf("arm %s: %d claims, want 8", arm, len(claims))
 		}
 		// The S3-exit coverage flag (PREREG §9 Amendment 1): the operator must
 		// see per-arm how many claims the Tier-1 verifier settled machine-side

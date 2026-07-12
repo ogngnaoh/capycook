@@ -23,14 +23,30 @@ type Dish struct {
 }
 
 // Version is a row in the versions table. Versions are immutable snapshots
-// chained by parent pointers; the root version has a nil parent.
+// chained by parent pointers; the root version has a nil parent. Rationale
+// and Origin are additive (BC-D-12/BC-F-3): the prose that accompanied the
+// proposal at accept time, and how the version came to exist.
 type Version struct {
 	ID              string
 	DishID          string
 	ParentVersionID *string
 	DraftJSON       string
-	CreatedAt       time.Time
+	// Rationale is the accepted proposal's prose. take_over has no proposal
+	// behind it, so the orchestrator fills a fixed note there instead of
+	// leaving this blank.
+	Rationale string
+	// Origin is one of the VersionOrigin* constants: how this version was
+	// committed.
+	Origin    string
+	CreatedAt time.Time
 }
+
+// VersionOrigin values (BC-F-3): distinguishes an auto-applied version from
+// a human-decided one, durably, on the version record itself.
+const (
+	VersionOriginAccepted = "accepted" // gate_accept | gate_edit | gate_take_over
+	VersionOriginAuto     = "auto"     // move_auto_advanced (dial ON, deterministic move)
+)
 
 // Event is a row in the events table (spec §4 schema). Seq is monotonic per
 // dish and assigned by the store on append.

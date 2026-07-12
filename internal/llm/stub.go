@@ -51,6 +51,17 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 	proposed := clone(req.Draft)
 	before := len(proposed.FlavorRationale)
 	tmpl.mutate(&proposed)
+	// BC-E-3: iterate_feedback's mutate is the only template that touches no
+	// flavor_rationale claim at all, so the "why it works" panel renders
+	// byte-identical before and after a rework — no visible sign the cook's
+	// own tasting note drove anything. A feedback-echoing claim closes that
+	// gap: it appends (never replaces, so earlier claims + their provenance
+	// survive untouched) whenever real feedback text rode the steer.
+	if req.MoveType == MoveTypeIterateFeedback {
+		if note := strings.TrimSpace(req.Steer); note != "" {
+			addFeedbackClaim(&proposed, note)
+		}
+	}
 	// Seeded steer fixtures (case-insensitive contains on req.Steer, any LLM
 	// move type): each drives one deterministic contract rule so the behavior
 	// oracle (B2) can exercise it end-to-end. garlic oil is the original
@@ -87,7 +98,14 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 	}
 	change := proposal.ComputeDiff(req.Draft, proposed)
 	rationale := tmpl.rationale
-	if req.Steer != "" {
+	switch note := strings.TrimSpace(req.Steer); {
+	// BC-E-3: the cook → taste → rework loop must read as closing the loop —
+	// the rationale explicitly echoes the tasting note's own words (not just
+	// a mechanical "steer applied" restatement) so a screenshot of the
+	// tasting form next to this proposal's rationale shows the connection.
+	case req.MoveType == MoveTypeIterateFeedback && note != "":
+		rationale += fmt.Sprintf(" Responding to your tasting note: %q.", note)
+	case req.Steer != "":
 		rationale += fmt.Sprintf(" Steer applied: %q.", req.Steer)
 	}
 	result := proposal.Proposal{
@@ -304,6 +322,19 @@ var templates = map[string]moveTemplate{
 		rationale: "Refreshed the nutrition panel with placeholder stub numbers.",
 		next:      []string{MoveTypeCostRecompute, MoveTypeIterateFeedback},
 	},
+}
+
+// addFeedbackClaim appends a flavor-rationale claim that names the cook's
+// own tasting note (BC-E-3): the one deterministic hook that makes the
+// "why it works" panel visibly change after a rework, echoing the note's own
+// words rather than restating the template's fixed lemon-and-acid prose.
+// Provenance stays nil ([unverified]) — this is a link to the cook's
+// feedback, not a grounded flavor-pairing claim.
+func addFeedbackClaim(d *draft.Draft, note string) {
+	d.FlavorRationale = append(d.FlavorRationale, draft.FlavorClaim{
+		Claim:          fmt.Sprintf("responds to your tasting note — %q", note),
+		CuisineContext: d.Constraints.Cuisine,
+	})
 }
 
 // addGarlicOil injects the seeded unsafe case: raw garlic left in oil at
