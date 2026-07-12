@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type {
   DishDetail, DishState, GateRequestBody, GateVerb, LLMStatusResponse,
   MoveType, Proposal, VersionItem, VersionsResponse,
@@ -232,23 +232,38 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   // card's heading while proposing (never Stop — BC-B-4's prohibition), the
   // stage heading otherwise. The blocked hold focuses itself on mount, so it
   // needs nothing here.
-  const focusDecision = useCallback(() => {
-    setTimeout(() => {
-      const gateBtn = document.querySelector<HTMLElement>('[data-testid="gate-bar"] button[data-verb]')
-      if (gateBtn) { gateBtn.focus(); return }
-      const heading = document.querySelector<HTMLElement>('[data-testid="proposing-heading"]')
-      if (heading) {
-        heading.focus()
-        // The card can mount above the fold; bring the whole of it into view
-        // (BC-B-1). jsdom has no scrollIntoView — guard as OverridePrompt
-        // guards showModal.
-        const card = heading.closest<HTMLElement>('[data-testid="proposing-card"]')
-        if (card && typeof card.scrollIntoView === 'function') card.scrollIntoView({ block: 'nearest' })
-        return
-      }
-      document.getElementById('stage-heading')?.focus()
-    }, 0)
+  const focusDecisionNow = useCallback(() => {
+    const gateBtn = document.querySelector<HTMLElement>('[data-testid="gate-bar"] button[data-verb]')
+    if (gateBtn) { gateBtn.focus(); return }
+    const heading = document.querySelector<HTMLElement>('[data-testid="proposing-heading"]')
+    if (heading) {
+      heading.focus()
+      // The card can mount above the fold; bring the whole of it into view
+      // (BC-B-1). jsdom has no scrollIntoView — guard as OverridePrompt
+      // guards showModal.
+      const card = heading.closest<HTMLElement>('[data-testid="proposing-card"]')
+      if (card && typeof card.scrollIntoView === 'function') card.scrollIntoView({ block: 'nearest' })
+      return
+    }
+    document.getElementById('stage-heading')?.focus()
   }, [])
+  const focusDecision = useCallback(() => {
+    setTimeout(focusDecisionNow, 0)
+  }, [focusDecisionNow])
+
+  // dispatchFocusPending marks a local move dispatch whose next detail commit
+  // unmounts the intent affordances. The layout effect consumes it inside that
+  // same commit — synchronously, before any MutationObserver microtask can
+  // catch focus resting on document.body — so focus is already on the
+  // proposing card's heading the instant the intent bar leaves the DOM
+  // (BC-A-5). Ref-gated to local dispatch only: a deep-link or reload into an
+  // already-proposing dish must never have focus stolen (audit #9).
+  const dispatchFocusPending = useRef(false)
+  useLayoutEffect(() => {
+    if (!dispatchFocusPending.current) return
+    dispatchFocusPending.current = false
+    focusDecisionNow()
+  }, [detail, focusDecisionNow])
 
   // moveInFlight is the synchronous dispatch lock: a double activation (a
   // chip double-click, Enter twice on the intent field) reaches this ref
@@ -271,6 +286,10 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       const mv = await postMove(dishId, moveType, steer, baseVersion)
       expectedMove.current = mv.moveId ?? null
       const d = await getDish(dishId)
+      // Arm the same-commit dispatch focus before the state leaves idle: the
+      // layout effect above fires inside the very commit that unmounts the
+      // intent affordances (BC-A-5).
+      if (d.state !== 'idle') dispatchFocusPending.current = true
       setDetail(d)
       // A deterministic move with the dial ON resolved before the 202 returned
       // (move_auto_advanced has no SSE event): confirm it with a toast and
@@ -281,9 +300,9 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         announce(`${label} — applied automatically`)
         void refreshVersions()
       } else if (d.state !== 'idle') {
-        // The intent affordances unmount the moment the dish leaves idle:
-        // land focus on the surviving decision surface (the proposing card's
-        // heading) rather than letting it drop to document.body (BC-A-5).
+        // Backstop for the layout-effect dispatch focus above: one macrotask
+        // later, re-land focus on the surviving decision surface in case a
+        // competing commit moved it (BC-A-5).
         focusDecision()
       }
     } catch (err) {

@@ -62,6 +62,24 @@ test('Cancel collapses back to the row without submitting, and discards the draf
   expect(screen.getByLabelText(/tasting notes/i)).toHaveValue('')
 })
 
+test('Cancel returns focus to the "I cooked this" trigger, never document.body (BC-E-4)', () => {
+  renderFlow()
+  fireEvent.click(screen.getByRole('button', { name: /i cooked this/i }))
+  expect(screen.getByLabelText(/tasting notes/i)).toHaveFocus()
+  fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+  const trigger = screen.getByRole('button', { name: /i cooked this/i })
+  expect(trigger).toHaveFocus()
+  expect(document.activeElement).not.toBe(document.body)
+})
+
+test('submitting also hands focus back to the trigger while the dish is still idle', () => {
+  renderFlow()
+  fireEvent.click(screen.getByRole('button', { name: /i cooked this/i }))
+  fireEvent.change(screen.getByLabelText(/tasting notes/i), { target: { value: 'great crust' } })
+  fireEvent.click(screen.getByRole('button', { name: /rework from these notes/i }))
+  expect(screen.getByRole('button', { name: /i cooked this/i })).toHaveFocus()
+})
+
 test('the version label is surfaced to the cook', () => {
   renderFlow()
   expect(screen.getByText('Trial 2')).toBeInTheDocument()

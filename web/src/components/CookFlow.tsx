@@ -17,9 +17,18 @@ export default function CookFlow({ versionLabel, onSubmit }: {
   const [tasting, setTasting] = useState(false)
   const [notes, setNotes] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
+  // Focus protocol (BC-E-4, GateBar's leave-a-mode pattern): opening the form
+  // focuses the notes field; closing it (Cancel or submit) unmounts that
+  // field, so focus returns to the "I cooked this" trigger rather than
+  // dropping to document.body. wasTasting keeps the initial mount from
+  // focusing the trigger unprompted.
+  const wasTasting = useRef(false)
   useEffect(() => {
     if (tasting) textareaRef.current?.focus()
+    else if (wasTasting.current) triggerRef.current?.focus()
+    wasTasting.current = tasting
   }, [tasting])
 
   function submit() {
@@ -40,7 +49,7 @@ export default function CookFlow({ versionLabel, onSubmit }: {
           Cooked this version? Tell CapyCook how it went and it'll rework against exactly this one.{' '}
           <span className="font-mono text-2xs text-faint normal-case">{versionLabel}</span>
         </span>
-        <button type="button" onClick={() => setTasting(true)} className={ghostAccentBtn}>
+        <button type="button" ref={triggerRef} onClick={() => setTasting(true)} className={ghostAccentBtn}>
           I cooked this →
         </button>
       </div>

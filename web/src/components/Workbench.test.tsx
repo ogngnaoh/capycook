@@ -440,6 +440,37 @@ test('dispatching a move lands focus on the proposing card’s heading, never St
   expect(screen.getByRole('button', { name: 'Stop' })).not.toHaveFocus()
 })
 
+test('focus is already on the proposing heading at the instant the intent bar unmounts (BC-A-5 dispatch moment)', async () => {
+  await mount()
+  // The move's follow-up GET finds the dish proposing.
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
+  // Mirror the oracle's armed moment: a MutationObserver records
+  // document.activeElement in the microtask right after the DOM batch that
+  // removes #cc-intent — before any setTimeout backstop can run. The gated
+  // layout effect must have focused the heading inside that same commit.
+  const seen: Element[] = []
+  const observer = new MutationObserver(() => {
+    if (seen.length === 0 && !document.getElementById('cc-intent')) {
+      seen.push(document.activeElement as Element)
+    }
+  })
+  observer.observe(document.body, { childList: true, subtree: true })
+  fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'brighter' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  await waitFor(() => expect(seen).toHaveLength(1))
+  observer.disconnect()
+  expect(seen[0]).toBe(screen.getByTestId('proposing-heading'))
+})
+
+test('a cold load into an already-proposing dish never steals focus (deep-link guard)', async () => {
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_5' })
+  await mount()
+  // No local dispatch happened: the gated layout effect must stay quiet.
+  expect(screen.getByTestId('proposing-heading')).toBeInTheDocument()
+  expect(screen.getByTestId('proposing-heading')).not.toHaveFocus()
+  expect(document.activeElement).toBe(document.body)
+})
+
 test('a chip double-click dispatches exactly one move (synchronous lock)', async () => {
   await mount()
   const chip = screen.getByRole('button', { name: new RegExp(MOVE_LABEL.unit_convert, 'i') })
@@ -447,6 +478,29 @@ test('a chip double-click dispatches exactly one move (synchronous lock)', async
   fireEvent.click(chip)
   await flush()
   expect(fetchMock.mock.calls.filter(([u]) => String(u) === '/api/dishes/d1/move')).toHaveLength(1)
+})
+
+// --- respawn focus (BC-B-4) --------------------------------------------------
+
+test('a regenerate respawn re-enters proposing with focus on the heading, never Stop', async () => {
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal({ id: 'pr_7' }), pendingProposals: [sampleProposal({ id: 'pr_7' })] })
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ verb: 'regenerate', proposalId: 'pr_7', newMoveId: 'mv_10' })
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  // The respawn's re-sync finds the dish proposing the new move.
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_10' })
+  fireEvent.click(within(bar).getByRole('button', { name: GATE_ANOTHER_LABEL }))
+  fireEvent.click(within(bar).getByRole('button', { name: VERB_LABEL.regenerate }))
+  await waitFor(() => expect(screen.getByTestId('proposing-heading')).toHaveFocus())
+  expect(screen.getByRole('button', { name: 'Stop' })).not.toHaveFocus()
 })
 
 // --- cancel ----------------------------------------------------------------
