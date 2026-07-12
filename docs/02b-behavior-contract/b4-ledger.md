@@ -30,9 +30,9 @@ Root causes reference run-073 + `b2-oracle-plan.md` "Pre-census findings".
 | 3 | roles / live regions | BC-H-1, BC-H-7, BC-H-8, BC-H-9 | error card plain `<p>` + focus effect gated on loaded dish (`Workbench.tsx:423-431`); loading `<div>` no role (`:433`); list-failure `<p>` no live region (`App.tsx:73-75`) | 4/4 green @ 8093a4f (iter 3) |
 | 4 | empty-guard validation | BC-A-4, BC-A-9, BC-C-13 (+@live-sim) | `IntentBar.tsx:32` silent return on empty intent; message not programmatically associated; content-free tweak still fires gate POST | 3/3 green @ 89a5046 (iter 4) |
 | 5 | typed-input preservation | BC-A-13, BC-C-21, BC-C-27, BC-E-5 | typed input discarded on failed/cancelled submissions across IntentBar, redirect form, take-over "Go back", tasting form | 4/4 green @ 24e6576 (iter 5; verified by invocation 3b audit + run-005) |
-| 6 | first pass + suggestions | BC-A-3, BC-A-14 | no auto first pass on create; `setSuggestedNext` only in SSE handler gated on `expectedMove.current` (`Workbench.tsx:151`), race under fast mode, no GET-recovery population | active (iter 6) |
+| 6 | first pass + suggestions | BC-A-3, BC-A-14 | no auto first pass on create; `setSuggestedNext` only in SSE handler gated on `expectedMove.current` (`Workbench.tsx:151`), race under fast mode, no GET-recovery population | A-3 green @ c0835af (iter 6); A-14 attempt 1 failed — chips work, but no proposing surface under instant completion → retry brief cluster-06b (iter 8) |
 | 7 | streaming rationale | BC-B-3, BC-G-4, BC-B-10, BC-I-2 (judge), **BC-B-8 (judge, folded 2026-07-12)** | rationale replays only after generation completes (`internal/transport/hub.go`); no intermediate live-region values during 25s wait; the founding live-latency finding — Go+web token streaming allowed. B-8 folded in: the end-of-generation replay burst (~26 rapid updates + gate mount) delays the visible handoff paint past the ±3s window AND floods the screencast; streaming during generation removes the burst by design | pending |
-| 8 | gate semantics + C-11 wording | BC-C-10 (+@live-sim), BC-C-20, BC-C-22, BC-C-28, BC-C-11 (judge, folded 2026-07-12) | card accessible names lack "Option A"; partial-alternatives shows committing verb; disclosure lacks aria-expanded; steps-deleted take-over saves silently (Go zero-value decode); REGENERATE label = model vocabulary (4 consecutive fresh-judge FAILs; oracle selects via data-verb, label rename safe) | active (iter 7) |
+| 8 | gate semantics + C-11 wording | BC-C-10 (+@live-sim), BC-C-20, BC-C-22, BC-C-28, BC-C-11 (judge, folded 2026-07-12) | card accessible names lack "Option A"; partial-alternatives shows committing verb; disclosure lacks aria-expanded; steps-deleted take-over saves silently (Go zero-value decode); REGENERATE label = model vocabulary (4 consecutive fresh-judge FAILs; oracle selects via data-verb, label rename safe) | 4/4 green @ 06e4c00 (iter 7); C-11 PASS ×2 post-rename |
 | 9 | diff repertoire | BC-C-16 (+@live-sim) | `StepRow` (`DishCard.tsx:250`) has no changed branch (row.old ignored, no sr-only was/now); PLUS sanctioned harness work: stub gains remove-op / in-place-replace templates so the clause is drivable (self-test re-run required) | pending |
 | 10 | durable trial metadata | BC-D-12 (⚖), BC-F-3 (+@live-sim), BC-E-3 (judge) | persist move rationale (schema/wire change sanctioned); auto-applied trial lacks durable attribution marker; feedback→proposal connection not legible | pending |
 | 11 | contrast tokens | BC-G-10, BC-G-13 | 98 text pairs below AA both themes (`--color-faint` family); `--color-border-strong` ~1.7:1 on dial-OFF track (`DialToggle.tsx:13,17`) + invalid seed border (`SeedSetup.tsx:49`); token-level work, design bar applies | pending |
@@ -65,10 +65,17 @@ Only criteria whose count moved (id · attempts · status). Everything else: 0.
 | BC-C-21 | 1 | GREEN (iter 5, run-005) |
 | BC-C-27 | 1 | GREEN (iter 5, run-005) |
 | BC-E-5 | 1 | GREEN (iter 5, run-005) |
+| BC-A-3 | 1 | GREEN (iter 6, run-006) |
+| BC-A-14 | 1 | failing (proposing-surface clause only; chips/labels/dispatch fixed) — retry iter 8 |
+| BC-C-10 | 1 | GREEN (iter 7, run-007) |
+| BC-C-20 | 1 | GREEN (iter 7, run-007) |
+| BC-C-22 | 1 | GREEN (iter 7, run-007) |
+| BC-C-28 | 1 | GREEN (iter 7, run-007) |
 
 previouslyGreen (cumulative --only regression set): BC-B-1, BC-B-5, BC-C-17,
 BC-D-2, BC-A-5, BC-B-4, BC-E-4, BC-H-1, BC-H-7, BC-H-8, BC-H-9, BC-A-4,
-BC-A-9, BC-C-13, BC-A-13, BC-C-21, BC-C-27, BC-E-5 (18).
+BC-A-9, BC-C-13, BC-A-13, BC-C-21, BC-C-27, BC-E-5, BC-A-3, BC-C-10,
+BC-C-20, BC-C-22, BC-C-28 (23).
 
 ## Check-change log (harness edits during B4)
 
@@ -85,6 +92,19 @@ BC-A-9, BC-C-13, BC-A-13, BC-C-21, BC-C-27, BC-E-5 (18).
   fresh worktree: `evidence/` is gitignored so never checked out, and the
   first self-test ran all 27 probes then crashed at the write (ENOENT). Probe
   logic untouched.
+- **2026-07-12 · after iteration 7 (commit 23246b4):** four scenario files
+  adapted to contract-mandated product changes — the product was RIGHT, the
+  scenarios pre-dated it: `d-versions.mjs` createDishViaUI now absorbs
+  BC-A-3's auto-fired first pass to the gate (d/timeline + BC-D-10 drop
+  their manual first drives; fixes the D-2 `#cc-intent` timeouts ×2);
+  `b-proposing.mjs` trap-2 arms on the partial-alternatives surface BC-C-20
+  now correctly renders instead of the withheld single gate (fixes the B-4
+  deadline stall in run-007); `g-modes.mjs` g/reduced-motion switches to an
+  API-created dish so its manual-dispatch timing baseline survives auto-fire
+  (latent — would have broken at the exit full runs); `a-intake.mjs` A-8
+  stills get a paint settle + deeper mid-proposing capture (run-006 black
+  frame, run-006/007 near-identical frames). Self-test re-run after commit:
+  result in iteration records.
 - **2026-07-12 · after iteration 3 (commit 007123a):** `lib/record.mjs` —
   screencast freshness watchdog. Chrome pauses the screencast when a
   fire-and-forget ack is lost mid-paint-flood; the writer loop then re-stamps
@@ -170,6 +190,24 @@ BC-A-9, BC-C-13, BC-A-13, BC-C-21, BC-C-27, BC-E-5 (18).
 - **2026-07-12 — workflow agents switched to Sonnet** (USER directive on
   resume): every agent() in `b4-iteration.workflow.mjs` now passes
   `model: 'sonnet'` (args-overridable). Lead unchanged.
+- **Iterations 6–7 (invocation 4, wf_1eb15383-461, Sonnet agents, builder
+  runs 6-7/12):** cluster 6 @ `c0835af` — **A-3 GREEN** (auto first pass via
+  an in-memory justCreated ref through the existing propose() path; all four
+  boundaries); **A-14 attempt 1 FAILED** on ONE clause: chips render/label/
+  dispatch correctly, but no proposing surface mounts under instant
+  completion (fast stub jumps idle→awaiting_gate in one commit) → retry
+  brief `cluster-06b-a14-retry.md` (optimistic proposing at dispatch).
+  Cluster 8 @ `06e4c00` — **C-10, C-20, C-22, C-28 GREEN** (run-007); C-11
+  judge PASS in BOTH runs post-REGENERATE-rename. Gates green throughout.
+  Apparent regressions adjudicated as HARNESS STALENESS, not product: D-2
+  ×2 + B-4 ×1 (scenarios encoded pre-A-3/pre-C-20 app behavior; fixed in
+  23246b4, re-verified next run). A-8 judge FAIL ×2 = evidence artifacts
+  (black frame / near-identical frames / cut-off CTA); stills re-timed.
+  WATCH: run-007's judge noted the seed CTA sits at the viewport fold —
+  if A-8 still fails on that with clean evidence, it becomes cluster-12
+  product work. Judge signal: B-8 PASS again (runs 006+007 — watchdog
+  holding), B-2 FAIL in run-006 (single occurrence, PASS run-007 — noise,
+  watch), E-3 FAIL (known, cluster 10).
 - **Iteration 5 closed (invocation 3b, wf_8548db50-cf6, Sonnet agents):**
   verify pass on `24e6576` — implementation audited complete clause-by-clause
   against cluster-05, suites independently re-run (tsc clean, 240/240),
