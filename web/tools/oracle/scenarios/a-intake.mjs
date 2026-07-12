@@ -221,8 +221,11 @@ export const scenarios = [
       await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('#field-seed', { timeout: 8000 });
       // Let the first real paint reach the screencast before the still —
-      // run-006 fed the judge a pre-paint black frame for this moment.
-      await sleep(600);
+      // run-006 fed the judge a pre-paint black frame for this moment, and
+      // run-011 showed 600ms is not enough: when the screencast wedges on the
+      // initial blank frame, only the recorder's 1.5s freshness watchdog
+      // forces a re-push. Wait past it (plus margin) so the still is real.
+      await sleep(2400);
       await ctx.judgeStill('BC-A-8', 'seed-screen');
       await fillSeed(page);
 

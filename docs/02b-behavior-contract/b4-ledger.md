@@ -33,8 +33,8 @@ Root causes reference run-073 + `b2-oracle-plan.md` "Pre-census findings".
 | 6 | first pass + suggestions | BC-A-3, BC-A-14 | no auto first pass on create; `setSuggestedNext` only in SSE handler gated on `expectedMove.current` (`Workbench.tsx:151`), race under fast mode, no GET-recovery population | A-3 green @ c0835af (iter 6); A-14 attempt 1 failed — chips work, but no proposing surface under instant completion → retry brief cluster-06b (iter 8) |
 | 7 | streaming rationale | BC-B-3, BC-G-4, BC-B-10, BC-I-2 (judge), **BC-B-8 (judge, folded 2026-07-12)** | rationale replays only after generation completes (`internal/transport/hub.go`); no intermediate live-region values during 25s wait; the founding live-latency finding — Go+web token streaming allowed. B-8 folded in: the end-of-generation replay burst (~26 rapid updates + gate mount) delays the visible handoff paint past the ±3s window AND floods the screencast; streaming during generation removes the burst by design | 4/4 green @ streaming commit (iter 9, run-009); B-8 HELD PASS |
 | 8 | gate semantics + C-11 wording | BC-C-10 (+@live-sim), BC-C-20, BC-C-22, BC-C-28, BC-C-11 (judge, folded 2026-07-12) | card accessible names lack "Option A"; partial-alternatives shows committing verb; disclosure lacks aria-expanded; steps-deleted take-over saves silently (Go zero-value decode); REGENERATE label = model vocabulary (4 consecutive fresh-judge FAILs; oracle selects via data-verb, label rename safe) | 4/4 green @ 06e4c00 (iter 7); C-11 PASS ×2 post-rename |
-| 9 | diff repertoire | BC-C-16 (+@live-sim) | `StepRow` (`DishCard.tsx:250`) has no changed branch (row.old ignored, no sr-only was/now); PLUS sanctioned harness work: stub gains remove-op / in-place-replace templates so the clause is drivable (self-test re-run required) | pending |
-| 10 | durable trial metadata | BC-D-12 (⚖), BC-F-3 (+@live-sim), BC-E-3 (judge) | persist move rationale (schema/wire change sanctioned); auto-applied trial lacks durable attribution marker; feedback→proposal connection not legible | pending |
+| 9 | diff repertoire | BC-C-16 (+@live-sim) | `StepRow` (`DishCard.tsx:250`) had no changed branch; IngredientRow missed sr-only NOW; FlavorRow had no changed branch. CORRECTION (iter 10): the stub's springClean remove/replace template was ALREADY SHIPPED in B2 (7cabb0a) — the earlier 'stub gains templates' note was stale; builder verified read-only, no Go touched | 1/1 green @ c9ca959 (iter 10, run-010); D-7 de-risk landed (judge PASS run-011) |
+| 10 | durable trial metadata | BC-D-12 (⚖), BC-F-3 (+@live-sim), BC-E-3 (judge) | persist move rationale (schema/wire change sanctioned); auto-applied trial lacks durable attribution marker; feedback→proposal connection not legible | 3/3 green (iter 11, run-011): additive migration + Origin field + feedback woven into rationale; E-3 judge PASS |
 | 11 | contrast tokens | BC-G-10, BC-G-13 | 98 text pairs below AA both themes (`--color-faint` family); `--color-border-strong` ~1.7:1 on dial-OFF track (`DialToggle.tsx:13,17`) + invalid seed border (`SeedSetup.tsx:49`); token-level work, design bar applies | pending |
 | 12 | viewport + backstops | BC-G-12, BC-G-14, BC-C-26 (⚖), **BC-A-12 (folded 2026-07-12 — census fail found unassigned to any cluster)**, A-8 seed-CTA de-risk | 320px IntentBar clip (`IntentBar.tsx:80` flex no-shrink); skip-link z-50 under z-100 header (`index.css:56` vs `Workbench.tsx:445`) + CookFlow `order:-1` no scroll-padding (`index.css:74`); in-app disclaimer absent; A-12: dish-create double-click fires two POST /api/dishes (SeedSetup lacks A-5-style dispatch lock); A-8 judges consistently flag the seed CTA cropped at the 1280×800 fold | pending — runs WITH cluster 11 as one combined builder run (iter 12) |
 
@@ -71,6 +71,10 @@ Only criteria whose count moved (id · attempts · status). Everything else: 0.
 | BC-B-10 | 1 | GREEN (iter 9, run-009) |
 | BC-G-4 | 1 | GREEN (iter 9, run-009) |
 | BC-I-2 | 1 | GREEN (iter 9, run-009 — judge PASS on full-journey screencast; THE founding finding) |
+| BC-C-16 | 1 | GREEN (iter 10, run-010) |
+| BC-D-12 | 1 | GREEN (iter 11, run-011 — additive migration, legacy-DB regression test) |
+| BC-F-3 | 1 | GREEN (iter 11, run-011 — durable Origin badge) |
+| BC-E-3 | 1 | GREEN (iter 11, run-011 — judge PASS, feedback echo visible) |
 | BC-C-10 | 1 | GREEN (iter 7, run-007) |
 | BC-C-20 | 1 | GREEN (iter 7, run-007) |
 | BC-C-22 | 1 | GREEN (iter 7, run-007) |
@@ -79,9 +83,16 @@ Only criteria whose count moved (id · attempts · status). Everything else: 0.
 previouslyGreen (cumulative --only regression set): BC-B-1, BC-B-5, BC-C-17,
 BC-D-2, BC-A-5, BC-B-4, BC-E-4, BC-H-1, BC-H-7, BC-H-8, BC-H-9, BC-A-4,
 BC-A-9, BC-C-13, BC-A-13, BC-C-21, BC-C-27, BC-E-5, BC-A-3, BC-C-10,
-BC-C-20, BC-C-22, BC-C-28, BC-A-14, BC-B-3, BC-B-10, BC-G-4, BC-I-2 (28).
+BC-C-20, BC-C-22, BC-C-28, BC-A-14, BC-B-3, BC-B-10, BC-G-4, BC-I-2,
+BC-C-16, BC-D-12, BC-F-3, BC-E-3 (32).
 
 ## Check-change log (harness edits during B4)
+
+- **2026-07-12 · after iteration 11:** `a-intake.mjs` — BC-A-8 seed-screen
+  still settle bumped 600ms → 2400ms: run-011 fed a judge a black frame
+  again; 600ms is inside the recorder watchdog's 1.5s freshness threshold,
+  so a wedged initial blank frame is only force-refreshed after ~1.5s.
+  Self-test re-run after commit: result in iteration records.
 
 - **2026-07-12 · after iteration 9 (commit 55473e8):** `b-proposing.mjs`
   ensureIdle taught the BC-C-20 alternatives world — it knew only
@@ -203,6 +214,23 @@ BC-C-20, BC-C-22, BC-C-28, BC-A-14, BC-B-3, BC-B-10, BC-G-4, BC-I-2 (28).
 - **2026-07-12 — workflow agents switched to Sonnet** (USER directive on
   resume): every agent() in `b4-iteration.workflow.mjs` now passes
   `model: 'sonnet'` (args-overridable). Lead unchanged.
+- **Iterations 10–11 (invocation 6, wf_9887ba5a-dec, Sonnet agents, builder
+  runs 10-11/12):** cluster 9 diff-repertoire @ `c9ca959` — **C-16 GREEN**
+  (run-010; StepRow changed branch + IngredientRow sr-only NOW + FlavorRow
+  changed branch; full row-kind × add/change/remove test matrix). Builder
+  correctly flagged the ledger's stub-template note as stale (springClean
+  shipped in B2 @ 7cabb0a) and verified read-only instead of re-building —
+  accepted, ledger corrected. **B-4 PASS again post-ensureIdle-fix** — the
+  55473e8 adjudication confirmed; full 28-id set green. D-7 branch note
+  landed → judge PASS in run-011. Cluster 10 durable-trial-metadata —
+  **D-12, F-3, E-3 GREEN** (run-011): additive SQLite migration persists
+  accept-time rationale end-to-end (legacy-DB regression test included),
+  shared Origin field drives a durable text-exposed 'Auto-applied' badge,
+  stub's iterate_feedback weaves the tasting note into rationale +
+  flavor_rationale → E-3 judge PASS. Judges: I-2, B-8, B-2, C-11, D-7, G-3
+  all PASS; **A-8 still artifact-blocked** (seed-still black frame again —
+  600ms settle < watchdog threshold; bumped to 2400ms, see check-change) +
+  awaits cluster-12's CTA-fold fix. Zero regressions. **32 of 43 green.**
 - **Iterations 8–9 (invocation 5, wf_d2285d3f-b4b, Sonnet agents, builder
   runs 8-9/12):** A-14 retry @ `cbe736b` — **GREEN (attempt 2)**: optimistic
   proposing state mounts synchronously at dispatch (baseVersion-less callers
