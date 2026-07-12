@@ -8,6 +8,14 @@ import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
 const CAP_MS = 200; // 5 fps — evidence, not cinema; keeps frame dirs small
+// everyNthFrame throttles the CDP push rate at the SOURCE. Chrome emits one
+// screencast frame per Nth compositor frame; at ~60Hz, N=12 ≈ 5fps — matched to
+// CAP_MS so the incoming rate ≈ what we persist. The old N=2 (~30fps) flooded
+// PNG frames faster than the fire-and-forget acks could keep up, so Chrome
+// silently paused the screencast mid-flood and judges got a frozen pre-handoff
+// frame (BC-B-8 intermittent false-FAILs). The 1.5s watchdog below is the
+// backstop, not the fix — matching the rates removes the flood that trips it.
+const EVERY_NTH_FRAME = 12;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -30,7 +38,7 @@ export class Recorder {
       this.lastFreshAt = Date.now();
       this.client.send('Page.screencastFrameAck', { sessionId: frame.sessionId }).catch(() => {});
     });
-    await this.client.send('Page.startScreencast', { format: 'png', everyNthFrame: 2 });
+    await this.client.send('Page.startScreencast', { format: 'png', everyNthFrame: EVERY_NTH_FRAME });
     this.running = true;
     this.startedAt = Date.now();
     this.lastFreshAt = Date.now();
@@ -53,7 +61,7 @@ export class Recorder {
         if (this.running && Date.now() - this.lastFreshAt > 1500) {
           try { await this.client.send('Page.stopScreencast'); } catch { /* gone */ }
           try {
-            await this.client.send('Page.startScreencast', { format: 'png', everyNthFrame: 2 });
+            await this.client.send('Page.startScreencast', { format: 'png', everyNthFrame: EVERY_NTH_FRAME });
             this.lastFreshAt = Date.now();
           } catch { /* session gone; stop() will clean up */ }
         }
