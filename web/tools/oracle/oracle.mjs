@@ -14,24 +14,19 @@
 // Exit codes: 0 all evaluated pass · 1 ≥1 fail · 2 harness error ·
 // 3 guardrail abort (freeze diff / contract pin / preregistration) ·
 // 4 self-test failure.
-import { readdirSync, readFileSync, mkdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 import { REGISTRY, byId, deriveParitySet, PARITY_SNAPSHOT, EXPECTED_COUNTS, CONTRACT_PIN } from './registry.mjs';
-import { ServerHandle, REPO, PROFILES, LIVE_SIM_MS, assertPortAllowed } from './lib/server.mjs';
-import { launchBrowser, newScenarioPage, disposeScenarioPage, VIEWPORTS } from './lib/browser.mjs';
-import { makeApi } from './lib/api.mjs';
-import { NetLog } from './lib/net.mjs';
-import { Recorder } from './lib/record.mjs';
-import { installInstrument, armMoment, readInstrument, resetInstrument } from './lib/instrument.mjs';
-import { ScenarioChecks, JourneyAbort } from './lib/check.mjs';
+import { REPO, LIVE_SIM_MS, assertPortAllowed } from './lib/server.mjs';
+import { launchBrowser } from './lib/browser.mjs';
+import { loadScenarios, runScenario } from './lib/run.mjs';
 import { nextRunDir, EvidenceSink } from './lib/evidence.mjs';
 import { buildReport, validateReport, mergeJudgments } from './lib/report.mjs';
 import { runFastGuardrails, checkSuites } from './lib/guardrails.mjs';
 import { contractText, contractIds } from './lib/contract.mjs';
-import { copyFileSync } from 'node:fs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPORT_ROOT = join(REPO, 'docs', '02b-behavior-contract', 'evidence');
@@ -52,25 +47,6 @@ function parseArgs(argv) {
   return args;
 }
 
-// -------------------------------------------------------- scenario loading ---
-async function loadScenarios() {
-  const dir = join(HERE, 'scenarios');
-  let files = [];
-  try { files = readdirSync(dir).filter((f) => f.endsWith('.mjs')); } catch { /* none yet */ }
-  const all = [];
-  for (const f of files.sort()) {
-    const mod = await import(join(dir, f));
-    if (!Array.isArray(mod.scenarios)) throw new Error(`oracle: ${f} exports no scenarios[]`);
-    all.push(...mod.scenarios);
-  }
-  const seen = new Set();
-  for (const s of all) {
-    if (seen.has(s.id)) throw new Error(`oracle: duplicate scenario id ${s.id}`);
-    seen.add(s.id);
-  }
-  return all;
-}
-
 function scenarioIdsFor({ areas, only }) {
   const wanted = new Set();
   for (const e of REGISTRY) {
@@ -79,159 +55,6 @@ function scenarioIdsFor({ areas, only }) {
     if (inArea || inOnly) e.scenarios.forEach((s) => { if (!s.startsWith('(')) wanted.add(s); });
   }
   return wanted;
-}
-
-// ------------------------------------------------------------ one scenario ---
-function resolveViewport(v) {
-  if (!v) return VIEWPORTS.desktop;
-  if (typeof v === 'string') {
-    if (!VIEWPORTS[v]) throw new Error(`oracle: unknown viewport ${v}`);
-    return VIEWPORTS[v];
-  }
-  return v;
-}
-
-async function runScenario(browser, def, { port, evidence, profileOverride = null, parityMode = false }) {
-  const profile = profileOverride ?? def.profile ?? 'fast';
-  const scenarioKey = parityMode ? `${def.id}@live-sim` : def.id;
-  const server = new ServerHandle({ port, scenarioId: scenarioKey.replace(/[/@]/g, '-'), profile });
-  const judgeStills = new Map(); // id -> [{path, caption}]
-  let pageBundle = null;
-  let recorder = null;
-  const checks = new ScenarioChecks({
-    scenario: { id: scenarioKey, criteria: def.criteria },
-    profile,
-    evidence,
-    capture: async () => {
-      try {
-        if (recorder && recorder.running) return recorder.latestFrame();
-        return await pageBundle.page.screenshot();
-      } catch { return null; }
-    },
-    contextInfo: async () => {
-      const { page, consoleErrors, pageErrors, dialogs } = pageBundle;
-      let url = null; let active = null;
-      try { url = page.url(); } catch { /* gone */ }
-      try {
-        active = await page.evaluate(() => {
-          const el = document.activeElement;
-          return el ? { tag: el.tagName, id: el.id || null, testid: el.getAttribute && el.getAttribute('data-testid'), text: (el.textContent || '').trim().slice(0, 60), isBody: el === document.body } : null;
-        });
-      } catch { /* gone */ }
-      return { url, activeElement: active, consoleErrors: consoleErrors.slice(-10), pageErrors: pageErrors.slice(-10), dialogs, netTail: ctx.net ? ctx.net.slice(Math.max(0, ctx.net.entries.length - 25)) : [] };
-    },
-  });
-
-  let setupResult;
-  const ctx = {};
-  try {
-    // Server + optional API pre-seed (the setupFast trick: seed at zero
-    // latency, then flip to the scenario profile on the same temp DB).
-    if (def.setup && profile !== 'fast') {
-      await server.start({ profile: 'fast', freshDb: true });
-      setupResult = await def.setup({ api: makeApi(server.base), base: server.base });
-      await server.restart({ profile });
-    } else {
-      await server.start({ freshDb: true });
-      if (def.setup) setupResult = await def.setup({ api: makeApi(server.base), base: server.base });
-    }
-
-    pageBundle = await newScenarioPage(browser, {
-      viewport: resolveViewport(def.viewport),
-      theme: def.theme === undefined ? 'light' : def.theme,
-      technicalView: def.technicalView ?? null,
-      gateShortcuts: def.gateShortcuts ?? null,
-      reducedMotion: !!def.reducedMotion,
-    });
-    await installInstrument(pageBundle.page);
-    const net = new NetLog(pageBundle.page);
-
-    const wantRecord = def.record ?? (profile === 'live-sim');
-    if (wantRecord) {
-      recorder = new Recorder(pageBundle.page, join(evidence.runDir, scenarioKey, 'screencast'));
-      await recorder.start();
-    }
-
-    Object.assign(ctx, {
-      page: pageBundle.page,
-      dialogs: pageBundle.dialogs,
-      consoleErrors: pageBundle.consoleErrors,
-      pageErrors: pageBundle.pageErrors,
-      server,
-      base: server.base,
-      api: makeApi(server.base),
-      net,
-      recorder,
-      profile,
-      parityMode,
-      // Generation-seam waits must survive the 25s live-sim window.
-      genTimeout: profile === 'live-sim' ? LIVE_SIM_MS + 15000 : 20000,
-      liveSimMs: profile === 'live-sim' ? LIVE_SIM_MS : 0,
-      check: (id, fn, opts) => checks.check(id, fn, opts),
-      armMoment: (opts) => armMoment(pageBundle.page, opts),
-      readInstrument: () => readInstrument(pageBundle.page),
-      resetInstrument: () => resetInstrument(pageBundle.page),
-      // Judge evidence: ordered stills (skipped in parity re-runs).
-      judgeStill: async (id, label) => {
-        if (parityMode) return null;
-        if (!byId.has(id) || byId.get(id).tag !== 'judge') throw new Error(`oracle: judgeStill for non-judge ${id}`);
-        // A screencast frame pushed BEFORE first paint is a blank — wait for
-        // a frame captured after this call (evidence-freshness; a stale
-        // blank sent judge BC-A-8 a black seed screen in run-073).
-        if (recorder && recorder.running) {
-          const callT = Date.now() - recorder.startedAt;
-          const t0 = Date.now();
-          while (Date.now() - t0 < 1500) {
-            const last = recorder.frames[recorder.frames.length - 1];
-            if (last && last.t >= callT) break;
-            await new Promise((r) => setTimeout(r, 60));
-          }
-        }
-        const buf = recorder && recorder.running ? recorder.latestFrame() : await pageBundle.page.screenshot();
-        if (!buf) return null;
-        const list = judgeStills.get(id) || [];
-        const name = `${String(list.length + 1).padStart(2, '0')}-${label}.png`;
-        const path = evidence.writeJudgeStill(id, name, buf);
-        list.push({ path, caption: label });
-        judgeStills.set(id, list);
-        return path;
-      },
-      sampleScreencast: (id, { fromMs = 0, toMs = Infinity, maxFrames = 20 } = {}) => {
-        if (parityMode || !recorder) return [];
-        const frames = recorder.sampleFrames({ fromMs, toMs, maxFrames });
-        const list = judgeStills.get(id) || [];
-        for (const f of frames) {
-          const name = `t${(f.t / 1000).toFixed(1)}s.png`;
-          copyFileSync(join(recorder.dir, f.file), join(evidence.judgeDir(id), name));
-          list.push({ path: join('judge', id, name), caption: `t=${(f.t / 1000).toFixed(1)}s`, tSeconds: f.t / 1000 });
-        }
-        judgeStills.set(id, list);
-        return frames;
-      },
-    });
-
-    await def.run(ctx, setupResult);
-  } catch (e) {
-    if (!(e instanceof JourneyAbort)) {
-      checks.scenarioError = String((e && e.stack) || e);
-      log(`  ! ${scenarioKey}: ${String(e && e.message || e).slice(0, 200)}`);
-      // finalize() marks unevaluated criteria harness-error; enrich with the error
-      checks.aborted = checks.aborted || null;
-    }
-  } finally {
-    if (recorder) await recorder.stop().catch(() => {});
-    if (pageBundle) await disposeScenarioPage(pageBundle);
-    await server.dispose().catch(() => {});
-  }
-
-  const rows = checks.finalize();
-  if (checks.scenarioError) {
-    for (const r of rows) {
-      if (r.failureKind === 'harness-error' && !r.error?.includes('declared but never')) continue;
-      if (r.failureKind === 'harness-error') r.error = `scenario crashed: ${checks.scenarioError.slice(0, 500)}`;
-    }
-  }
-  return { rows, judgeStills };
 }
 
 // ---------------------------------------------------------------- commands ---
@@ -319,7 +142,8 @@ async function cmdRun(args) {
     for (const def of defs) {
       log(`▶ ${def.id} (${def.profile ?? 'fast'})`);
       const t0 = Date.now();
-      const { rows: r, judgeStills } = await runScenario(browser, def, { port, evidence });
+      const { rows: r, judgeStills, scenarioError } = await runScenario(def, { browser, port, evidence });
+      if (scenarioError) log(`  ! ${def.id}: ${scenarioError.split('\n')[0].slice(0, 200)}`);
       rows.push(...r);
       for (const [id, stills] of judgeStills) {
         judgeStillsAll.set(id, [...(judgeStillsAll.get(id) || []), ...stills]);
@@ -340,7 +164,8 @@ async function cmdRun(args) {
       for (const def of parityDefs) {
         log(`▶ ${def.id}@live-sim`);
         const t0 = Date.now();
-        const { rows: r } = await runScenario(browser, def, { port, evidence, profileOverride: 'live-sim', parityMode: true });
+        const { rows: r, scenarioError } = await runScenario(def, { browser, port, evidence, profileOverride: 'live-sim', parityMode: true });
+        if (scenarioError) log(`  ! ${def.id}@live-sim: ${scenarioError.split('\n')[0].slice(0, 200)}`);
         // Only parity-set criteria form twins; other rows are extra signal
         // recorded as sub-checks of the twin ids they belong to.
         parityRows.push(...r.filter((x) => paritySet.includes(x.id)));

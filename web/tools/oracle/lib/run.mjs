@@ -188,10 +188,13 @@ export async function runScenario(def, opts) {
   const rows = checks.finalize();
   if (checks.scenarioError) {
     for (const r of rows) {
+      // Overwrite only the generic "declared but never evaluated" rows —
+      // rows that failed with a specific error keep it.
+      if (r.failureKind === 'harness-error' && !r.error?.includes('declared but never')) continue;
       if (r.failureKind === 'harness-error') r.error = `scenario crashed: ${checks.scenarioError.slice(0, 500)}`;
     }
   }
-  return { rows, judgeStills };
+  return { rows, judgeStills, scenarioError: checks.scenarioError || null };
 }
 
 // Convenience for the self-test: run one scenario by registry/scenario id
