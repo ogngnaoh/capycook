@@ -71,7 +71,7 @@ function Home({ onNavigate, routeNonce }: { onNavigate: (to: string) => void; ro
             Pick up where you left off
           </h2>
           {loadError && (
-            <p className="text-muted">The dish list did not load — check the server and refresh.</p>
+            <p role="status" className="text-muted">The dish list did not load — check the server and refresh.</p>
           )}
           {!loadError && dishes.length === 0 && (
             <p className="text-muted">No dishes yet — start one above.</p>

@@ -65,6 +65,52 @@ test('opens one EventSource per dish and renders the dish on the stage', async (
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Seared Chicken Thighs')
 })
 
+// --- load failure + loading states (BC-H-1 / BC-H-7 / BC-H-9) ---------------
+
+test('a failed dish load renders the error card as role="alert" with focus on it', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1') return jsonResponse({ error: 'dish not found' }, 404)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  render(<Workbench dishId="d1" onNavigate={() => {}} />)
+  const card = await screen.findByRole('alert')
+  expect(card).toHaveTextContent(/could not load this dish/i)
+  // Keyboard focus lands on the error region itself; the escape hatch lives
+  // inside it.
+  await waitFor(() => expect(card).toHaveFocus())
+  expect(within(card).getByRole('button', { name: 'Back to dishes' })).toBeInTheDocument()
+})
+
+test('a successful load renders no alert and the error-focus effect stays quiet', async () => {
+  await mount()
+  expect(screen.queryByRole('alert')).toBeNull()
+  // Cold load: focus is untouched (audit #9) — the mount-gated error focus
+  // must never fire on the happy path.
+  expect(document.body).toHaveFocus()
+})
+
+test('the pre-load placeholder is exposed as a role="status" live region', async () => {
+  let release!: (r: Response) => void
+  const gate = new Promise<Response>((r) => { release = r })
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1') return gate
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  render(<Workbench dishId="d1" onNavigate={() => {}} />)
+  const placeholder = screen.getByRole('status')
+  expect(placeholder).toHaveTextContent('Loading the dish…')
+  // Release the dish so the tail setState lands under act.
+  release(jsonResponse(detail))
+  await flush()
+  expect(screen.getByTestId('dish-card')).toBeInTheDocument()
+})
+
 // --- streaming -------------------------------------------------------------
 
 test('tokens stream into the ProposingCard, whose text grows', async () => {

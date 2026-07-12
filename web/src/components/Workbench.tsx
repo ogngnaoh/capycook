@@ -227,6 +227,17 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     }
   }, [routeNonce, detail])
 
+  // The could-not-load card early-returns before the loaded screen, so the
+  // route-focus effect above can never fire on that path. When the card
+  // mounts, keyboard focus lands on the error region itself (BC-H-1/BC-H-7)
+  // — and only then: on a successful load showLoadError stays false, so this
+  // never fights the routeNonce focus management above (audit #9).
+  const loadErrorRef = useRef<HTMLDivElement>(null)
+  const showLoadError = Boolean(loadError) && !detail
+  useEffect(() => {
+    if (showLoadError) loadErrorRef.current?.focus()
+  }, [showLoadError])
+
   // focusDecision lands focus on whatever decision surface survives a
   // transition (P1): the gate bar's first verb when awaiting, the proposing
   // card's heading while proposing (never Stop — BC-B-4's prohibition), the
@@ -440,7 +451,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
 
   if (loadError && !detail) {
     return (
-      <div className="p-4 space-y-2">
+      <div role="alert" tabIndex={-1} ref={loadErrorRef} className="p-4 space-y-2 focus:outline-none">
         <p className="text-ink">Could not load this dish: {loadError}. Check the address or pick a dish from the list.</p>
         <button onClick={() => onNavigate('/')}
           className="px-2 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page">
@@ -449,7 +460,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       </div>
     )
   }
-  if (!detail) return <div className="p-4 text-muted">Loading the dish…</div>
+  if (!detail) return <div role="status" className="p-4 text-muted">Loading the dish…</div>
 
   const displayDraft = snapshot ? snapshot.draft : detail.draft
   const singlePending = pending.length === 1 ? pending[0] : null

@@ -40,6 +40,22 @@ test('document.title tracks the route: CapyCook on home, dish-scoped on the work
   await waitFor(() => expect(document.title).toBe('Seared Chicken Thighs — CapyCook'))
 })
 
+test('a failed dish-list load is announced via a live region; the seed form stays usable', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes') return jsonResponse({ error: 'unreachable' }, 502)
+    return jsonResponse({})
+  }))
+  window.history.pushState({}, '', '/')
+  render(<App />)
+  const msg = await screen.findByRole('status')
+  expect(msg).toHaveTextContent('The dish list did not load — check the server and refresh.')
+  // The failure degrades gracefully: the seed form still accepts input.
+  const seed = screen.getByLabelText(/seed/i)
+  fireEvent.change(seed, { target: { value: 'a bright summer soup' } })
+  expect(seed).toHaveValue('a bright summer soup')
+})
+
 test('a route change focuses the destination screen h1; a cold load does not', async () => {
   // Cold load: the workbench h1 exists but must not have stolen focus.
   window.history.pushState({}, '', '/dishes/d1')
