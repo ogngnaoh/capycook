@@ -486,12 +486,15 @@ export default function GateBar({
               className="block text-[11px] tracking-[0.1em] uppercase text-muted mb-[6px]">
               Ask for a different change
             </label>
-            <div className="flex gap-[10px]">
+            {/* BC-G-12: same flex-1-input-won't-shrink clip as IntentBar's
+                #cc-intent row — min-w-0 + flex-wrap so "Send"/"Cancel" don't
+                clip off-screen at 320px. */}
+            <div className="flex flex-wrap gap-[10px]">
               <input id="gate-redirect-input" value={steerText}
                 onChange={(e) => setSteerText(e.target.value)}
                 placeholder="e.g. keep the salt but add brightness instead"
                 aria-disabled={locked}
-                className="flex-1 border border-accent bg-panel text-ink text-[14px] p-[11px] min-h-[44px]" />
+                className="flex-1 min-w-0 border border-accent bg-panel text-ink text-[14px] p-[11px] min-h-[44px]" />
               <button type="submit" disabled={steerText.trim() === ''} aria-disabled={locked} className={primaryBtn}>
                 {pending === 'redirect' && <Spinner />}Send
               </button>

@@ -787,7 +787,12 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
       {moveFailed && (
         <div data-testid="move-failed-banner" role="alert"
           className="px-4 py-2 bg-warning-surface text-ink border-b border-hairline flex items-center gap-2">
-          <span className="uppercase font-medium text-warning shrink-0">Move failed</span>
+          {/* BC-G-10: text-warning on bg-warning-surface is only ~3.9:1 at
+              this 12px/medium size (tokens.css documents the caveat —
+              text-warning needs >=~18.66px bold to read as "large" text);
+              text-ink keeps the AA floor while the tinted surface + label
+              wording still carry the warning register. */}
+          <span className="uppercase font-medium text-ink shrink-0">Move failed</span>
           <span className="truncate">{moveFailed.reason} — try again.</span>
           <span className="ml-auto shrink-0 flex gap-1">
             {lastMove.current && (
@@ -932,6 +937,15 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
           )}
         </section>
       </main>
+
+      {/* BC-C-26 (⚖ in force): the safety gate's limits, surfaced in the app
+          rather than only in the repo (DESIGN §8.7 P0). A persistent,
+          quiet-register footer — present across every workbench state
+          (idle, proposing, awaiting_gate, blocked) so it satisfies "on the
+          idle workbench and on a safety hold" as one element, not two. */}
+      <footer className="px-4 py-3 border-t border-hairline text-2xs text-muted">
+        This safety gate is a backstop, not a guarantee — always use your own judgment.
+      </footer>
 
       <Toast message={toast} />
       {override && (

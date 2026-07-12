@@ -128,13 +128,19 @@ export default function IntentBar({ canPropose, autonomyOn, servings, suggestedN
       <label htmlFor="cc-intent" className="block text-[11px] tracking-[0.1em] uppercase text-muted mb-[8px]">
         What do you want to try next?
       </label>
-      <div className="flex gap-[10px] items-start">
+      {/* BC-G-12: flex-wrap + min-w-0 on the input — a flex item's default
+          min-width is its content/UA-default width (~170-200px for a text
+          input), which does not shrink below that just because it's
+          flex-1; at 320px viewport that pushed "Try it →" 49px past the
+          right edge. min-w-0 lets it shrink to whatever's left; flex-wrap
+          is the fallback if even that isn't enough room. */}
+      <div className="flex flex-wrap gap-[10px] items-start">
         <input id="cc-intent" ref={intentRef} value={intent} onChange={(e) => setIntent(e.target.value)}
           onKeyDown={onIntentKeyDown}
           aria-invalid={intentError ? true : undefined}
           aria-describedby={intentError ? 'cc-intent-error' : undefined}
           placeholder="make it cheaper · add a crunchy element · what pairs with miso?"
-          className="flex-1 border border-hairline-strong bg-panel text-ink text-[15px] px-[13px] min-h-[44px]" />
+          className="flex-1 min-w-0 border border-hairline-strong bg-panel text-ink text-[15px] px-[13px] min-h-[44px]" />
         <button type="button" onClick={submitIntent} className={primaryBtn}>
           Try it →
         </button>

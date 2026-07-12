@@ -82,7 +82,10 @@ function Home({ onNavigate, routeNonce }: {
   }, [routeNonce])
 
   return (
-    <div className="max-w-3xl mx-auto px-4 pt-6 pb-8 space-y-6">
+    // BC-A-8 de-risk: pt-6 (45px) -> pt-4 (20px) — part of the seed form's
+    // vertical-rhythm trim so its CTA clears the 1280x800 fold. Spacing
+    // only; the header/nav content is unchanged.
+    <div className="max-w-3xl mx-auto px-4 pt-4 pb-8 space-y-6">
       <header className="h-header flex items-center border-b border-hairline">
         <h1 ref={headingRef} tabIndex={-1} className="uppercase font-medium text-sm focus:outline-none">
           CapyCook <span className="text-muted font-regular">— dish development workbench</span>
