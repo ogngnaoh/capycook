@@ -31,12 +31,12 @@ Root causes reference run-073 + `b2-oracle-plan.md` "Pre-census findings".
 | 4 | empty-guard validation | BC-A-4, BC-A-9, BC-C-13 (+@live-sim) | `IntentBar.tsx:32` silent return on empty intent; message not programmatically associated; content-free tweak still fires gate POST | 3/3 green @ 89a5046 (iter 4) |
 | 5 | typed-input preservation | BC-A-13, BC-C-21, BC-C-27, BC-E-5 | typed input discarded on failed/cancelled submissions across IntentBar, redirect form, take-over "Go back", tasting form | 4/4 green @ 24e6576 (iter 5; verified by invocation 3b audit + run-005) |
 | 6 | first pass + suggestions | BC-A-3, BC-A-14 | no auto first pass on create; `setSuggestedNext` only in SSE handler gated on `expectedMove.current` (`Workbench.tsx:151`), race under fast mode, no GET-recovery population | A-3 green @ c0835af (iter 6); A-14 attempt 1 failed — chips work, but no proposing surface under instant completion → retry brief cluster-06b (iter 8) |
-| 7 | streaming rationale | BC-B-3, BC-G-4, BC-B-10, BC-I-2 (judge), **BC-B-8 (judge, folded 2026-07-12)** | rationale replays only after generation completes (`internal/transport/hub.go`); no intermediate live-region values during 25s wait; the founding live-latency finding — Go+web token streaming allowed. B-8 folded in: the end-of-generation replay burst (~26 rapid updates + gate mount) delays the visible handoff paint past the ±3s window AND floods the screencast; streaming during generation removes the burst by design | pending |
+| 7 | streaming rationale | BC-B-3, BC-G-4, BC-B-10, BC-I-2 (judge), **BC-B-8 (judge, folded 2026-07-12)** | rationale replays only after generation completes (`internal/transport/hub.go`); no intermediate live-region values during 25s wait; the founding live-latency finding — Go+web token streaming allowed. B-8 folded in: the end-of-generation replay burst (~26 rapid updates + gate mount) delays the visible handoff paint past the ±3s window AND floods the screencast; streaming during generation removes the burst by design | 4/4 green @ streaming commit (iter 9, run-009); B-8 HELD PASS |
 | 8 | gate semantics + C-11 wording | BC-C-10 (+@live-sim), BC-C-20, BC-C-22, BC-C-28, BC-C-11 (judge, folded 2026-07-12) | card accessible names lack "Option A"; partial-alternatives shows committing verb; disclosure lacks aria-expanded; steps-deleted take-over saves silently (Go zero-value decode); REGENERATE label = model vocabulary (4 consecutive fresh-judge FAILs; oracle selects via data-verb, label rename safe) | 4/4 green @ 06e4c00 (iter 7); C-11 PASS ×2 post-rename |
 | 9 | diff repertoire | BC-C-16 (+@live-sim) | `StepRow` (`DishCard.tsx:250`) has no changed branch (row.old ignored, no sr-only was/now); PLUS sanctioned harness work: stub gains remove-op / in-place-replace templates so the clause is drivable (self-test re-run required) | pending |
 | 10 | durable trial metadata | BC-D-12 (⚖), BC-F-3 (+@live-sim), BC-E-3 (judge) | persist move rationale (schema/wire change sanctioned); auto-applied trial lacks durable attribution marker; feedback→proposal connection not legible | pending |
 | 11 | contrast tokens | BC-G-10, BC-G-13 | 98 text pairs below AA both themes (`--color-faint` family); `--color-border-strong` ~1.7:1 on dial-OFF track (`DialToggle.tsx:13,17`) + invalid seed border (`SeedSetup.tsx:49`); token-level work, design bar applies | pending |
-| 12 | viewport + backstops | BC-G-12, BC-G-14, BC-C-26 (⚖) | 320px IntentBar clip (`IntentBar.tsx:80` flex no-shrink); skip-link z-50 under z-100 header (`index.css:56` vs `Workbench.tsx:445`) + CookFlow `order:-1` no scroll-padding (`index.css:74`); in-app disclaimer absent | pending |
+| 12 | viewport + backstops | BC-G-12, BC-G-14, BC-C-26 (⚖), **BC-A-12 (folded 2026-07-12 — census fail found unassigned to any cluster)**, A-8 seed-CTA de-risk | 320px IntentBar clip (`IntentBar.tsx:80` flex no-shrink); skip-link z-50 under z-100 header (`index.css:56` vs `Workbench.tsx:445`) + CookFlow `order:-1` no scroll-padding (`index.css:74`); in-app disclaimer absent; A-12: dish-create double-click fires two POST /api/dishes (SeedSetup lacks A-5-style dispatch lock); A-8 judges consistently flag the seed CTA cropped at the 1280×800 fold | pending — runs WITH cluster 11 as one combined builder run (iter 12) |
 
 Meta: BC-I-1 and the four @live-sim parity twins clear when their fast twins
 clear. BC-J-6 stays parked by design (B5-only). BC-G-4 is the B-3 derivative.
@@ -66,7 +66,11 @@ Only criteria whose count moved (id · attempts · status). Everything else: 0.
 | BC-C-27 | 1 | GREEN (iter 5, run-005) |
 | BC-E-5 | 1 | GREEN (iter 5, run-005) |
 | BC-A-3 | 1 | GREEN (iter 6, run-006) |
-| BC-A-14 | 1 | failing (proposing-surface clause only; chips/labels/dispatch fixed) — retry iter 8 |
+| BC-A-14 | 2 | GREEN (iter 8, run-008 — optimistic proposing at dispatch) |
+| BC-B-3 | 1 | GREEN (iter 9, run-009 — live token streaming) |
+| BC-B-10 | 1 | GREEN (iter 9, run-009) |
+| BC-G-4 | 1 | GREEN (iter 9, run-009) |
+| BC-I-2 | 1 | GREEN (iter 9, run-009 — judge PASS on full-journey screencast; THE founding finding) |
 | BC-C-10 | 1 | GREEN (iter 7, run-007) |
 | BC-C-20 | 1 | GREEN (iter 7, run-007) |
 | BC-C-22 | 1 | GREEN (iter 7, run-007) |
@@ -75,9 +79,18 @@ Only criteria whose count moved (id · attempts · status). Everything else: 0.
 previouslyGreen (cumulative --only regression set): BC-B-1, BC-B-5, BC-C-17,
 BC-D-2, BC-A-5, BC-B-4, BC-E-4, BC-H-1, BC-H-7, BC-H-8, BC-H-9, BC-A-4,
 BC-A-9, BC-C-13, BC-A-13, BC-C-21, BC-C-27, BC-E-5, BC-A-3, BC-C-10,
-BC-C-20, BC-C-22, BC-C-28 (23).
+BC-C-20, BC-C-22, BC-C-28, BC-A-14, BC-B-3, BC-B-10, BC-G-4, BC-I-2 (28).
 
 ## Check-change log (harness edits during B4)
+
+- **2026-07-12 · after iteration 9 (commit 55473e8):** `b-proposing.mjs`
+  ensureIdle taught the BC-C-20 alternatives world — it knew only
+  idle/proposing/gate/blocked, so the new partial/picker states spun it to
+  the check deadline (B-4 trap-alternatives stall, runs 008/009, cascading
+  into both redirect traps). Alternatives now drain: wait both cards, pick
+  A, accept. Detection ordered before 'proposing' so the second option's
+  card is not Stop-cancelled into a stranded state. Self-test re-run after
+  commit: result in iteration records.
 
 - **2026-07-12 · iteration 0 (pre-loop housekeeping, handoff-sanctioned):**
   deduped `oracle.mjs`'s local `runScenario`/`loadScenarios` onto
@@ -190,6 +203,31 @@ BC-C-20, BC-C-22, BC-C-28 (23).
 - **2026-07-12 — workflow agents switched to Sonnet** (USER directive on
   resume): every agent() in `b4-iteration.workflow.mjs` now passes
   `model: 'sonnet'` (args-overridable). Lead unchanged.
+- **Iterations 8–9 (invocation 5, wf_d2285d3f-b4b, Sonnet agents, builder
+  runs 8-9/12):** A-14 retry @ `cbe736b` — **GREEN (attempt 2)**: optimistic
+  proposing state mounts synchronously at dispatch (baseVersion-less callers
+  only — deliberate CookFlow exclusion accepted by lead: an optimistic
+  unmount there would tear down BC-E-5's form-survival mechanism); the
+  builder also caught and closed a focus-drop regression its own change
+  would have introduced (auto-advance + failed-dispatch backstops).
+  Cluster 7 streaming @ streaming commit — **B-3, B-10, G-4 GREEN and
+  BC-I-2 (THE FOUNDING FINDING) judge PASS on the full-journey screencast**
+  (run-009): stub offers the proposal early via a new optional
+  MoveRequest.OnDraft hook and spends the latency window revealing rationale
+  tokens live; orchestrator forwards them; never-a-token-for-blocked-moves
+  proven with new orchestrator tests; Workbench throttled rotating progress
+  announcements land in B-10's 2000-12000ms band. B-8 HELD PASS, B-2 PASS,
+  C-11 PASS (3rd/4th consecutive post-rename). Gates green ×2 (Go + web).
+  **B-4 apparent regression ×2 adjudicated as harness stall** (ensureIdle
+  ignorant of the C-20 picker flow → fixed 55473e8, see check-change log;
+  B-4 re-verifies next run). **New: D-7 judge FAIL** (stricter fresh judge:
+  BRANCH badge lacks inline self-explanation vs COOKED's quote box; same UI
+  passed 5+ earlier panels) — adjudicated as de-risk product work, folded
+  into cluster 9 (TimelineSpine branch-origin note). **A-8 now fails on ONE
+  clause only** with clean evidence: the seed CTA crops at the 1280×800 fold
+  — real product issue, folded into cluster 12. **A-12 discovered UNASSIGNED**
+  (census fail missing from every cluster — lead accounting gap): folded
+  into cluster 12 (SeedSetup create needs an A-5-style dispatch lock).
 - **Iterations 6–7 (invocation 4, wf_1eb15383-461, Sonnet agents, builder
   runs 6-7/12):** cluster 6 @ `c0835af` — **A-3 GREEN** (auto first pass via
   an in-memory justCreated ref through the existing propose() path; all four
