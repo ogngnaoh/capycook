@@ -76,3 +76,18 @@
   gates as ratified. Alternative rulings: park G-10's remaining pairs with
   a documented exception list, or stop here and take the checkpoint to B5
   review as-is (2 criteria red).
+- **2026-07-12 — USER RULING on the B4 checkpoint: +2 builder runs GRANTED**
+  (G-10 round 2; A-12 conditional on the scenario audit), lead harness queue
+  sanctioned. Session closed immediately after the ruling; next session
+  executes. **Post-ruling lead finding (before closing):** the 25 remaining
+  BC-G-10 pairs are ALL light-theme-only and ALL carry effective opacity
+  0.45–0.66 on freshly-mounted content ("Trial 1" rgb(107,100,92) on white
+  reads 1.95:1 at opacity 0.45 — the token pair itself clears AA). Prime
+  hypothesis: the g/desktop-modes contrast walker samples the light theme
+  first, DURING the cc-rise entrance animation (~300ms opacity 0→1); dark,
+  walked after the theme toggle with animations settled, is fully clean.
+  If verified, G-10 needs a walker settle-wait (harness fix + self-test),
+  NOT a builder run — and the same instant-sampling class likely explains
+  A-12's sawDisabled:false at 1 poll sample. The granted builder runs may
+  go unused. Full pair list preserved (evidence is gitignored) at
+  b4-briefs/g10-round2-pairs.json.
