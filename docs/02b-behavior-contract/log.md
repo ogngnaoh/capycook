@@ -50,3 +50,29 @@
   G-13, G-14 ×2 offenders). Judges 7 PASS / 2 FAIL (I-2 = the founding
   finding). One judge mis-fail traced to a stale pre-paint evidence frame →
   harness freshness fix, re-capture, re-judge (PASS). B4 active.
+- **2026-07-12 — B4 CHECKPOINT (hard cap reached): 41 of 43 census fails
+  fixed in 12 builder runs; loop paused for USER ruling.** Evidence:
+  oracle runs 001–012 (worktree evidence dir), every iteration adjudicated
+  in b4-ledger.md, gates green throughout, zero product regressions (three
+  apparent ones were stale scenarios, each traced and fixed with self-test
+  re-proof: D-2, B-4, g/reduced-motion). Green now includes the founding
+  finding (BC-I-2, live streaming during the 25s wait) and both ⚖ criteria
+  (C-26 disclaimer, D-12 persisted rationale via additive migration).
+  STILL FAILING (1 strike each): **BC-G-10** — 25 of 98 text-contrast pairs
+  remain below AA on screens outside the builder's verification sweep;
+  **BC-A-12** — only the "visibly disabled in flight" clause, observed with
+  a single poll sample under an instant create (possibly harness sampling
+  granularity — audit pending). OUT-OF-SCOPE SIGNAL needing lead harness
+  work (no builder runs): the recorder wedge behind BC-B-8's intermittent
+  false-FAILs (root cause identified: CDP screencast requested at ~30fps
+  while 5fps is persisted — frame flood outruns acks; fix = lower
+  everyNthFrame) and BC-G-6's missing 390px evidence states.
+  **PROPOSED RULING:** grant +2 builder runs — (a) G-10 round 2 with the
+  oracle's full 25-pair failing list quoted in the brief, (b) A-12 only if
+  the scenario audit confirms a real product gap (if it is sampling
+  granularity, the lead fixes the scenario and A-12 re-verifies free).
+  Lead performs the recorder + G-6 harness fixes and the A-12 audit while
+  awaiting the ruling (self-test re-proof each). Then the ×2 full-run exit
+  gates as ratified. Alternative rulings: park G-10's remaining pairs with
+  a documented exception list, or stop here and take the checkpoint to B5
+  review as-is (2 criteria red).

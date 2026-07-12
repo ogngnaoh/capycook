@@ -35,8 +35,8 @@ Root causes reference run-073 + `b2-oracle-plan.md` "Pre-census findings".
 | 8 | gate semantics + C-11 wording | BC-C-10 (+@live-sim), BC-C-20, BC-C-22, BC-C-28, BC-C-11 (judge, folded 2026-07-12) | card accessible names lack "Option A"; partial-alternatives shows committing verb; disclosure lacks aria-expanded; steps-deleted take-over saves silently (Go zero-value decode); REGENERATE label = model vocabulary (4 consecutive fresh-judge FAILs; oracle selects via data-verb, label rename safe) | 4/4 green @ 06e4c00 (iter 7); C-11 PASS ×2 post-rename |
 | 9 | diff repertoire | BC-C-16 (+@live-sim) | `StepRow` (`DishCard.tsx:250`) had no changed branch; IngredientRow missed sr-only NOW; FlavorRow had no changed branch. CORRECTION (iter 10): the stub's springClean remove/replace template was ALREADY SHIPPED in B2 (7cabb0a) — the earlier 'stub gains templates' note was stale; builder verified read-only, no Go touched | 1/1 green @ c9ca959 (iter 10, run-010); D-7 de-risk landed (judge PASS run-011) |
 | 10 | durable trial metadata | BC-D-12 (⚖), BC-F-3 (+@live-sim), BC-E-3 (judge) | persist move rationale (schema/wire change sanctioned); auto-applied trial lacks durable attribution marker; feedback→proposal connection not legible | 3/3 green (iter 11, run-011): additive migration + Origin field + feedback woven into rationale; E-3 judge PASS |
-| 11 | contrast tokens | BC-G-10, BC-G-13 | 98 text pairs below AA both themes (`--color-faint` family); `--color-border-strong` ~1.7:1 on dial-OFF track (`DialToggle.tsx:13,17`) + invalid seed border (`SeedSetup.tsx:49`); token-level work, design bar applies | pending |
-| 12 | viewport + backstops | BC-G-12, BC-G-14, BC-C-26 (⚖), **BC-A-12 (folded 2026-07-12 — census fail found unassigned to any cluster)**, A-8 seed-CTA de-risk | 320px IntentBar clip (`IntentBar.tsx:80` flex no-shrink); skip-link z-50 under z-100 header (`index.css:56` vs `Workbench.tsx:445`) + CookFlow `order:-1` no scroll-padding (`index.css:74`); in-app disclaimer absent; A-12: dish-create double-click fires two POST /api/dishes (SeedSetup lacks A-5-style dispatch lock); A-8 judges consistently flag the seed CTA cropped at the 1280×800 fold | pending — runs WITH cluster 11 as one combined builder run (iter 12) |
+| 11 | contrast tokens | BC-G-10 (25/98 pairs remain — STRIKE 1, cap reached), BC-G-13 (GREEN iter 12) | 98 text pairs below AA both themes (`--color-faint` family); `--color-border-strong` ~1.7:1 on dial-OFF track (`DialToggle.tsx:13,17`) + invalid seed border (`SeedSetup.tsx:49`); token-level work, design bar applies | pending |
+| 12 | viewport + backstops | BC-G-12, BC-G-14, BC-C-26 (⚖), **BC-A-12 (folded 2026-07-12 — census fail found unassigned to any cluster)**, A-8 seed-CTA de-risk | 320px IntentBar clip (`IntentBar.tsx:80` flex no-shrink); skip-link z-50 under z-100 header (`index.css:56` vs `Workbench.tsx:445`) + CookFlow `order:-1` no scroll-padding (`index.css:74`); in-app disclaimer absent; A-12: dish-create double-click fires two POST /api/dishes (SeedSetup lacks A-5-style dispatch lock); A-8 judges consistently flag the seed CTA cropped at the 1280×800 fold | iter 12 @ 9633d5f: G-12, G-13, G-14, C-26 GREEN + A-8 judge PASS (fold fixed); G-10 25 pairs remain (strike 1); A-12 visibly-disabled clause failed (strike 1, sawDisabled:false at 1 poll sample — possibly harness sampling granularity, audit pending) |
 
 Meta: BC-I-1 and the four @live-sim parity twins clear when their fast twins
 clear. BC-J-6 stays parked by design (B5-only). BC-G-4 is the B-3 derivative.
@@ -75,6 +75,12 @@ Only criteria whose count moved (id · attempts · status). Everything else: 0.
 | BC-D-12 | 1 | GREEN (iter 11, run-011 — additive migration, legacy-DB regression test) |
 | BC-F-3 | 1 | GREEN (iter 11, run-011 — durable Origin badge) |
 | BC-E-3 | 1 | GREEN (iter 11, run-011 — judge PASS, feedback echo visible) |
+| BC-G-12 | 1 | GREEN (iter 12, run-012) |
+| BC-G-13 | 1 | GREEN (iter 12, run-012) |
+| BC-G-14 | 1 | GREEN (iter 12, run-012) |
+| BC-C-26 | 1 | GREEN (iter 12, run-012 — ⚖ disclaimer footer) |
+| BC-G-10 | 1 | failing — 25 of 98 pairs remain below AA (builder's live check covered fewer screens than the oracle sweep); CAP REACHED, USER ruling pending |
+| BC-A-12 | 1 | failing — dedup + focus clauses PASS; 'visibly disabled in flight' sawDisabled:false at 1 poll sample; harness sampling audit pending; CAP REACHED |
 | BC-C-10 | 1 | GREEN (iter 7, run-007) |
 | BC-C-20 | 1 | GREEN (iter 7, run-007) |
 | BC-C-22 | 1 | GREEN (iter 7, run-007) |
@@ -84,7 +90,7 @@ previouslyGreen (cumulative --only regression set): BC-B-1, BC-B-5, BC-C-17,
 BC-D-2, BC-A-5, BC-B-4, BC-E-4, BC-H-1, BC-H-7, BC-H-8, BC-H-9, BC-A-4,
 BC-A-9, BC-C-13, BC-A-13, BC-C-21, BC-C-27, BC-E-5, BC-A-3, BC-C-10,
 BC-C-20, BC-C-22, BC-C-28, BC-A-14, BC-B-3, BC-B-10, BC-G-4, BC-I-2,
-BC-C-16, BC-D-12, BC-F-3, BC-E-3 (32).
+BC-C-16, BC-D-12, BC-F-3, BC-E-3, BC-G-12, BC-G-13, BC-G-14, BC-C-26 (36).
 
 ## Check-change log (harness edits during B4)
 
@@ -214,6 +220,28 @@ BC-C-16, BC-D-12, BC-F-3, BC-E-3 (32).
 - **2026-07-12 — workflow agents switched to Sonnet** (USER directive on
   resume): every agent() in `b4-iteration.workflow.mjs` now passes
   `model: 'sonnet'` (args-overridable). Lead unchanged.
+- **Iteration 12 (invocation 7, wf_ba8e970b-c7f, Sonnet agents, builder run
+  12/12 — CAP REACHED):** cluster 11+12 combined @ `9633d5f` — **G-12, G-13,
+  G-14, C-26 GREEN; A-8 judge PASS** (CTA fold fixed + clean still; three
+  panels' complaint resolved). Builder live-verified with its own standalone
+  puppeteer script (never the oracle) and caught two same-family extensions,
+  both accepted: GateBar redirect-form clip (same flex bug as IntentBar) and
+  a light-theme --color-accent white-on-fill pair at 4.43:1 that the token
+  comment mis-claimed as 5.4:1. STILL FAILING: **G-10 (strike 1)** — 25 of
+  98 pairs remain (oracle sweeps more screens than the builder verified:
+  recent-dishes, CookFlow captions, override-prompt, banners); **A-12
+  (strike 1)** — dedup + focus clauses pass, but 'visibly disabled in
+  flight' observed sawDisabled:false with 1 poll sample — plausibly harness
+  sampling granularity under instant creates (same class as A-14's instant
+  jump); scenario audit pending. Judge signal: **B-8 FAIL again** (frozen
+  streaming frames t22.3-28.4 — the recorder wedge recurs despite the
+  watchdog; root fix identified: everyNthFrame:2 requests ~30fps of PNG over
+  CDP while we persist 5fps — frame flood outruns acks; reduce request
+  rate); **G-6 FAIL, NEW** (evidence collection missing 2 of 4 required
+  states at 390px — proposing + post-accept stills never captured;
+  investigation pending). Both are lead-side harness work, not builder runs.
+  **Loop paused at the ratified 12-run cap → checkpoint report + proposed
+  ruling in log.md; USER rules before any further builder runs.**
 - **Iterations 10–11 (invocation 6, wf_9887ba5a-dec, Sonnet agents, builder
   runs 10-11/12):** cluster 9 diff-repertoire @ `c9ca959` — **C-16 GREEN**
   (run-010; StepRow changed branch + IngredientRow sr-only NOW + FlavorRow
