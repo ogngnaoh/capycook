@@ -327,13 +327,27 @@ export const scenarios = [
         for (let i = 0; i < 4; i++) {
           const state = await page.evaluate(() => {
             if (document.querySelector('#cc-intent')) return 'idle';
+            // Alternatives surfaces FIRST (BC-C-20 world): during the partial
+            // window a proposing card is also mounted for the second option —
+            // Stop-cancelling it would strand the flow; drain via the picker.
+            if (document.querySelector('[data-testid="alt-card"]')
+              || document.querySelector('[data-testid="alternatives-waiting"]')) return 'alternatives';
             if (document.querySelector('[data-testid="proposing-card"]')) return 'proposing';
             if (document.querySelector('button[data-verb="accept"]')) return 'gate';
             if (document.querySelector('[data-testid="safety-hold"]')) return 'blocked';
             return 'other';
           });
           if (state === 'idle') return;
-          if (state === 'proposing') {
+          if (state === 'alternatives') {
+            // Wait for both cards, pick A (stages a normal gate), accept it.
+            await page.waitForFunction(
+              () => document.querySelectorAll('[data-testid="alt-card"]').length >= 2,
+              { timeout: 60000 },
+            ).catch(() => {});
+            await page.evaluate(() => { const c = document.querySelectorAll('[data-testid="alt-card"]')[0]; if (c) c.click(); }).catch(() => {});
+            await waitForVerb(page, 'accept', 15000).catch(() => {});
+            await clickVerb(page, 'accept').catch(() => {});
+          } else if (state === 'proposing') {
             await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => /^Stop$/.test(x.textContent.trim())); if (b) b.click(); }).catch(() => {});
           } else if (state === 'gate') {
             await clickVerb(page, 'accept').catch(() => {});
