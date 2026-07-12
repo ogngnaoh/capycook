@@ -122,6 +122,10 @@ async function createDishViaUI(ctx, tune) {
   await page.waitForFunction(() => location.pathname.startsWith('/dishes/'), { timeout: 8000 });
   await page.waitForSelector('#stage-heading', { timeout: 8000 });
   const dishPath = await page.evaluate(() => location.pathname);
+  // BC-A-3 (product change c0835af): a UI create now auto-fires the first
+  // pass. Absorb it to the gate so callers start from a deterministic parked
+  // state — the auto-fired seed_expand IS the journey's Move 1.
+  await waitForVerb(page, 'accept', ctx.genTimeout);
   return { dishPath, dishId: dishPath.split('/').pop() };
 }
 
@@ -213,8 +217,8 @@ export const scenarios = [
 
       // ---- BC-D-13 (accepts): exactly one aria-current, tracking each accept
       await ctx.check('BC-D-13', async (t) => {
-        // Move 1 → Trial 1 (seed_expand: the dish has no version yet).
-        await driveMoveToGate(page, ctx, 'give it a fresh first pass');
+        // Move 1 → Trial 1: the auto-fired first pass (BC-A-3, seed_expand)
+        // is already parked at the gate by createDishViaUI — just decide it.
         await acceptToTrial(page, ctx, 1);
         let ac = await ariaCurrent(page);
         t.expectEq(ac.count, 1, 'after accept #1: exactly one aria-current trial');
@@ -545,7 +549,8 @@ export const scenarios = [
         // ("allergen status unknown for saffron") and the move can never be
         // accepted — the exact combination BC-D-10 requires. Flagged as a
         // fixture gap; parsley is the honest unpriced-ingredient carrier.
-        await driveMoveToGate(page, ctx, 'expand this into a full first draft');
+        // The auto-fired first pass (BC-A-3, seed_expand) is already parked
+        // at the gate by createDishViaUI — just decide it.
         await acceptToTrial(page, ctx, 1);
 
         const draft = (await api('GET', `/api/dishes/${dishId}`)).draft;

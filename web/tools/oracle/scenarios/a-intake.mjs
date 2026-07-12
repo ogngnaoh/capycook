@@ -220,6 +220,9 @@ export const scenarios = [
       const { page, base, net } = ctx;
       await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('#field-seed', { timeout: 8000 });
+      // Let the first real paint reach the screencast before the still —
+      // run-006 fed the judge a pre-paint black frame for this moment.
+      await sleep(600);
       await ctx.judgeStill('BC-A-8', 'seed-screen');
       await fillSeed(page);
 
@@ -257,6 +260,11 @@ export const scenarios = [
         t.expectEq(net.count({ method: 'POST', pathRe: MOVE_RE }), 1, 'still exactly one lifetime POST …/move for the dish');
       }, { name: 'mid-flight' });
 
+      // Capture mid-proposing DEEPER into the window than post-create so the
+      // two journey frames are genuinely distinct moments (run-006/007 judges
+      // saw near-identical banners; once BC-B-3 streams rationale during
+      // generation, this frame will visibly differ).
+      await sleep(4000);
       await ctx.judgeStill('BC-A-8', 'mid-proposing');
 
       // Land the pass at the gate for the judge's fourth frame. If the auto

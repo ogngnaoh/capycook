@@ -389,16 +389,23 @@ export const scenarios = [
       }, { name: 'trap-regenerate', deadlineMs: 80000 });
 
       // Trap (2): the first of two alternatives lands while the second still
-      // generates. focusDecision lands on the single-proposal gate's Accept,
-      // not Stop — this moment does NOT trip, but the recipe demands it.
+      // generates. Since BC-C-20's fix (06e4c00) the app WITHHOLDS the
+      // single-proposal gate during the partial window and renders the
+      // alternatives-waiting status (or the first alt-card) instead — the
+      // trap moment is that partial surface's appearance, and focus must
+      // still not be on Stop there.
       await ctx.check('BC-B-4', async (t) => {
         await ensureIdle();
         await reachGate('give it a completely different flavor personality');
         await clickButton(page, /^Try another way/i);
         await waitForVerb(page, 'alternatives', 5000);
         await clickVerb(page, 'alternatives');
-        const sawFirst = await waitForVerb(page, 'accept', altTimeout).then(() => true).catch(() => false);
-        await sleep(200); // focusDecision parks focus on the gate
+        const sawFirst = await page.waitForFunction(
+          () => !!document.querySelector('[data-testid="alternatives-waiting"]')
+            || !!document.querySelector('[data-testid="alt-card"]'),
+          { timeout: altTimeout },
+        ).then(() => true).catch(() => false);
+        await sleep(200); // focusDecision settles wherever it lands
         const focus = await describeActiveElement(page);
         const liveBefore = ((await ctx.readInstrument()) || { liveLog: [] }).liveLog.length;
         await page.keyboard.press('Enter');
@@ -407,7 +414,7 @@ export const scenarios = [
         const cancelled = inst.liveLog.slice(liveBefore).some((l) => /Move cancelled/.test(l.text));
         t.observe('alternatives.focusAtFirstReady', focus);
         t.observe('alternatives.tripped', focus.isStop || cancelled);
-        t.expect(sawFirst, 'alternatives: the first proposal-ready surfaced (single-proposal gate)', { observed: sawFirst });
+        t.expect(sawFirst, 'alternatives: the first proposal-ready surfaced (partial-alternatives surface, BC-C-20)', { observed: sawFirst });
         t.expect(!focus.isStop, 'alternatives: focus is not on Stop at the first proposal-ready', { observed: focus });
         t.expect(!cancelled, 'alternatives: a bare Enter did not cancel the second move', { observed: cancelled });
         await ensureIdle();

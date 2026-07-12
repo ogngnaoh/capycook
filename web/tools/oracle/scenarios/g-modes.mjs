@@ -779,7 +779,8 @@ export const scenarios = [
     theme: 'light',
     reducedMotion: true,
     criteria: ['BC-G-4', 'BC-G-3', 'BC-G-8', 'BC-G-9', 'BC-G-11'],
-    run: async (ctx) => {
+    setup: seedTrials(0),
+    run: async (ctx, dishId) => {
       const { page, base, net } = ctx;
       await page.evaluateOnNewDocument(CONTRAST_SRC);
       await page.evaluateOnNewDocument(G_BUNDLE);
@@ -799,11 +800,10 @@ export const scenarios = [
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
       });
 
-      await gotoHome(page, base);
-      await fillSeed(page);
-      await clickButton(page, /^Develop this dish/i);
-      await page.waitForFunction(() => location.pathname.startsWith('/dishes/'), { timeout: 8000 });
-      // A-3 fails today (opens idle) — drive the first pass manually.
+      // API-created dish (setup) + direct navigation: BC-A-3's auto-fire only
+      // triggers on the in-app create journey, so the manual dispatch below —
+      // which arms the __g4 timing baseline at click — keeps its semantics.
+      await gotoDish(page, base, dishId);
       const idle = await page.waitForSelector('#cc-intent', { timeout: 8000 }).then(() => true).catch(() => false);
 
       // Dispatch the first pass ONCE; the proposing state (and its Stop control)
