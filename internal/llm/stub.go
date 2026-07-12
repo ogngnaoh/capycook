@@ -24,6 +24,14 @@ type Stub struct {
 	// state stays on screen long enough for demo capture
 	// (CAPYCOOK_STUB_LATENCY_MS, server-only). The wait is context-aware:
 	// a cancel mid-wait returns at once, so the Stop button really stops.
+	//
+	// The full proposal is always computed first (fast, deterministic), so
+	// when the caller wires MoveRequest.OnDraft the wait is spent revealing
+	// its rationale live — one word per pace step, spread across the window
+	// with a trailing silent buffer — instead of blocking silently and
+	// handing everything over in one post-completion burst (the founding
+	// 02b finding: nothing streamed during a 15-40s wait). OnDraft decides
+	// whether streaming happens at all; the stub never second-guesses that.
 	Latency time.Duration
 }
 
@@ -35,15 +43,6 @@ var _ LLM = Stub{}
 func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Proposal, error) {
 	if err := ctx.Err(); err != nil {
 		return proposal.Proposal{}, err
-	}
-	if s.Latency > 0 {
-		t := time.NewTimer(s.Latency)
-		defer t.Stop()
-		select {
-		case <-ctx.Done():
-			return proposal.Proposal{}, ctx.Err()
-		case <-t.C:
-		}
 	}
 	tmpl, ok := templates[req.MoveType]
 	if !ok {
@@ -91,7 +90,7 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 	if req.Steer != "" {
 		rationale += fmt.Sprintf(" Steer applied: %q.", req.Steer)
 	}
-	return proposal.Proposal{
+	result := proposal.Proposal{
 		MoveType:      req.MoveType,
 		TargetFields:  proposal.TargetFields(change),
 		Change:        change,
@@ -100,7 +99,81 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 		Confidence:    confidence,
 		Unverified:    []string{"templated stub output — flavor claims unchecked"},
 		SuggestedNext: tmpl.next,
-	}, nil
+	}
+	// The proposal is fully known now (deterministic, no real "thinking"
+	// required) — offer the early preview before spending the demo-visible
+	// latency, so a streaming-aware caller can decide, before anything is
+	// revealed, whether this generation is safe to show live.
+	var onToken func(string)
+	if req.OnDraft != nil {
+		onToken = req.OnDraft(result)
+	}
+	if err := s.pace(ctx, result.Rationale, onToken); err != nil {
+		return proposal.Proposal{}, err
+	}
+	return result, nil
+}
+
+// pace spends s.Latency (when set) before GenerateMove returns — the
+// demo-capture knob that keeps the proposing state on screen long enough to
+// observe. With a token sink, the wait is spent revealing rationale's words
+// live, evenly paced across the window minus a trailing silent buffer (so a
+// downstream progress summary and the eventual completion land comfortably
+// apart — BC-B-10); with none, the wait is silent, exactly as before.
+// Cancel-aware throughout: ctx cancellation (Stop) returns at once.
+func (s Stub) pace(ctx context.Context, rationale string, onToken func(string)) error {
+	if s.Latency <= 0 {
+		return nil
+	}
+	if onToken == nil {
+		return sleepCtx(ctx, s.Latency)
+	}
+	words := strings.Fields(rationale)
+	if len(words) == 0 {
+		return sleepCtx(ctx, s.Latency)
+	}
+	tail := s.Latency / 6
+	switch {
+	case tail < 500*time.Millisecond:
+		tail = 500 * time.Millisecond
+	case tail > 3*time.Second:
+		tail = 3 * time.Second
+	}
+	if tail >= s.Latency {
+		tail = s.Latency / 2
+	}
+	window := s.Latency - tail
+	perWord := window / time.Duration(len(words))
+	if perWord <= 0 {
+		perWord = time.Millisecond
+	}
+	for i, w := range words {
+		text := w
+		if i < len(words)-1 {
+			text += " "
+		}
+		onToken(text)
+		if err := sleepCtx(ctx, perWord); err != nil {
+			return err
+		}
+	}
+	return sleepCtx(ctx, tail)
+}
+
+// sleepCtx waits out d, or returns ctx's error at once if ctx is cancelled
+// first. d<=0 returns immediately.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 // moveTemplate is one canned move: an in-place mutation of a cloned draft,

@@ -26,9 +26,17 @@ import { mergeDiff } from '../lib/mergeDiff'
 import {
   ANNOUNCE_BACK_TO_CURRENT, ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED,
   ANNOUNCE_PROPOSING, GATE_ANNOUNCE, MOVE_LABEL, STATE_LABEL, VERB_LABEL,
-  announceAlternatives, announceProposalReady, promotedToService, shortRef,
+  announceAlternatives, announceProgress, announceProposalReady, promotedToService, shortRef,
   trialAlias,
 } from '../vocab'
+
+// BC-B-10: the live region needs more than a start/end flip during a long
+// generation. Progress announcements are throttled off live TOKEN arrival
+// (never a fixed timer) so they naturally stop once tokens stop — which the
+// Go side already arranges to happen a few seconds before proposal-ready —
+// landing comfortably inside the contract's 2000-12000ms band without either
+// side needing to know the other's exact timing.
+const PROGRESS_ANNOUNCE_MIN_GAP_MS = 3500
 
 // The persisted Technical-view preference: once a power user flips it on,
 // raw ops/confidence/provenance return at full density on every proposal.
@@ -133,14 +141,27 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
   const alternativesExpectedMoveId = useRef<string | null>(null)
 
   // The permanent status region (P1): one sentence per gate-lifecycle
-  // transition, pushed here and rendered in an sr-only role="status" element.
-  // Never the token stream. The nudge toggle makes repeated identical
-  // messages re-announce (live regions only speak on DOM change).
+  // transition, plus BC-B-10's throttled mid-wait progress cue below, pushed
+  // here and rendered in an sr-only role="status" element. Never the raw
+  // per-token stream itself (that would be per-token noise, exactly what
+  // BC-B-10 forbids) — only occasional, human-readable summaries. The nudge
+  // toggle makes repeated identical messages re-announce (live regions only
+  // speak on DOM change).
   const [liveMessage, setLiveMessage] = useState('')
   const announceNudge = useRef(false)
   const announce = useCallback((msg: string) => {
     announceNudge.current = !announceNudge.current
     setLiveMessage(msg + (announceNudge.current ? '' : ' '))
+  }, [])
+  // BC-B-10's mid-wait progress cue: lastAt is seeded to the dispatch moment
+  // (never 0) so the FIRST intermediate announcement also respects the
+  // min-gap floor relative to "Proposing a move…"/the gate-verb start
+  // announcement, not just relative to other intermediates. words is an
+  // approximate running count (one token ≈ one word, per the server's
+  // whitespace-delimited chunks) — precise enough for an aural progress cue.
+  const progressAnnounce = useRef({ lastAt: 0, tick: 0, words: 0 })
+  const beginProposingAnnouncements = useCallback(() => {
+    progressAnnounce.current = { lastAt: Date.now(), tick: 0, words: 0 }
   }, [])
   // pendingCountRef lets SSE handlers distinguish a first proposal from an
   // arriving alternative without re-subscribing on every detail change.
@@ -185,7 +206,20 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
     const stream = openDishStream(dishId, {
       onToken: (e) => {
         // Only the awaited move's tokens grow the ProposingCard.
-        if (e.moveId === expectedMove.current) setStreamText((t) => t + e.text)
+        if (e.moveId !== expectedMove.current) return
+        setStreamText((t) => t + e.text)
+        // BC-B-10: a throttled, DISTINCT progress cue for the permanent
+        // status region — never per-token (announce() is called at most
+        // once per PROGRESS_ANNOUNCE_MIN_GAP_MS here), never a repeat of
+        // the immediately-prior value (the phrase rotates).
+        const p = progressAnnounce.current
+        p.words += 1
+        const now = Date.now()
+        if (now - p.lastAt >= PROGRESS_ANNOUNCE_MIN_GAP_MS) {
+          p.lastAt = now
+          p.tick += 1
+          announce(announceProgress(p.words, p.tick))
+        }
       },
       onProposalReady: (e) => {
         if (e.moveId !== expectedMove.current) return // stale replay tail
@@ -387,6 +421,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
       dispatchFocusPending.current = true
     }
     announce(ANNOUNCE_PROPOSING)
+    beginProposingAnnouncements()
     setMoveFailed(null)
     setActionError(null)
     setStreamText('')
@@ -467,7 +502,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
     } finally {
       moveInFlight.current = false
     }
-  }, [announce, detail?.currentVersionId, dishId, flash, focusDecision, refreshVersions])
+  }, [announce, beginProposingAnnouncements, detail?.currentVersionId, dishId, flash, focusDecision, refreshVersions])
 
   // Auto-fired first pass (BC-A-3): the one SPA navigation immediately after
   // a successful create arrives here with autoFirstPass true. Consumed at
@@ -495,6 +530,10 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
   // (BC-C-21/BC-C-27).
   const runGate = useCallback(async (body: GateRequestBody): Promise<boolean> => {
     announce(GATE_ANNOUNCE[body.verb])
+    // Verbs that respawn a move (regenerate/redirect/alternatives) open a
+    // fresh proposing window a token stream will flow into; a harmless reset
+    // for the resolving verbs (accept/edit/take_over), which never see one.
+    beginProposingAnnouncements()
     setActionError(null)
     setMoveFailed(null)
     try {
@@ -531,7 +570,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
       setActionError(errMessage(err))
       return false
     }
-  }, [announce, dishId, flash, focusDecision, refreshVersions, resync])
+  }, [announce, beginProposingAnnouncements, dishId, flash, focusDecision, refreshVersions, resync])
 
   // gateTarget resolves the gate's idempotency key for the current state: a
   // pending proposal id at the gate, the blocked move id while blocked.
@@ -688,7 +727,8 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
   return (
     <div className="min-h-screen bg-page text-ink">
       {/* Pre-existing at first render — live regions added later miss
-          announcements. Gate lifecycle only; never the token stream. */}
+          announcements. Gate lifecycle plus BC-B-10's throttled mid-wait
+          progress cue; never the raw per-token stream itself. */}
       <div data-testid="gate-live-region" role="status" aria-live="polite" className="sr-only">
         {liveMessage}
       </div>

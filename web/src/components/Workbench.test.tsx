@@ -129,6 +129,67 @@ test('a token for a different move id never appends (expectedMove guard)', async
   expect(screen.getByTestId('proposing-card')).not.toHaveTextContent('ghost text')
 })
 
+// BC-B-10: the live region must say more than a start/end flip during a long
+// generation — successive DISTINCT intermediate values land 2000-12000ms
+// apart, never per-token. Drives a real dispatch (so beginProposingAnnounce-
+// ments seeds its throttle baseline the same way the app does) and controls
+// Date.now() to place tokens precisely inside/outside the throttle window.
+test('BC-B-10: mid-generation progress announcements are throttled and distinct, never per-token', async () => {
+  let now = 1_700_000_000_000
+  const spy = vi.spyOn(Date, 'now').mockImplementation(() => now)
+  try {
+    await mount()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url === '/api/dishes/d1' && method === 'GET') {
+        return jsonResponse(dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' }))
+      }
+      if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+      if (url === '/api/status') return jsonResponse(llmStatus)
+      if (url === '/api/dishes/d1/move' && method === 'POST') return jsonResponse({ moveId: 'mv_9' })
+      return jsonResponse({})
+    })
+    fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'brighten it' } })
+    fireEvent.click(screen.getByRole('button', { name: /^Try it/i }))
+    await flush()
+    const es = MockEventSource.instances[0]
+    const region = screen.getByTestId('gate-live-region')
+    expect(region).toHaveTextContent(ANNOUNCE_PROPOSING)
+    const afterStart = region.textContent
+
+    // Two tokens well inside the 3500ms throttle window — never per-token.
+    act(() => es.emit('token', { moveId: 'mv_9', text: 'Char ' }))
+    now += 500
+    act(() => es.emit('token', { moveId: 'mv_9', text: 'the ' }))
+    expect(region.textContent).toBe(afterStart)
+
+    // Crossing the throttle floor produces exactly one distinct intermediate
+    // value — neither the start nor ready strings.
+    now += 3200
+    act(() => es.emit('token', { moveId: 'mv_9', text: 'leeks ' }))
+    const first = region.textContent
+    expect(first).not.toBe(afterStart)
+    expect(first).not.toMatch(/Proposing a move/)
+    expect(first).not.toMatch(/Proposal ready/)
+
+    // Immediately after: inside the new window, no re-announce.
+    now += 100
+    act(() => es.emit('token', { moveId: 'mv_9', text: 'hard.' }))
+    expect(region.textContent).toBe(first)
+
+    // Crossing the floor again yields a SECOND, DIFFERENT value — successive
+    // distinct updates, not a repeat of the immediately-prior one.
+    now += 3600
+    act(() => es.emit('token', { moveId: 'mv_9', text: 'Then ' }))
+    const second = region.textContent
+    expect(second).not.toBe(first)
+    expect(second).not.toBe(afterStart)
+  } finally {
+    spy.mockRestore()
+  }
+})
+
 // --- proposal ready → gate -------------------------------------------------
 
 test('proposal-ready lands the gate bar, announces, and drops a pending node in the timeline', async () => {

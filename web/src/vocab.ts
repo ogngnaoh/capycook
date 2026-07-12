@@ -97,6 +97,26 @@ export function announceProposalReady(changes: number): string {
   return `Proposal ready — ${changes} ${changes === 1 ? 'change' : 'changes'} to review`
 }
 
+// Coarse mid-wait progress announcements (BC-B-10): the live region must say
+// SOMETHING between "Proposing a move…" and "Proposal ready…" during a long
+// generation, or a screen-reader user gets up to 40s of silence. Rotating
+// through PROGRESS_PHRASES (rather than a single fixed string) guarantees
+// each call differs from the one immediately before it even if the word
+// count happens to repeat — announce() only speaks on an actual DOM text
+// change, so an identical repeat would be silently swallowed.
+const PROGRESS_PHRASES = [
+  'Still working on it…',
+  'Weighing the direction…',
+  'Drafting the rationale…',
+  'Refining the details…',
+]
+
+export function announceProgress(wordsSoFar: number, tick: number): string {
+  const phrase = PROGRESS_PHRASES[tick % PROGRESS_PHRASES.length]
+  const words = wordsSoFar === 1 ? '1 word' : `${wordsSoFar} words`
+  return `${phrase} (${words} drafted so far)`
+}
+
 export function announceAlternatives(count: number): string {
   return `${count} alternatives ready — pick one to develop`
 }

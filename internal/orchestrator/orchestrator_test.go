@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -513,6 +514,94 @@ func TestBlockedRedirectRecovers(t *testing.T) {
 	}
 	if st := e.orch.Status("d1"); st.State != StateAwaitingGate {
 		t.Errorf("state = %q, want awaiting_gate", st.State)
+	}
+}
+
+// --- live token streaming (B4 cluster 7: rationale streams during generation) ---
+
+// TestGenerateStreamsTokensLiveThenSkipsReplay: a passing single-proposal
+// move streams OutcomeToken events DURING generation — before the terminal
+// Ready outcome — and that Ready outcome carries SkipRationaleReplay so the
+// hub does not re-stream what already reached subscribers live (BC-B-3).
+func TestGenerateStreamsTokensLiveThenSkipsReplay(t *testing.T) {
+	e := newEnv(t)
+	e.createDish(t, "d1", true)
+	e.llm.setFn(func(ctx context.Context, req llm.MoveRequest) (proposal.Proposal, error) {
+		return llm.Stub{Latency: 40 * time.Millisecond}.GenerateMove(ctx, req)
+	})
+	moveID, err := e.orch.Move(context.Background(), "d1", session, llm.MoveTypeSeedExpand, "")
+	if err != nil {
+		t.Fatalf("Move: %v", err)
+	}
+
+	var tokens []string
+	var out Outcome
+	deadline := time.After(5 * time.Second)
+collect:
+	for {
+		select {
+		case o := <-e.outcomes:
+			if o.Kind == OutcomeToken {
+				if o.MoveID != moveID {
+					t.Errorf("token moveId = %q, want %q", o.MoveID, moveID)
+				}
+				tokens = append(tokens, o.Token)
+				continue
+			}
+			out = o
+			break collect
+		case <-deadline:
+			t.Fatal("timed out waiting for the terminal outcome")
+		}
+	}
+	if out.Kind != OutcomeReady {
+		t.Fatalf("terminal outcome kind = %q, want ready (outcome %+v)", out.Kind, out)
+	}
+	if len(tokens) == 0 {
+		t.Fatal("no live tokens streamed before the ready outcome — generation did not stream during the wait")
+	}
+	if !out.SkipRationaleReplay {
+		t.Error("ready outcome after live streaming should set SkipRationaleReplay, so the hub does not duplicate it")
+	}
+	replayed := strings.Join(tokens, "")
+	if want := out.Proposals[0].Rationale; replayed != strings.Join(strings.Fields(want), " ") {
+		t.Errorf("streamed tokens joined = %q, want %q", replayed, want)
+	}
+}
+
+// TestGenerateNeverStreamsTokensForABlockedMove: the early safety pre-screen
+// (generate's OnDraft) must gate live streaming exactly as commitGeneration
+// gates the final outcome — a move that will be blocked emits ZERO
+// OutcomeToken events even though its LLM call takes real time to answer,
+// preserving transport/hub.go's never-a-token-for-a-blocked-move invariant.
+func TestGenerateNeverStreamsTokensForABlockedMove(t *testing.T) {
+	e := newEnv(t)
+	e.createDish(t, "d1", true)
+	e.llm.setFn(func(ctx context.Context, req llm.MoveRequest) (proposal.Proposal, error) {
+		return llm.Stub{Latency: 40 * time.Millisecond}.GenerateMove(ctx, req)
+	})
+	moveID, err := e.orch.Move(context.Background(), "d1", session, llm.MoveTypeIngredientChange, "infuse a garlic oil for drizzling")
+	if err != nil {
+		t.Fatalf("Move: %v", err)
+	}
+
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case o := <-e.outcomes:
+			if o.Kind == OutcomeToken {
+				t.Fatalf("blocked move emitted a live token %q — must emit none", o.Token)
+			}
+			if o.Kind == OutcomeBlocked {
+				if o.MoveID != moveID {
+					t.Errorf("blocked outcome move = %q, want %q", o.MoveID, moveID)
+				}
+				return
+			}
+			t.Fatalf("unexpected outcome kind %q before blocked", o.Kind)
+		case <-deadline:
+			t.Fatal("timed out waiting for the blocked outcome")
+		}
 	}
 }
 
