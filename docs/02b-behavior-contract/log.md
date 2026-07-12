@@ -91,3 +91,31 @@
   A-12's sawDisabled:false at 1 poll sample. The granted builder runs may
   go unused. Full pair list preserved (evidence is gitignored) at
   b4-briefs/g10-round2-pairs.json.
+- **2026-07-12 — B4 CHECKPOINT EXECUTED (lead-solo harness queue; NO builder
+  runs spent; both granted runs unused).** The post-ruling hypothesis held:
+  both remaining reds were harness artifacts. Five lead harness commits
+  (`3b48b1a`, `6255a66`, `823939a`, `982bcfa`, `be2a84b`), each committed then
+  self-tested `ok:true` 27/27 (each own falsifiability sabotage still flips) —
+  see b4-ledger.md check-change log. **BC-G-10 → GREEN** (the walker sampled
+  mid-`.cc-rise` entrance fade; now zeros keyframe animations; positive control
+  `low-contrast-ink` still flips → walker not blinded). **BC-A-12 → GREEN**
+  (AUDIT: SeedSetup IS correct — renders `aria-disabled` + "Developing…"; the
+  5ms poll sampled before React commits, then two stale-scenario bugs surfaced:
+  error-summary focus artifact + a `<textarea>`-Enter timeout live since
+  run-012). **BC-B-8 / BC-G-6** harness sources fixed (recorder frame-rate;
+  g/narrow-390 reach-idle + still framing).
+  **TWO GENUINE ISSUES SURFACED (reported, NOT fixed — checkpoint boundary):**
+  (1) **BC-G-8 product regression** — the GateBar "Try another way" disclosure
+  toggle is 104×20px (<24px WCAG 2.5.8) at 390px; census run-073 had BC-G-5/6/8
+  all GREEN, so B4 regressed it; the g/narrow-390 abort had masked it. Needs a
+  builder run (give the toggle ≥24px height). (2) **Loop blind spot** — B4's
+  targeted `--only` runs never re-checked census-PASSING criteria, so B4 product
+  changes silently regressed some (G-5/G-6/G-8 confirmed via g/narrow-390). The
+  ×2 full exit runs are the first place ALL criteria are re-checked; MORE masked
+  regressions may surface there. **PROPOSED for USER:** (a) authorize a product
+  fix for BC-G-8; (b) run one full oracle pass (informative, not the exit gate)
+  to enumerate every masked regression before committing to the ×2 all-green
+  exit. Also noted: **BC-J-5 guardrail** fails in the worktree (`data/capycook.db`
+  is a 0-byte file — no events table); the exit runs must point it at the real
+  operator DB (pre-existing, runs 010–012 too). Per the chosen session boundary,
+  STOPPED here for USER review before any ×2 exit run or builder run.

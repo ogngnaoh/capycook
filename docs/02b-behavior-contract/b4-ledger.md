@@ -79,8 +79,8 @@ Only criteria whose count moved (id · attempts · status). Everything else: 0.
 | BC-G-13 | 1 | GREEN (iter 12, run-012) |
 | BC-G-14 | 1 | GREEN (iter 12, run-012) |
 | BC-C-26 | 1 | GREEN (iter 12, run-012 — ⚖ disclaimer footer) |
-| BC-G-10 | 1 | failing — 25 of 98 pairs remain below AA (builder's live check covered fewer screens than the oracle sweep); CAP REACHED, USER ruling pending |
-| BC-A-12 | 1 | failing — dedup + focus clauses PASS; 'visibly disabled in flight' sawDisabled:false at 1 poll sample; harness sampling audit pending; CAP REACHED |
+| BC-G-10 | 1 | GREEN (checkpoint, run-022 — harness fix `3b48b1a`, NOT a builder run: the 25 pairs were sampled mid-cc-rise entrance fade; walker now zeros animations. Positive control `low-contrast-ink` still flips.) |
+| BC-A-12 | 1 | GREEN (checkpoint, run-022 — harness fix `6255a66`+`be2a84b`, NOT a builder run: audit found SeedSetup correct; poll sampled before the aria-disabled commit + two stale-scenario bugs) |
 | BC-C-10 | 1 | GREEN (iter 7, run-007) |
 | BC-C-20 | 1 | GREEN (iter 7, run-007) |
 | BC-C-22 | 1 | GREEN (iter 7, run-007) |
@@ -93,6 +93,63 @@ BC-C-20, BC-C-22, BC-C-28, BC-A-14, BC-B-3, BC-B-10, BC-G-4, BC-I-2,
 BC-C-16, BC-D-12, BC-F-3, BC-E-3, BC-G-12, BC-G-13, BC-G-14, BC-C-26 (36).
 
 ## Check-change log (harness edits during B4)
+
+- **2026-07-12 · B4 CHECKPOINT (post-cap, USER +2-run ruling) — 4 lead harness
+  fixes, each committed then self-tested `ok:true` (27/27, incl. its own
+  falsifiability sabotage still flipping) at the new harness HEAD. NO product
+  edits; NO builder runs spent.**
+  - **`g10-walker-animation-kill` (`3b48b1a`):** `g-modes.mjs` — the
+    g/desktop-modes motion-kill injection now zeroes keyframe
+    `animation-duration`/`-delay`, not just transitions. Root cause of BC-G-10's
+    25 remaining light-theme pairs: `textWalk` read `getComputedStyle().opacity`
+    mid-`.cc-rise` entrance fade (opacity 0→1), compositing the token toward the
+    bg at opacity 0.45–0.72; every pair clears AA at its final opacity 1.
+    cc-rise is `animation-fill-mode:both`, so `animation-duration:0s` snaps it to
+    the `to` state. **Positive control (the plan's non-negotiable):** the
+    self-test's `low-contrast-ink` sabotage (#999 at FULL opacity, through the
+    SAME walker) still flips BC-G-10 → the walker is not blinded to genuine
+    full-opacity failures. Self-test @ `3b48b1a`: 27/27 `ok:true`.
+  - **`a12-inflight-observer` (`6255a66`):** `a-intake.mjs` — BC-A-12's post-click
+    5ms poll (both double-click + double-Enter halves) replaced with a pre-armed
+    MutationObserver on the create button's `aria-disabled`/`disabled`, stopped
+    at the route change. **AUDIT verdict: harness artifact, NO builder run** —
+    SeedSetup IS correct (renders `aria-disabled` + "Developing…" via
+    `setSubmitting(true)`; the dedup lock is the synchronous `submittingRef`).
+    The poll took its first (often only) sample BEFORE React commits, then slept
+    past create+nav (`sawDisabled:false, samples:1`). Latency is the wrong lever
+    (create is a fast 201; the 25s live-sim latency lands on the post-nav move).
+    Still falsifiable (never-disabled → never fires → FAIL). Self-test @
+    `6255a66`: 27/27 `ok:true` (`strip-role-alert` re-runs a/seed-validation
+    cleanly under the rewrite). **Follow-up `a12-scenario-focus-and-enter`
+    (`be2a84b`):** the targeted re-run (run-018) exposed two PRE-EXISTING
+    a/seed-validation bugs that the observer surfaced once `sawDisabled` passed —
+    (1) the double-click focus clause tripped on BC-A-2's error summary (a
+    focused `<div role=alert>`) unmounting as `setErrors([])` fires on the
+    now-valid submit → fix: focus the button first (a real mouse click does);
+    (2) the double-Enter had been TIMING OUT since run-012 (bare subcheck error,
+    masked) because `#field-seed` is a `<textarea>` where Enter is a newline →
+    fix: focus the `#field-servings` `<input>`. BC-A-12 now passes both halves
+    (`sawDisabled:true, focusDroppedToBody:false`; verified run-021). Self-test @
+    `be2a84b`: 27/27 `ok:true`.
+  - **`b8-recorder-framerate` (`823939a`):** `record.mjs` — CDP screencast
+    `everyNthFrame` 2→12 (hoisted to `EVERY_NTH_FRAME`) at both the initial start
+    and the watchdog restart, matching `CAP_MS`'s 5fps persist rate. The ~30fps
+    push outran the fire-and-forget acks, Chrome paused the screencast mid-flood,
+    and judges got frozen pre-handoff frames (BC-B-8 intermittent false-FAILs).
+    Self-test @ `823939a`: 27/27 `ok:true`.
+  - **`g6-narrow390-reach-idle` (`982bcfa`):** `g-viewports.mjs` — g/narrow-390
+    adapted to the **B4-regressed** take-over flow. Census run-073 had
+    BC-G-5/6/8 all GREEN; B4's BC-C-27 "Go back" change now leaves the dish with
+    no accept verb, so `acceptGate`'s `clickVerb('accept')` THREW and crashed the
+    scenario before the idle-cookflow + safety-hold stills (BC-G-6 judge saw only
+    seed+gate). Fix: after the override measurement, reload and normalize
+    whatever it restores (a gate / idle intent bar / pending alternatives-picker,
+    BC-D-4) to a gate, then accept; + clean still framing (gate scroll-to-top,
+    idle scroll-CookFlow-into-view). Verified run-017: BC-G-5 pass, 3/4 stills
+    (proposing is full-run-only via g/narrow-live). Self-test @ `982bcfa`: 27/27
+    `ok:true` (`overflow-narrow` re-runs g/narrow-390, flips BC-G-5).
+    **UN-MASKS a genuine BC-G-8 product regression (see log.md 2026-07-12):** the
+    "Try another way" disclosure button is 20px tall (<24px WCAG 2.5.8) at 390px.
 
 - **2026-07-12 · after iteration 11:** `a-intake.mjs` — BC-A-8 seed-screen
   still settle bumped 600ms → 2400ms: run-011 fed a judge a black frame
