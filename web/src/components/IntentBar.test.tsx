@@ -138,15 +138,21 @@ test('suggested-next chips render above the input under a "Try next" eyebrow and
   expect(onMove).toHaveBeenCalledWith('technique_step', '')
 })
 
-test('suggested-next chips speak the plain vocab label, falling back to the raw slug', () => {
+test('suggested-next chips speak the plain vocab label; a slug with no real label never renders (BC-A-14)', () => {
   renderBar({ suggestedNext: ['scale_servings', 'some_unknown_slug'] })
   expect(screen.getByRole('button', { name: MOVE_LABEL.scale_servings })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'some_unknown_slug' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'some_unknown_slug' })).not.toBeInTheDocument()
 })
 
 test('no suggested-next chips render when the list is empty', () => {
   renderBar({ suggestedNext: [] })
   expect(screen.queryByText('Try next —')).not.toBeInTheDocument()
+})
+
+test('no suggested-next chips (nor the eyebrow) render when every slug is unrecognized (BC-A-14)', () => {
+  renderBar({ suggestedNext: ['totally_unknown_slug'] })
+  expect(screen.queryByText('Try next —')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'totally_unknown_slug' })).not.toBeInTheDocument()
 })
 
 // ---- "Just the math —" deterministic row ----

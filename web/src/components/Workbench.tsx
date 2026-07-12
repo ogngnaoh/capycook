@@ -50,12 +50,18 @@ interface LastMove {
 // loads the dish, holds the one persistent EventSource, and drives moves and
 // all six gate verbs against the real API. All gate state is server-owned;
 // SSE events update the local view and every reconnect re-syncs via GET.
-export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
+export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirstPass = false }: {
   dishId: string
   onNavigate: (to: string) => void
   // Bumped by App on every route change so the dish title takes focus when
   // the cook navigated here, never on a cold load (audit #9).
   routeNonce?: number
+  // True only on the SPA navigation immediately following a successful dish
+  // create (BC-A-3) — App's in-memory signal a hard reload can never
+  // resurrect. Read once, at this mount, via autoFirstPassArmed below; never
+  // re-read on a later prop change (this Workbench instance never outlives
+  // the dish it auto-fired for — App remounts on every dishId change).
+  autoFirstPass?: boolean
 }) {
   const [detail, setDetail] = useState<DishDetail | null>(null)
   // The page h1 (dish title): the route-change focus target and, once loaded,
@@ -147,6 +153,12 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     try {
       const d = await getDish(dishId)
       if (d.inFlightMoveId) expectedMove.current = d.inFlightMoveId
+      // GET is a second, GUARANTEED source for the "Try next —" chips
+      // (BC-A-14): a reload/revisit that lands on an undecided proposal
+      // recovers its suggested_next here, never solely from the SSE
+      // proposal-ready handler below (which a reload never replays).
+      const suggested = pendingSuggestedNext(d)
+      if (suggested) setSuggestedNext(suggested)
       setDetail(d)
       setLoadError(null)
     } catch (err) {
@@ -337,6 +349,13 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       expectedMove.current = mv.moveId ?? null
       if (inFlightIntent.current) inFlightIntent.current.moveId = mv.moveId ?? null
       const d = await getDish(dishId)
+      // Same GET-derived rescue as resync() above (BC-A-14): a fast-resolving
+      // move can have its proposal-ready SSE event race ahead of the
+      // expectedMove.current assignment two lines up and get dropped as a
+      // stale replay — this GET, which every dispatch already performs,
+      // lands suggested_next regardless of whether that SSE event survives.
+      const suggested = pendingSuggestedNext(d)
+      if (suggested) setSuggestedNext(suggested)
       // Arm the same-commit dispatch focus before the state leaves idle: the
       // layout effect above fires inside the very commit that unmounts the
       // intent affordances (BC-A-5).
@@ -371,6 +390,26 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       moveInFlight.current = false
     }
   }, [announce, detail?.currentVersionId, dishId, flash, focusDecision, refreshVersions])
+
+  // Auto-fired first pass (BC-A-3): the one SPA navigation immediately after
+  // a successful create arrives here with autoFirstPass true. Consumed at
+  // most once per mount (autoFirstPassArmed flips before the dispatch even
+  // starts, so a StrictMode double-invoke or a later detail update can never
+  // re-fire it) and only once the dish has actually loaded idle with no
+  // version yet — a revisit/reload never carries autoFirstPass true in the
+  // first place (App owns that signal), but "no version yet" is also
+  // load-bearing here: it is what "a first pass" means, and it keeps this
+  // inert as a second, independent guard against ever auto-firing on a dish
+  // that already has a decided trial. Dispatches through the SAME propose()
+  // path as a manual "Try it" — same lock, focus and stash mechanics —
+  // never a parallel dispatch.
+  const autoFirstPassArmed = useRef(autoFirstPass)
+  useEffect(() => {
+    if (!autoFirstPassArmed.current) return
+    if (!detail || detail.state !== 'idle' || detail.currentVersionId) return
+    autoFirstPassArmed.current = false
+    void propose('', '')
+  }, [detail, propose])
 
   // runGate resolves true on success and false on a failed or held (409
   // safety-override) submission — the GateBar keeps its open form mode, and
@@ -780,6 +819,15 @@ function addPending(d: DishDetail, p: Proposal): DishDetail {
     pendingProposals: merged, pendingProposal: merged[0],
     inFlightMoveId: undefined, blocked: undefined,
   }
+}
+
+// pendingSuggestedNext reads the "Try next —" slugs off whichever proposal a
+// GET currently shows at the gate (BC-A-14) — null when there is none, so
+// callers can leave a chip set already captured from an earlier moment
+// untouched rather than clearing it out from under an idle render.
+function pendingSuggestedNext(d: DishDetail): string[] | null {
+  const p = d.pendingProposal ?? (d.pendingProposals ?? [])[0]
+  return p ? list(p.suggested_next) : null
 }
 
 function errMessage(err: unknown): string {

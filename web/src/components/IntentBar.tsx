@@ -56,6 +56,13 @@ export default function IntentBar({ canPropose, autonomyOn, servings, suggestedN
 
   if (!canPropose) return null
 
+  // Only slugs the house vocab actually names ever become a chip (BC-A-14):
+  // an accessible name is either the real move label or the chip does not
+  // render — never a raw wire slug standing in for one.
+  const namedSuggestions = suggestedNext.filter(
+    (slug): slug is keyof typeof MOVE_LABEL => slug in MOVE_LABEL,
+  )
+
   // Empty-guard (BC-A-4): an empty or whitespace-only intent is never a
   // silent no-op — the field is marked invalid, a linked error appears, and
   // focus stays on the field. No move is dispatched.
@@ -107,12 +114,12 @@ export default function IntentBar({ canPropose, autonomyOn, servings, suggestedN
 
   return (
     <div id="cc-steer" className="cc-rise mt-[20px] px-[18px] py-[16px] border border-hairline-strong bg-panel">
-      {suggestedNext.length > 0 && (
+      {namedSuggestions.length > 0 && (
         <div className="flex items-center gap-[8px] flex-wrap mb-[12px]">
           <span className="text-[11px] tracking-[0.08em] uppercase text-faint">Try next —</span>
-          {suggestedNext.map((slug) => (
+          {namedSuggestions.map((slug) => (
             <button key={slug} type="button" onClick={() => onMove(slug, '')} className={chipBtn}>
-              {MOVE_LABEL[slug as keyof typeof MOVE_LABEL] ?? slug}
+              {MOVE_LABEL[slug]}
             </button>
           ))}
         </div>

@@ -982,3 +982,119 @@ test('every workbench <section> carries an accessible name', async () => {
     expect(s.getAttribute('aria-label') || s.getAttribute('aria-labelledby')).toBeTruthy()
   }
 })
+
+// --- auto-fired first pass (BC-A-3) -----------------------------------------
+
+test('autoFirstPass dispatches exactly one bare move through propose() once the dish loads idle', async () => {
+  detail = dishDetail({ state: 'idle', currentVersionId: null })
+  let dishGets = 0
+  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (url === '/api/dishes/d1' && method === 'GET') {
+      dishGets += 1
+      // First GET: the initial resync (idle, no version). Second GET: the
+      // one propose() performs right after the auto-fired POST resolves.
+      return jsonResponse(dishGets === 1
+        ? detail
+        : dishDetail({ state: 'proposing', currentVersionId: null, inFlightMoveId: 'mv_auto' }))
+    }
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    if (url === '/api/dishes/d1/move' && method === 'POST') return jsonResponse({ moveId: 'mv_auto' })
+    return jsonResponse({})
+  })
+  render(<Workbench dishId="d1" onNavigate={() => {}} autoFirstPass />)
+  await screen.findByTestId('proposing-card')
+  expect(screen.getByTestId('gate-live-region')).toHaveTextContent('Proposing a move…')
+  const moveCalls = fetchMock.mock.calls.filter(([u, i]) =>
+    String(u) === '/api/dishes/d1/move' && ((i as RequestInit | undefined)?.method ?? 'GET') === 'POST')
+  expect(moveCalls).toHaveLength(1)
+  expect(JSON.parse((moveCalls[0][1] as RequestInit).body as string)).toEqual({ moveType: '', steer: '' })
+})
+
+test('without autoFirstPass a normal mount on an idle dish never dispatches a move', async () => {
+  await mount()
+  await flush()
+  const moveCalls = fetchMock.mock.calls.filter(([u]) => String(u) === '/api/dishes/d1/move')
+  expect(moveCalls).toHaveLength(0)
+})
+
+test('autoFirstPass never fires against an already-decided dish (the "no version yet" guard)', async () => {
+  // Mirrors the reload/revisit boundary: App only ever passes autoFirstPass
+  // true right after a create, but Workbench's own "no version yet" guard
+  // is a second, independent reason this stays inert against a dish that
+  // already has a decided trial, even if it somehow arrived here true.
+  detail = dishDetail({ state: 'idle', currentVersionId: 'ver_1' })
+  render(<Workbench dishId="d1" onNavigate={() => {}} autoFirstPass />)
+  await screen.findAllByText('Seared Chicken Thighs')
+  await flush()
+  const moveCalls = fetchMock.mock.calls.filter(([u]) => String(u) === '/api/dishes/d1/move')
+  expect(moveCalls).toHaveLength(0)
+})
+
+// --- suggested-next chips populate outside the SSE handler too (BC-A-14) ---
+
+test('a reload/revisit landing on an undecided proposal populates suggested-next from the GET alone', async () => {
+  // No SSE proposal-ready event fires at all in this test — resync() (the
+  // same call a reload/reconnect drives) is the only source.
+  const proposal = sampleProposal({ id: 'pr_5', move_id: 'mv_5', suggested_next: ['technique_step'] })
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: proposal, pendingProposals: [proposal] })
+  let decided = false
+  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (url === '/api/dishes/d1' && method === 'GET') {
+      return jsonResponse(decided ? dishDetail({ state: 'idle', currentVersionId: 'ver_2' }) : detail)
+    }
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    if (url === '/api/dishes/d1/gate' && method === 'POST') {
+      decided = true
+      return jsonResponse({ verb: 'accept', proposalId: 'pr_5' })
+    }
+    return jsonResponse({})
+  })
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: new RegExp(VERB_LABEL.accept, 'i') }))
+  await flush()
+  expect(screen.getByText('Try next —')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: MOVE_LABEL.technique_step })).toBeInTheDocument()
+})
+
+test('a proposal-ready SSE event that races ahead of expectedMove.current still lands suggested-next via propose()\'s own GET', async () => {
+  const es = await mount()
+  const readyProposal = sampleProposal({ id: 'pr_8', move_id: 'mv_8', suggested_next: ['cost_recompute'] })
+  let decided = false
+  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (url === '/api/dishes/d1' && method === 'GET') {
+      return jsonResponse(decided
+        ? dishDetail({ state: 'idle', currentVersionId: 'ver_2' })
+        : dishDetail({ state: 'awaiting_gate', pendingProposal: readyProposal, pendingProposals: [readyProposal] }))
+    }
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    if (url === '/api/dishes/d1/move' && method === 'POST') return jsonResponse({ moveId: 'mv_8' })
+    if (url === '/api/dishes/d1/gate' && method === 'POST') {
+      decided = true
+      return jsonResponse({ verb: 'accept', proposalId: 'pr_8' })
+    }
+    return jsonResponse({})
+  })
+  fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'go bolder' } })
+  fireEvent.click(screen.getByRole('button', { name: /^Try it/i }))
+  // Same tick as the click: postMove's fetch has not resolved yet, so
+  // expectedMove.current is still null — this proposal-ready is dropped as
+  // a stale replay by the SSE handler's own guard, exactly the race BC-A-14
+  // diagnoses. suggestedNext must still land once propose()'s GET resolves.
+  act(() => es.emit('proposal-ready', { moveId: 'mv_8', proposal: readyProposal }))
+  await flush()
+  const bar = await screen.findByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: new RegExp(VERB_LABEL.accept, 'i') }))
+  await flush()
+  expect(screen.getByText('Try next —')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: MOVE_LABEL.cost_recompute })).toBeInTheDocument()
+})
