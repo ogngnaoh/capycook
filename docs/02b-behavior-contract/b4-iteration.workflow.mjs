@@ -18,14 +18,18 @@ export const meta = {
 //   previouslyGreen array of criterion ids flipped green in earlier B4 iterations
 //   clusters        [{ name, criteria: [ids], brief, parity?: bool }] — brief is
 //                   lead-authored: contract text verbatim + root-cause pointers.
-if (!args || !args.worktree || !args.contractPin || !args.branchBase || !Array.isArray(args.clusters) || !args.clusters.length) {
+let A = args
+if (typeof A === 'string') {
+  try { A = JSON.parse(A) } catch (e) { throw new Error('b4-iteration: args arrived as a non-JSON string') }
+}
+if (!A || !A.worktree || !A.contractPin || !A.branchBase || !Array.isArray(A.clusters) || !A.clusters.length) {
   throw new Error('b4-iteration: args {worktree, contractPin, branchBase, clusters[]} required')
 }
-const WT = args.worktree
-const PIN = args.contractPin
-const BASE = args.branchBase
+const WT = A.worktree
+const PIN = A.contractPin
+const BASE = A.branchBase
 const FROZEN = 'internal/llm/prompts eval/fixtures/seeds.json internal/eval/runner.go data/safety eval/fixtures/move_script.json internal/llm/evidence.go internal/eval/mapping.go'
-const prevGreen = Array.isArray(args.previouslyGreen) ? args.previouslyGreen : []
+const prevGreen = Array.isArray(A.previouslyGreen) ? A.previouslyGreen : []
 
 const PREFLIGHT_SCHEMA = {
   type: 'object', additionalProperties: false,
@@ -197,8 +201,8 @@ log(`preflight ok @ ${pre.headCommit.slice(0, 7)} (self-test @ ${pre.selftestCom
 
 const iterations = []
 const greenSoFar = [...prevGreen]
-for (let i = 0; i < args.clusters.length; i++) {
-  const cluster = args.clusters[i]
+for (let i = 0; i < A.clusters.length; i++) {
+  const cluster = A.clusters[i]
   const record = { cluster: cluster.name, criteria: cluster.criteria }
 
   const build = await agent(builderPrompt(cluster), { schema: BUILD_SCHEMA, label: `build:${cluster.name}`, phase: 'Build' })

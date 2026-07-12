@@ -25,9 +25,9 @@ Root causes reference run-073 + `b2-oracle-plan.md` "Pre-census findings".
 
 | # | Cluster | Criteria | Root cause pointers | Status |
 |---|---------|----------|---------------------|--------|
-| 1 | focus-at-dispatch + return | BC-A-5, BC-B-1, BC-B-5, BC-C-17, BC-D-2 | `Workbench.tsx` focus paths: cancelMove `:320-330` never calls focusDecision; `setSnapshot(null)` `:535` restores no focus + no announcement; proposing card can mount above viewport (b/one-window, top −126); A-5 also has a double-submit clause (scale_servings form) | pending |
-| 2 | focus traps, second wave | BC-B-4, BC-E-4 | regenerate re-entry parks focus on Stop (focusDecision trap windows 1/3/4); CookFlow Cancel drops focus to body | pending |
-| 3 | roles / live regions | BC-H-1, BC-H-7, BC-H-8, BC-H-9 | error cards lack role="alert"; list-failure lacks live region; loading placeholder lacks role="status" (dish-load states) | pending |
+| 1 | focus-at-dispatch + return | BC-A-5, BC-B-1, BC-B-5, BC-C-17, BC-D-2 | `Workbench.tsx` focus paths: cancelMove `:320-330` never calls focusDecision; `setSnapshot(null)` `:535` restores no focus + no announcement; proposing card can mount above viewport (b/one-window, top −126); A-5 also has a double-submit clause (scale_servings form) | 4/5 green @ 4256505 (iter 1); A-5 → cluster 2 |
+| 2 | focus second wave + A-5 retry | BC-A-5 (retry), BC-B-4, BC-E-4 | A-5 focus clause: armMoment 'disappear' samples AT the unmount mutation — post-GET focus too late; fix = gated useLayoutEffect on ProposingCard mount (brief cluster-02); B-4 likely fixed by 4256505's retarget, verify 4 trap moments; CookFlow Cancel drops focus to body | active (iter 2) |
+| 3 | roles / live regions | BC-H-1, BC-H-7, BC-H-8, BC-H-9 | error card plain `<p>` + focus effect gated on loaded dish (`Workbench.tsx:423-431`); loading `<div>` no role (`:433`); list-failure `<p>` no live region (`App.tsx:73-75`) | active (iter 3) |
 | 4 | empty-guard validation | BC-A-4, BC-A-9, BC-C-13 (+@live-sim) | `IntentBar.tsx:32` silent return on empty intent; message not programmatically associated; content-free tweak still fires gate POST | pending |
 | 5 | typed-input preservation | BC-A-13, BC-C-21, BC-C-27, BC-E-5 | typed input discarded on failed/cancelled submissions across IntentBar, redirect form, take-over "Go back", tasting form | pending |
 | 6 | first pass + suggestions | BC-A-3, BC-A-14 | no auto first pass on create; `setSuggestedNext` only in SSE handler gated on `expectedMove.current` (`Workbench.tsx:151`), race under fast mode, no GET-recovery population | pending |
@@ -43,8 +43,18 @@ clear. BC-J-6 stays parked by design (B5-only). BC-G-4 is the B-3 derivative.
 
 ## Attempts
 
-All 43 failing criteria at 0 attempts. Table appears here from iteration 1
-onward: only criteria whose count moved (id · attempts · status).
+Only criteria whose count moved (id · attempts · status). Everything else: 0.
+
+| id | attempts | status |
+|----|----------|--------|
+| BC-A-5 | 1 | failing (focus-timing clause only; lock + banner clauses fixed) — retry iter 2 |
+| BC-B-1 | 1 | GREEN (iter 1, run-001) |
+| BC-B-5 | 1 | GREEN (iter 1, run-001) |
+| BC-C-17 | 1 | GREEN (iter 1, run-001) |
+| BC-D-2 | 1 | GREEN (iter 1, run-001) |
+
+previouslyGreen (cumulative --only regression set): BC-B-1, BC-B-5, BC-C-17,
+BC-D-2.
 
 ## Check-change log (harness edits during B4)
 
@@ -71,4 +81,25 @@ onward: only criteria whose count moved (id · attempts · status).
   attempt ran without `--report` (ok:false by design — known-broken layer
   needs a full-run report) and crashed at the artifact write (ENOENT above);
   re-run post-commit WITH `--report` = run-073's oracle-report.json (main
-  checkout, read-only; code-identical commits cb43431≡e7a0ab9): _pending_.
+  checkout, read-only; code-identical commits cb43431≡e7a0ab9): **27/27
+  PASSED, ok:true @ 540a5cb** (incl. 10/10 mutation flips). Loop cleared to
+  run.
+- **Iteration 1 (invocation wf_e203b347-ab6, builder run 1/12):** cluster 1
+  focus-at-dispatch, builder commit `4256505` (ProposingCard focusable
+  heading + focusDecision retarget off Stop + scrollIntoView; moveInFlight
+  ref lock in propose(); cancelMove→focusDecision; backToCurrent() announces
+  + focuses #stage-heading; 4 new jsdom tests, web suite 207/207). Gate all
+  green. Oracle run-001 (worktree numbering): **B-1, B-5, C-17, D-2 GREEN;
+  A-5 attempt 1 FAILED** — focus clause only: armMoment('disappear',
+  '#cc-intent') samples activeElement at the unmount mutation; the builder's
+  post-GET focusDecision() fires too late. Adjudication: retry as part of
+  cluster 2 with a layout-effect brief (cluster-02.md). No regressions.
+  First invocation also flushed two script defects: Workflow args arrive as a
+  JSON string (script now parses), and the builder's first run validated the
+  gate ordering. Out-of-scope judge signal (shared scenarios): BC-B-2, BC-D-7
+  PASS; **BC-B-8 FAIL evidenceSuspect=true** (screencast window ended before
+  proposal-ready — capture artifact, no strike; WATCH: investigate if it
+  repeats on fresh evidence); **BC-C-11 FAIL** ("REGENERATE" verb = model
+  vocabulary; passed the census under a different fresh judge) — adjudicated
+  as real drift risk at exit, folded into cluster 8 (verb wording; check
+  oracle selectors before renaming).

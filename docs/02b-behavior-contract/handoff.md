@@ -1,50 +1,39 @@
 # Handoff — milestone 02b (behavior-contract)
 
 ## Next session start here
-**Craft and run B4 as a Workflow** — the USER explicitly opted in
-(2026-07-11: "craft a workflow there") to running the autonomous fix→judge
-loop via the Workflow tool, one invocation per iteration (not one mega-script),
-with the session lead between invocations. Author the per-iteration script:
-(1) builder agent, worktree-isolated (`isolation: 'worktree'`, branch
-`02b-behavior-contract` off measure-run), fixes ONE failing cluster;
-(2) guardrail gate (freeze diff vs 32afe54 on the 7 frozen paths, contract
-pin, PREREGISTRATION, `make test`/`vet`/`tsc`/`vitest`) — abort on violation;
-(3) targeted oracle re-run (`node tools/oracle/oracle.mjs run --only <ids>
---port 8098`, run from web/); (4) fresh-context judge panel via
-`agent(judgeBrief, {schema: {verdict, reason}})` per affected judge criterion
-— schema-validated returns, no mailbox collection (B2's judge phase wasted
-many turns on that). Between invocations the LEAD does: cluster selection,
-deviation adjudication, oracle updates when a fix legitimately changes
-selectors (same-iteration, then re-run `oracle.mjs self-test --report <full
-run>` — B4 must refuse runs without an ok:true artifact for the current
-harness commit), attempt/parking ledger (3 strikes parks; hard cap 12
-iterations), and rewriting THIS file every iteration. Full runs (no --only)
-only for the ×2 all-green exit. First clusters, highest leverage per census:
-(a) attention-at-dispatch trio — BC-A-5 focus, BC-B-1 off-viewport mount,
-BC-B-5 cancel focus (likely one fix); (b) Workbench.tsx:535 pair — BC-C-17 +
-BC-D-2; (c) role/live-region quartet — BC-H-1/7/8/9.
+**B4 loop is RUNNING.** Read `b4-ledger.md` first (cluster map, attempts,
+check-change log, iteration records) — it is the loop's source of truth. The
+loop runs in the persistent worktree `../CapyCook-02b` on branch
+`02b-behavior-contract`; one Workflow invocation per batch via
+`{scriptPath: docs/02b-behavior-contract/b4-iteration.workflow.mjs, args}`
+(args: worktree, contractPin, branchBase=cb43431, previouslyGreen, clusters
+[{name, criteria, brief}] — briefs live in `b4-briefs/`). Preflight REFUSES
+to run unless `evidence/selftest-report.json` (worktree) is ok:true at a
+commit with no later web/tools/oracle changes — after ANY harness edit:
+commit it, `cd web && node tools/oracle/oracle.mjs self-test --report
+<full-run oracle-report.json> --port 8098`, log it in the ledger's
+check-change section, then resume the loop.
 
 ## Current state
-- B2 + B3 SHIPPED on measure-run (through `f074e83`). Oracle:
-  `web/tools/oracle/` — 109 criteria, ~44 scenarios, self-test 27/27 with
-  10/10 mutation flips; `oracle.mjs list` verifies registry↔contract +
-  parity=snapshot. bin/capycook current (make build-all).
-- Census run-073 (full, guardrails + suites green, judges merged): **79 pass /
-  43 fail / 1 parked** over 123 rows; every fail explained — 27
-  contract-marked + 10 unmarked genuine defects (file:line root causes in
-  `b2-oracle-plan.md` "Pre-census findings") + G-4-via-B-3, I-1 meta, 4
-  parity twins. Judges 7 PASS / 2 FAIL (I-2 founding finding, E-3 new).
-- Contract pin `965c8eb` byte-intact; PREREGISTRATION untouched (baseline =
-  02b pin, NOT 32afe54); operator DB exactly 6 events; all oracle ports swept.
+- Iteration 0: runner dedupe + selftest mkdir fix (both declared); self-test
+  27/27 ok:true @ 540a5cb.
+- Iteration 1 (builder run 1/12, commit 4256505): cluster 1 → **B-1, B-5,
+  C-17, D-2 GREEN** (oracle run-001, worktree numbering); A-5 attempt 1
+  failed its focus-timing clause — cause + fix shape adjudicated in
+  `b4-briefs/cluster-02.md`. Gate fully green; no regressions.
+- In flight: invocation 2 = cluster 2 (A-5 retry, B-4, E-4) + cluster 3
+  (H-1/7/8/9) — builder runs 2-3 of 12.
+- previouslyGreen: BC-B-1, BC-B-5, BC-C-17, BC-D-2 (cumulative --only set).
+- Census baseline run-073 (79/43/1) + ok:true selftest artifact live in the
+  MAIN checkout's evidence dir — read-only, must survive to B5.
 
 ## Open concerns
-- Evidence dirs gitignored — run-073 + `evidence/selftest-report.json` must
-  survive to B5 (final all-green run gets un-ignored then). Don't clean.
-- oracle.mjs duplicates lib/run.mjs's runScenario — safe first-iteration
-  housekeeping, never mid-run.
-- B5 review-flagged: cmd/server/main_test.go LLMBudgetUSD:10 fixture edit;
-  harness tests written by the harness's own author-effort.
-- ⚖-in-force loop work: BC-C-26 in-app disclaimer; BC-D-12 persisted move
-  rationale (schema/wire change allowed, frozen paths never).
-- Stall valve: criteria conflicts or 3-strike parks → stop, evidence report +
-  proposed ruling to USER in log.md; loop resumes after ruling.
+- BC-B-8 judge FAIL with evidenceSuspect (run-001): screencast window ended
+  pre-proposal-ready — capture artifact, no strike; investigate if repeated.
+- BC-C-11 fresh-judge FAIL on "REGENERATE" wording (passed census) → folded
+  into cluster 8; verify oracle selectors don't match the verb text first.
+- Builder-authored tests are part of the reviewed diff, not verification
+  (B5 review point; ditto B2's cmd/server/main_test.go LLMBudgetUSD:10 edit).
+- ⚖ in force: BC-C-26 (cluster 12), BC-D-12 (cluster 10, schema/wire OK).
+- Stall valve: 3 strikes parks (A-5 at 1); hard cap 12 builder runs (1 used);
+  parks/conflicts → evidence report + proposed ruling in log.md, USER rules.
