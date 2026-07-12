@@ -120,6 +120,18 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
   // stale theater that must not re-open a gate the server already resolved.
   const expectedMove = useRef<string | null>(null)
 
+  // alternativesExpectedMoveId names the in-flight "Compare two options" move
+  // whose second alt-card has not landed yet (BC-C-20): set the instant the
+  // alternatives verb's gate POST resolves with its new move id — strictly
+  // before any SSE event for that move can arrive, since the server only
+  // starts the token/proposal-ready replay after the HTTP handler that
+  // spawned it returns. Cleared once a second proposal for that same move
+  // lands, or the move fails/cancels before ever producing one. While it
+  // names the sole pending proposal's move, a single-proposal gate bar must
+  // never render for it — the cook could commit option A and silently drop
+  // B, which is the exact defect this guards.
+  const alternativesExpectedMoveId = useRef<string | null>(null)
+
   // The permanent status region (P1): one sentence per gate-lifecycle
   // transition, pushed here and rendered in an sr-only role="status" element.
   // Never the token stream. The nudge toggle makes repeated identical
@@ -184,6 +196,12 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
         setDetail((d) => (d ? addPending(d, e.proposal) : d))
         // Announce the arrival and land focus on the decision surface (P1).
         const arriving = pendingCountRef.current + 1
+        // The second (or a mixed-alternatives-screen's only) alt-card just
+        // landed for the move this ref was watching — BC-C-20's withholding
+        // window is over (BC-C-20).
+        if (arriving >= 2 && alternativesExpectedMoveId.current === e.moveId) {
+          alternativesExpectedMoveId.current = null
+        }
         announce(arriving > 1
           ? announceAlternatives(arriving)
           : announceProposalReady(list(e.proposal.change).length))
@@ -194,6 +212,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
         // the flow forward, so the stash must not linger (BC-A-13 scope).
         inFlightIntent.current = null
         setStreamText('')
+        if (alternativesExpectedMoveId.current === e.moveId) alternativesExpectedMoveId.current = null
         setDetail((d) => (d ? {
           ...d, state: 'blocked', blocked: e,
           pendingProposal: undefined, pendingProposals: undefined,
@@ -203,6 +222,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
       onMoveCancelled: (e) => {
         setStreamText('')
         announce(ANNOUNCE_MOVE_CANCELLED)
+        if (alternativesExpectedMoveId.current === e.moveId) alternativesExpectedMoveId.current = null
         restoreIntent(e.moveId) // a Stop is often precisely to rephrase (BC-A-13)
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
@@ -212,6 +232,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
         setStreamText('')
         announce(ANNOUNCE_MOVE_FAILED)
         setMoveFailed(e)
+        if (alternativesExpectedMoveId.current === e.moveId) alternativesExpectedMoveId.current = null
         restoreIntent(e.moveId) // a failed move never discards typed input (BC-A-13)
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
@@ -424,6 +445,13 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
       // Verbs that spawn a move (regenerate/redirect/alternatives) hand over
       // the wait to the new move id; resolving verbs clear it.
       expectedMove.current = res.newMoveId ?? null
+      // Arm BC-C-20's withholding window the instant the alternatives verb's
+      // own POST resolves — strictly before the server's SSE replay for this
+      // move can start (it only begins once this very HTTP handler
+      // returns) — and disarm it for every other verb: an accept/edit/
+      // regenerate/redirect/take_over dispatched from here can never be the
+      // "second alt-card still generating" case.
+      alternativesExpectedMoveId.current = body.verb === 'alternatives' ? (res.newMoveId ?? null) : null
       setSelectedProposalId(null)
       setPicked(false)
       setStreamText('')
@@ -588,7 +616,13 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
   const isBlocked = !snapshot && detail.state === 'blocked' && !!detail.blocked
   const isProposing = !snapshot && detail.state === 'proposing'
   const showAlternatives = !snapshot && detail.state === 'awaiting_gate' && pending.length >= 2 && !picked
-  const showSingleProposal = !snapshot && detail.state === 'awaiting_gate' && !!selected && (pending.length === 1 || picked)
+  // BC-C-20: the lone alt-card of an in-flight "Compare two options" move,
+  // still short its second option — never a stage the cook can gate-decide
+  // (accepting it would silently drop the option still generating).
+  const awaitingSecondAlternative = !snapshot && detail.state === 'awaiting_gate' && pending.length === 1
+    && alternativesExpectedMoveId.current !== null && pending[0].move_id === alternativesExpectedMoveId.current
+  const showSingleProposal = !snapshot && detail.state === 'awaiting_gate' && !!selected
+    && (pending.length === 1 || picked) && !awaitingSecondAlternative
   const isIdle = !snapshot && detail.state === 'idle'
 
   return (
@@ -732,6 +766,20 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
             ) : showAlternatives ? (
               <AlternativesPicker proposals={pending} base={detail.draft}
                 onPick={(id) => { setSelectedProposalId(id); setPicked(true) }} />
+            ) : awaitingSecondAlternative ? (
+              <>
+                {/* BC-C-20: option A is in view, but no committing gate verb
+                    is reachable — the GateBar mounts nowhere in this branch
+                    (no button[data-verb] exists at all) until the second
+                    alt-card lands and showAlternatives takes over. */}
+                <div data-testid="alternatives-waiting" role="status"
+                  className="cc-rise mb-[18px] px-[14px] py-[11px] border border-hairline-strong bg-surface text-muted">
+                  1 of 2 — second option still generating…
+                </div>
+                <DishCard draft={detail.draft}
+                  diff={mergeDiff(detail.draft, list(selected!.change))}
+                  ops={list(selected!.change)} technical={technical} showDetail={false} />
+              </>
             ) : showSingleProposal ? (
               <>
                 <ProposalHeader proposal={selected!} streaming={false} technical={technical} />

@@ -24,7 +24,10 @@ export const STATE_LABEL: Record<string, string> = {
 export const VERB_LABEL: Record<GateVerb, string> = {
   accept: 'Use it',
   edit: 'Tweak it',
-  regenerate: 'Regenerate',
+  // "Regenerate" reads as API/model vocabulary, not a cook's word for redoing
+  // the proposal from the same intent (BC-C-11) — the wire verb/data-verb
+  // value is untouched, only this display label changed.
+  regenerate: 'Another take',
   alternatives: 'Compare two options',
   redirect: 'Ask for changes',
   take_over: 'Edit it myself',

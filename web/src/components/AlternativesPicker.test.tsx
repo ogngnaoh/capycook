@@ -27,6 +27,15 @@ test('renders one card per proposal, letter-badged with a deltaSummary headline'
   expect(cards[1]).toHaveTextContent('+ yogurt')
 })
 
+test('each card\'s accessible name carries its Option A/B identifier, not only the badge glyph (BC-C-10)', () => {
+  render(<AlternativesPicker proposals={[altA, altB]} base={sampleDraft()} onPick={() => {}} />)
+  // getByRole matches on the computed accessibility-tree name — the badge
+  // glyph itself is aria-hidden, so this only passes if sr-only text (or an
+  // aria-label) actually carries "Option A"/"Option B" into that name.
+  expect(screen.getByRole('button', { name: /Option A/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Option B/ })).toBeInTheDocument()
+})
+
 test('each card is one button; picking fires onPick with its proposal id', () => {
   const onPick = vi.fn()
   render(<AlternativesPicker proposals={[altA, altB]} base={sampleDraft()} onPick={onPick} />)

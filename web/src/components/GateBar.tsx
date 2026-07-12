@@ -77,6 +77,55 @@ function isTypingTarget(el: Element | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
 }
 
+// The take-over draft's required top-level shape (BC-C-28): valid JSON is
+// not enough — the server decodes with Go zero-value semantics, so a key
+// deleted from the textarea (e.g. the whole "steps" section) commits a
+// trial with that section silently wiped rather than failing to parse.
+// isPlainObject/validateDraftShape catch that class of structurally-invalid
+// draft — a required key entirely missing, or present with the wrong JSON
+// type — before it ever reaches onTakeoverSubmit.
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+const DRAFT_SHAPE: Record<string, 'string' | 'object' | 'list'> = {
+  title: 'string',
+  concept: 'string',
+  flavor_rationale: 'list',
+  ingredients: 'list',
+  steps: 'list',
+  constraints: 'object',
+  analysis: 'object',
+}
+
+function validateDraftShape(value: unknown): string | null {
+  if (!isPlainObject(value)) {
+    return 'The draft must be a JSON object with title, concept, ingredients, steps, constraints and analysis.'
+  }
+  for (const [key, kind] of Object.entries(DRAFT_SHAPE)) {
+    if (!(key in value)) {
+      return `The draft is missing "${key}" — every field is required (an empty list is fine, a missing one is not).`
+    }
+    const field = value[key]
+    if (kind === 'string' && typeof field !== 'string') {
+      return `"${key}" must be text, not ${describeType(field)}.`
+    }
+    if (kind === 'object' && !isPlainObject(field)) {
+      return `"${key}" must be an object, not ${describeType(field)}.`
+    }
+    if (kind === 'list' && field !== null && !Array.isArray(field)) {
+      return `"${key}" must be a list (or null), not ${describeType(field)}.`
+    }
+  }
+  return null
+}
+
+function describeType(v: unknown): string {
+  if (v === null) return 'null'
+  if (Array.isArray(v)) return 'a list'
+  return typeof v
+}
+
 export default function GateBar({
   proposal, draft, onAccept, onEditSubmit, onRegenerate, onAlternatives,
   onRedirectSubmit, onTakeoverSubmit, disabled,
@@ -267,13 +316,24 @@ export default function GateBar({
   function submitTakeover(e: FormEvent) {
     e.preventDefault()
     if (locked) return
+    let parsed: unknown
     try {
-      const parsed = JSON.parse(takeoverText) as Draft
-      setParseError(null)
-      dispatch('take_over', () => onTakeoverSubmit(parsed))
+      parsed = JSON.parse(takeoverText)
     } catch {
       setParseError('The draft is not valid JSON — fix the highlighted text and save again.')
+      return
     }
+    // Valid JSON is not the same as a valid draft (BC-C-28): a structurally
+    // wrong shape — a required key missing or type-mismatched — is rejected
+    // here, before it ever reaches the gate POST, never a silent commit
+    // with the server's Go zero-value wipe.
+    const shapeError = validateDraftShape(parsed)
+    if (shapeError) {
+      setParseError(shapeError)
+      return
+    }
+    setParseError(null)
+    dispatch('take_over', () => onTakeoverSubmit(parsed as Draft))
   }
 
   return (
@@ -310,6 +370,7 @@ export default function GateBar({
               <button type="button"
                 ref={(el) => { btnRefs.current[2] = el; tryAnotherRef.current = el }}
                 tabIndex={activeIndex === 2 ? 0 : -1} aria-disabled={locked}
+                aria-expanded="false"
                 onFocus={() => setActiveIndex(2)}
                 onClick={() => openMode('another')}
                 className={bigGhostBtn(locked)}>
@@ -320,59 +381,70 @@ export default function GateBar({
         )}
 
         {mode === 'another' && (
-          <div role="toolbar" aria-label="Decide on this change"
-            onKeyDown={(e) => onToolbarKeyDown(e, 5)}
-            className="cc-rise flex items-center gap-[10px] flex-wrap">
-            <span className="text-[12px] text-muted mr-1">{GATE_ANOTHER_LABEL} —</span>
-            <button type="button" data-verb="regenerate"
-              ref={(el) => { btnRefs.current[0] = el }}
-              tabIndex={activeIndex === 0 ? 0 : -1} aria-disabled={locked}
-              aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.regenerate : undefined}
-              onFocus={() => setActiveIndex(0)}
-              onClick={() => dispatch('regenerate', onRegenerate)}
-              className={smallGhostBtn(locked)}>
-              {pending === 'regenerate' && <Spinner />}{VERB_LABEL.regenerate}
-              {shortcuts.enabled && <Hint letter={shortcuts.map.regenerate.toUpperCase()} />}
-            </button>
-            <button type="button" data-verb="alternatives"
-              ref={(el) => { btnRefs.current[1] = el }}
-              tabIndex={activeIndex === 1 ? 0 : -1} aria-disabled={locked}
-              aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.alternatives : undefined}
-              onFocus={() => setActiveIndex(1)}
-              onClick={() => dispatch('alternatives', onAlternatives)}
-              className={smallGhostBtn(locked)}>
-              {pending === 'alternatives' && <Spinner />}{VERB_LABEL.alternatives}
-              {shortcuts.enabled && <Hint letter={shortcuts.map.alternatives.toUpperCase()} />}
-            </button>
-            <button type="button" data-verb="redirect"
-              ref={(el) => { btnRefs.current[2] = el }}
-              tabIndex={activeIndex === 2 ? 0 : -1} aria-disabled={locked}
-              aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.redirect : undefined}
-              onFocus={() => setActiveIndex(2)}
-              onClick={() => openMode('redirect')}
-              className={smallGhostBtn(locked)}>
-              {VERB_LABEL.redirect}
-              {shortcuts.enabled && <Hint letter={shortcuts.map.redirect.toUpperCase()} />}
-            </button>
-            <button type="button" data-verb="take_over"
-              ref={(el) => { btnRefs.current[3] = el }}
-              tabIndex={activeIndex === 3 ? 0 : -1} aria-disabled={locked}
-              aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.take_over : undefined}
-              onFocus={() => setActiveIndex(3)}
-              onClick={() => openMode('takeover')}
-              className={smallGhostBtn(locked)}>
-              {VERB_LABEL.take_over}
-              {shortcuts.enabled && <Hint letter={shortcuts.map.take_over.toUpperCase()} />}
-            </button>
-            <div className="flex-1" />
-            <button type="button"
-              ref={(el) => { btnRefs.current[4] = el }}
-              tabIndex={activeIndex === 4 ? 0 : -1} aria-disabled={locked}
-              onFocus={() => setActiveIndex(4)}
+          <div className="cc-rise flex flex-col gap-[8px]">
+            {/* The disclosure header itself: not a roving-tabindex member of
+                the toolbar below (that toolbar keeps its own single tab
+                stop) but a real toggle telling assistive tech the four
+                verbs it opened are now showing (BC-C-22) — activating it
+                collapses back to decide, same as Back. */}
+            <button type="button" aria-disabled={locked} aria-expanded="true"
               onClick={backToDecide}
-              className={smallGhostBtn(locked)}>
-              ← Back
+              className="self-start text-[12px] text-muted transition hover:text-ink">
+              {GATE_ANOTHER_LABEL}<span aria-hidden="true"> ▴</span>
             </button>
+            <div role="toolbar" aria-label="Decide on this change"
+              onKeyDown={(e) => onToolbarKeyDown(e, 5)}
+              className="flex items-center gap-[10px] flex-wrap">
+              <button type="button" data-verb="regenerate"
+                ref={(el) => { btnRefs.current[0] = el }}
+                tabIndex={activeIndex === 0 ? 0 : -1} aria-disabled={locked}
+                aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.regenerate : undefined}
+                onFocus={() => setActiveIndex(0)}
+                onClick={() => dispatch('regenerate', onRegenerate)}
+                className={smallGhostBtn(locked)}>
+                {pending === 'regenerate' && <Spinner />}{VERB_LABEL.regenerate}
+                {shortcuts.enabled && <Hint letter={shortcuts.map.regenerate.toUpperCase()} />}
+              </button>
+              <button type="button" data-verb="alternatives"
+                ref={(el) => { btnRefs.current[1] = el }}
+                tabIndex={activeIndex === 1 ? 0 : -1} aria-disabled={locked}
+                aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.alternatives : undefined}
+                onFocus={() => setActiveIndex(1)}
+                onClick={() => dispatch('alternatives', onAlternatives)}
+                className={smallGhostBtn(locked)}>
+                {pending === 'alternatives' && <Spinner />}{VERB_LABEL.alternatives}
+                {shortcuts.enabled && <Hint letter={shortcuts.map.alternatives.toUpperCase()} />}
+              </button>
+              <button type="button" data-verb="redirect"
+                ref={(el) => { btnRefs.current[2] = el }}
+                tabIndex={activeIndex === 2 ? 0 : -1} aria-disabled={locked}
+                aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.redirect : undefined}
+                onFocus={() => setActiveIndex(2)}
+                onClick={() => openMode('redirect')}
+                className={smallGhostBtn(locked)}>
+                {VERB_LABEL.redirect}
+                {shortcuts.enabled && <Hint letter={shortcuts.map.redirect.toUpperCase()} />}
+              </button>
+              <button type="button" data-verb="take_over"
+                ref={(el) => { btnRefs.current[3] = el }}
+                tabIndex={activeIndex === 3 ? 0 : -1} aria-disabled={locked}
+                aria-keyshortcuts={shortcuts.enabled ? shortcuts.map.take_over : undefined}
+                onFocus={() => setActiveIndex(3)}
+                onClick={() => openMode('takeover')}
+                className={smallGhostBtn(locked)}>
+                {VERB_LABEL.take_over}
+                {shortcuts.enabled && <Hint letter={shortcuts.map.take_over.toUpperCase()} />}
+              </button>
+              <div className="flex-1" />
+              <button type="button"
+                ref={(el) => { btnRefs.current[4] = el }}
+                tabIndex={activeIndex === 4 ? 0 : -1} aria-disabled={locked}
+                onFocus={() => setActiveIndex(4)}
+                onClick={backToDecide}
+                className={smallGhostBtn(locked)}>
+                ← Back
+              </button>
+            </div>
           </div>
         )}
 

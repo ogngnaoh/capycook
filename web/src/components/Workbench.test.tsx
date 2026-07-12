@@ -238,6 +238,45 @@ test('two sequential proposal-ready events accumulate into the picker; picking o
   })
 })
 
+test('BC-C-20: mid-alternatives with only the first alt-card landed, no committing gate verb is reachable', async () => {
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal({ id: 'pr_0' }), pendingProposals: [sampleProposal({ id: 'pr_0' })] })
+  const proposingDetail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_alt' })
+  let dishGets = 0
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ verb: 'alternatives', proposalId: 'pr_0', newMoveId: 'mv_alt' })
+    // The initial load sees the single pending proposal at the gate; the
+    // alternatives dispatch's own resync (post-POST) sees the fresh move
+    // already kicked off server-side (BC-C-20's respawn clears pending
+    // synchronously, before any SSE token/proposal-ready ever fires).
+    if (url === '/api/dishes/d1') return jsonResponse(dishGets++ === 0 ? detail : proposingDetail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  const es = await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: GATE_ANOTHER_LABEL }))
+  fireEvent.click(within(bar).getByRole('button', { name: VERB_LABEL.alternatives }))
+  await waitFor(() => {
+    expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/dishes/d1/gate')).toBe(true)
+  })
+  await flush() // settle the alternatives dispatch's resync -> state proposing
+  expect(screen.queryByTestId('gate-bar')).not.toBeInTheDocument()
+
+  // Only the first of the two alternatives has arrived.
+  act(() => es.emit('proposal-ready', { moveId: 'mv_alt', proposal: sampleProposal({ id: 'pr_a', move_id: 'mv_alt' }) }))
+  expect(screen.queryByTestId('gate-bar')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /use it/i })).not.toBeInTheDocument()
+  expect(screen.getByTestId('alternatives-waiting')).toHaveTextContent(/1 of 2/i)
+
+  // The second lands: the normal two-card compare view takes over.
+  act(() => es.emit('proposal-ready', { moveId: 'mv_alt', proposal: sampleProposal({ id: 'pr_b', move_id: 'mv_alt' }) }))
+  expect(screen.queryByTestId('alternatives-waiting')).not.toBeInTheDocument()
+  expect(screen.getAllByTestId('alt-card')).toHaveLength(2)
+})
+
 // --- all six verbs wired through the real GateBar --------------------------
 
 test('regenerate dispatches through the gate bar with the pending proposal id and the right verb', async () => {
@@ -741,7 +780,9 @@ test('"Go back — I\'ll change it" returns to take-over with the typed JSON byt
   fireEvent.click(within(bar).getByRole('button', { name: /try another way/i }))
   fireEvent.click(within(bar).getByRole('button', { name: new RegExp(VERB_LABEL.take_over, 'i') }))
   const form = await screen.findByTestId('takeover-form')
-  const typed = '{\n  "title": "Confit Garlic Oil",\n  "note": "my own edit"\n}'
+  // Structurally complete (BC-C-28's shape guard must let it through) so
+  // this exercises the BC-C-27 override/back mechanic, not the shape guard.
+  const typed = JSON.stringify({ ...sampleDraft(), title: 'Confit Garlic Oil' }, null, 2)
   fireEvent.change(form.querySelector('textarea')!, { target: { value: typed } })
   fireEvent.click(within(bar).getByRole('button', { name: /save draft/i }))
   const prompt = await screen.findByTestId('override-prompt')

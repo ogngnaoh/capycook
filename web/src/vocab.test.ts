@@ -19,7 +19,11 @@ test('every gate verb has a surface label in the mode-based register', () => {
   for (const v of verbs) expect(VERB_LABEL[v], `missing label for ${v}`).toBeTruthy()
   expect(VERB_LABEL.accept).toBe('Use it')
   expect(VERB_LABEL.edit).toBe('Tweak it')
-  expect(VERB_LABEL.regenerate).toBe('Regenerate')
+  // BC-C-11: "Regenerate" read as API/model jargon, not a cook's word for
+  // redoing the proposal from the same intent — data-verb="regenerate" (the
+  // oracle selector vocabulary) stays put; only the visible label changed.
+  expect(VERB_LABEL.regenerate).toBe('Another take')
+  expect(VERB_LABEL.regenerate).not.toMatch(/regenerate/i)
   expect(VERB_LABEL.alternatives).toBe('Compare two options')
   expect(VERB_LABEL.redirect).toBe('Ask for changes')
   expect(VERB_LABEL.take_over).toBe('Edit it myself')

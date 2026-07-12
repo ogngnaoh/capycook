@@ -215,6 +215,68 @@ test('takeover invalid JSON shows a focused error and does not submit', async ()
   expect(textarea).toHaveAttribute('aria-describedby', error.id)
 })
 
+// ---- takeover structural validation (BC-C-28) ----
+
+test('takeover blocks a draft missing a required top-level key (steps deleted) with a visible alert, no commit', async () => {
+  const onTakeoverSubmit = vi.fn()
+  renderBar({ onTakeoverSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.take_over }))
+  const form = await screen.findByTestId('takeover-form')
+  const textarea = form.querySelector('textarea') as HTMLTextAreaElement
+  const draft: Record<string, unknown> = { ...sampleDraft() }
+  delete draft.steps // valid JSON, wrong shape — the whole section is gone
+  fireEvent.change(textarea, { target: { value: JSON.stringify(draft) } })
+  fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
+  const error = await screen.findByRole('alert')
+  expect(error).toHaveFocus()
+  expect(error).toHaveTextContent(/steps/i)
+  expect(onTakeoverSubmit).not.toHaveBeenCalled()
+})
+
+test('takeover blocks a draft whose ingredients is the wrong JSON type (a string, not a list)', async () => {
+  const onTakeoverSubmit = vi.fn()
+  renderBar({ onTakeoverSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.take_over }))
+  const form = await screen.findByTestId('takeover-form')
+  const textarea = form.querySelector('textarea') as HTMLTextAreaElement
+  const draft = { ...sampleDraft(), ingredients: 'chicken, thyme' }
+  fireEvent.change(textarea, { target: { value: JSON.stringify(draft) } })
+  fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
+  const error = await screen.findByRole('alert')
+  expect(error).toHaveFocus()
+  expect(error).toHaveTextContent(/ingredients/i)
+  expect(onTakeoverSubmit).not.toHaveBeenCalled()
+})
+
+test('takeover still submits a structurally-complete draft', async () => {
+  const onTakeoverSubmit = vi.fn()
+  renderBar({ onTakeoverSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.take_over }))
+  const form = await screen.findByTestId('takeover-form')
+  const textarea = form.querySelector('textarea') as HTMLTextAreaElement
+  const draft = sampleDraft()
+  fireEvent.change(textarea, { target: { value: JSON.stringify(draft) } })
+  fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
+  expect(onTakeoverSubmit).toHaveBeenCalledWith(draft)
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+// ---- disclosure toggle (BC-C-22) ----
+
+test('"Try another way" carries aria-expanded: false closed, true once the four verbs show', async () => {
+  renderBar()
+  const toggle = screen.getByRole('button', { name: GATE_ANOTHER_LABEL })
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(toggle)
+  for (const v of ['regenerate', 'alternatives', 'redirect', 'take_over'] as const) {
+    expect(screen.getByRole('button', { name: VERB_LABEL[v] })).toBeInTheDocument()
+  }
+  expect(screen.getByRole('button', { name: GATE_ANOTHER_LABEL })).toHaveAttribute('aria-expanded', 'true')
+})
+
 // ---- typed-input preservation on failure (BC-C-21 / BC-C-27) ----
 
 test('a redirect resolving false keeps the form open with the exact steer text (BC-C-21)', async () => {
@@ -253,7 +315,9 @@ test('a take-over resolving false keeps the typed JSON byte-identical (BC-C-27 m
   fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.take_over }))
   const form = await screen.findByTestId('takeover-form')
   const textarea = form.querySelector('textarea')!
-  const typed = '{\n  "title": "My Own Edit"\n}'
+  // Structurally complete (BC-C-28 shape validation must let it through) so
+  // this exercises the BC-C-27 preservation mechanic, not the shape guard.
+  const typed = JSON.stringify({ ...sampleDraft(), title: 'My Own Edit' }, null, 2)
   fireEvent.change(textarea, { target: { value: typed } })
   fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
   await waitFor(() => expect(screen.getByRole('button', { name: /save draft/i })).toHaveAttribute('aria-disabled', 'false'))
