@@ -433,5 +433,19 @@ live-sim); the check waited a hardcoded 15s → 0 cards.
 bracket class) + **BC-H-4** (focus redirect in `onMoveFailed`). Both assert (no
 judges). BC-I-1 auto-clears with C-10@live-sim at the full run.
 
+**Result — cluster 13 SHIPPED (builder `4080499`, wf `wf_93123af3-dfd`, Sonnet):**
+BC-G-8 → `min-h-[24px] inline-flex items-center` on GateBar.tsx:390 (kept
+self-start + aria-expanded). BC-H-4 → `onMoveFailed` arms
+`dispatchFocusPending.current = true` before setDetail, re-firing the BC-A-5
+dispatch-focus layout effect → falls through to `#stage-heading` (no gate/card
+survives a failure), never `document.body`; `restoreIntent` (BC-A-13) untouched.
++1 Workbench.test.tsx case. Gate all green (freeze empty · pin · prereg · go
+test/vet · tsc · vitest 273/273 · build-all). Oracle **run-025** (--only
+G-5,G-9,B-5,A-13,G-8,H-4): **22 pass / 0 fail** — both fixes green, net
+regressions none. **Lead adjudication:** builder chose the brief's "acceptable
+fallback" (#stage-heading) over banner-focus — ACCEPTED (meets the contract's
+hard requirement attached/non-body/non-Stop, passes the oracle, reuses a proven
+path; banner-level focus is a non-required UX nicety, noted for B5 if wanted).
+
 **Exit gate:** ×2 consecutive full all-green runs (asserts + fresh-context judges
 + 4 @live-sim parity twins + BC-I-1; BC-J-6 parked by design) → B5.
