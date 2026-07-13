@@ -483,4 +483,27 @@ before the ×2 exit.
   session edits the checks/capture → the ×2 all-green is EVIDENCE for B5's USER
   approval, not a self-verification.
 
-Next: one full re-run (run-029) + judge fan-out → report to USER before the ×2 exit.
+### Re-run (run-029) + machine-overload episode + BC-B-8 hardening
+
+- **run-029** (full re-run after the 4 capture fixes): **main-phase asserts green**
+  but the PARITY re-run phase crashed (11 `@live-sim` twins + BC-I-1 with
+  `ConnectionClosedError`/`detached Frame`) — INFRA, not criterion (same twins
+  green in run-027). Judge fan-out: **8/9 PASS** — A-8, B-2, C-11, D-7, E-3,
+  **G-3, G-6** (all 3 fixed ones confirmed), I-2; **B-8 FAIL** (screencast frozen,
+  last frames pixel-identical).
+- **Root cause = machine overload.** Slack Helper (Renderer) 107% CPU +
+  NotificationCenter 99% CPU/3GB drove load to 14 → oracle Chrome/CDP crashes +
+  the first judge fan-out stalled 87 min (0 progress). USER freed the machine
+  (quit Slack) → load 2.8. **run-026's OOM + run-029's parity crash + the judge
+  stall were all this overload.**
+- **run-030** (Exit Run 1, freed machine): **113 pass / 0 fail** — fully clean
+  asserts, parity twins all green, no crash. BUT **B-8's screencast WEDGED again**
+  (last 4 frames pixel-identical, frozen on a "working" frame) — so the wedge is
+  a full-run recorder-state issue, NOT load. Window-widening cannot fix a freeze.
+- **Fix (`83a9150`): `ctx.judgeShot` — a DIRECT `page.screenshot()`** (bypasses the
+  recorder) captures a reliable `resolved-gate` still after B-8's screencast
+  sample. The product resolves to the gate (asserts confirm); only the flaky
+  recorder missed it. Verified run-031: the direct still shows "NEEDS YOUR CALL"
+  + the USE IT/TWEAK IT/TRY ANOTHER WAY gate bar. Self-test re-bless follows.
+
+Next: ×2 consecutive full-green exit runs (freed machine, B-8 via judgeShot) → B5.
