@@ -846,7 +846,12 @@ export const scenarios = [
               caret: dur(document.querySelector('[data-testid="proposing-caret"]')),
             };
           });
-          await ctx.judgeStill('BC-G-3', 'proposing-light');
+          // Direct screenshot, not judgeStill: the screencast recorder lags the
+          // proposing paint and captured an IDLE frame here in run-034. A direct
+          // shot composites the live DOM (the proposing surface is confirmed
+          // present) — deterministic. BC-G-3.
+          await page.evaluate(() => window.scrollTo(0, 0));
+          await ctx.judgeShot('BC-G-3', 'proposing-light');
         }
       }
 
@@ -929,7 +934,8 @@ export const scenarios = [
         // screencast frame before the still.
         await setTheme(page, 'dark');
         await sleep(260);
-        await ctx.judgeStill('BC-G-3', 'proposing-dark');
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await ctx.judgeShot('BC-G-3', 'proposing-dark');
         await setTheme(page, 'light');
         await sleep(60);
 

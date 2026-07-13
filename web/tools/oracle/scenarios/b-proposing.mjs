@@ -147,11 +147,16 @@ export const scenarios = [
         fromMs: Math.max(0, (readyNode - recStart) - 3000), toMs: (readyNode - recStart) + 6000, maxFrames: 18,
       });
       // The screencast can still WEDGE during the handoff burst (frozen frames
-      // even on an idle machine — full-run recorder state froze run-030's B-8 on
-      // a "working" frame). Also capture the resolved gate via a DIRECT
-      // screenshot: a reliable "now it's your call" frame the judge sees
-      // regardless of any recorder freeze (the gate is up by now — sawGate). BC-B-8.
-      if (sawGate) await ctx.judgeShot('BC-B-8', 'resolved-gate');
+      // even on an idle machine — froze run-030/034's B-8 on a "working" frame).
+      // Capture the resolved gate via a DIRECT screenshot — scrolled to the TOP
+      // so the "NEEDS YOUR CALL" header + the resolved surface occupy the SAME
+      // viewport as the working frames, making the working→your-call handoff
+      // legible side-by-side (run-034's judge rejected a scrolled-down gate
+      // still). BC-B-8.
+      if (sawGate) {
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await ctx.judgeShot('BC-B-8', 'resolved-gate');
+      }
 
       // Derived, renderer-side.
       const mProposing = inst.moments.find((m) => m.name === 'proposing');
