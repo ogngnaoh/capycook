@@ -178,7 +178,13 @@ export const scenarios = [
         const mark = net.mark();
         await clickVerb(page, 'alternatives');
 
-        const gotBoth = await waitForAltCards(page, 2, 15000).then(() => true).catch(() => false);
+        // Under live-sim the alternatives verb runs k.n=2 GenerateMove calls
+        // SEQUENTIALLY (~25s + 25s), committing both together, so the two cards
+        // only surface after ~50s (the fast path is instant). Budget the wait to
+        // the profile — 2×latency + margin — well inside the 90s live-sim check
+        // deadline; fast keeps its original 15s.
+        const altWait = ctx.liveSimMs ? 2 * ctx.liveSimMs + 15000 : 15000;
+        const gotBoth = await waitForAltCards(page, 2, altWait).then(() => true).catch(() => false);
         const cards = await altCardCount(page);
         t.expect(gotBoth && cards === 2, 'exactly two alternative cards render', { observed: cards });
         if (!gotBoth) return;
