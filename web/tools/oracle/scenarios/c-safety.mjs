@@ -432,17 +432,29 @@ export const scenarios = [
       // BC-C-8 — the 409 warn-and-confirm dialog: focus on the least-destructive
       // option; Escape (and Go back) back out without committing; confirm applies.
       await ctx.check('BC-C-8', async (t) => {
-        const atGate = await waitForVerb(page, 'accept', 8000).then(() => true).catch(() => false);
+        const garlic = await garlicDraftText(dishA);
+        // C-27's "Go back" (and BC-C-8's own Escape / "Go back") correctly leave
+        // the gate in TAKE-OVER mode — textarea open, no decide-mode "accept"
+        // verb — so each escalation first reloads to the clean pending gate (the
+        // safe proposal is still awaiting; C-27 committed nothing) before
+        // re-opening take-over. Navigation only; every assertion is unchanged.
+        const escalateOverride = async () => {
+          await gotoDish(dishA);
+          await waitForVerb(page, 'accept', 8000);
+          await openTakeover();
+          await submitTakeover(garlic);
+          return page.waitForSelector('[data-testid="override-prompt"]', { timeout: 8000 })
+            .then(() => true).catch(() => false);
+        };
+
+        const atGate = await gotoDish(dishA)
+          .then(() => waitForVerb(page, 'accept', 8000)).then(() => true).catch(() => false);
         t.expect(atGate, 'gate still pending after "Go back" (nothing committed by C-27)', { observed: atGate });
         if (!atGate) return;
         const vBefore = await versionCount(dishA);
-        const garlic = await garlicDraftText(dishA);
 
         // (1) escalate → dialog focused on "Go back".
-        await openTakeover();
-        await submitTakeover(garlic);
-        const sawOverride = await page.waitForSelector('[data-testid="override-prompt"]', { timeout: 8000 })
-          .then(() => true).catch(() => false);
+        const sawOverride = await escalateOverride();
         t.expect(sawOverride, 'take-over safety hit → override prompt', { observed: sawOverride });
         if (!sawOverride) return;
         await sleep(200); // the dialog re-claims focus one macrotask after open
@@ -465,9 +477,7 @@ export const scenarios = [
         t.expectEq(await versionCount(dishA), vBefore, 'Escape committed nothing (GET /versions unchanged)');
 
         // (3) the "Go back" path is focus-safe too (same clause).
-        await openTakeover();
-        await submitTakeover(garlic);
-        await page.waitForSelector('[data-testid="override-prompt"]', { timeout: 8000 }).catch(() => {});
+        await escalateOverride();
         await sleep(200);
         await clickInOverride(/Go back/i);
         await sleep(200);
@@ -482,16 +492,14 @@ export const scenarios = [
         t.expectEq(await versionCount(dishA), vBefore, '"Go back" committed nothing (GET /versions unchanged)');
 
         // (4) re-open + confirm → the trial commits.
-        await openTakeover();
-        await submitTakeover(garlic);
-        await page.waitForSelector('[data-testid="override-prompt"]', { timeout: 8000 }).catch(() => {});
+        await escalateOverride();
         await sleep(200);
         await clickInOverride(/Use it anyway/i);
         const committed = await waitForVersionCount(dishA, vBefore + 1, 8000);
         t.expect(committed, '"Use it anyway" applies the human edit as exactly one new trial', {
           observed: committed ? `${vBefore + 1} trials` : `still ${await versionCount(dishA)}`,
         });
-      }, { name: 'main' });
+      }, { name: 'main', deadlineMs: 45000 });
 
       // =======================================================================
       // BC-C-15 — the allergen and min-temp rules fire too, each with a
