@@ -722,6 +722,19 @@ test('move-failed offers Try again, which re-posts the identical move', async ()
   })
 })
 
+test('a failed move lands focus on the stage heading, never document.body (BC-H-4)', async () => {
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
+  const es = await mount()
+  // The failure's implicit resolve finds the dish idle again — no gate bar,
+  // no proposing card survives to hold focus. Unlike Stop (a click that
+  // calls cancelMove() → focusDecision()), a failure is an async SSE event
+  // with no click path of its own — onMoveFailed must redirect focus itself.
+  detail = dishDetail()
+  act(() => es.emit('move-failed', { moveId: 'mv_9', reason: 'llm: parse error' }))
+  await waitFor(() => expect(document.getElementById('stage-heading')).toHaveFocus())
+  expect(document.activeElement).not.toBe(document.body)
+})
+
 // --- typed-input preservation (BC-A-13 / BC-C-21 / BC-C-27 / BC-E-5) --------
 
 test('a failed move POST hands the typed intent back to the field (BC-A-13)', async () => {

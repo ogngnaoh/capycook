@@ -389,7 +389,7 @@ export default function GateBar({
                 collapses back to decide, same as Back. */}
             <button type="button" aria-disabled={locked} aria-expanded="true"
               onClick={backToDecide}
-              className="self-start text-[12px] text-muted transition hover:text-ink">
+              className="self-start min-h-[24px] inline-flex items-center text-[12px] text-muted transition hover:text-ink">
               {GATE_ANOTHER_LABEL}<span aria-hidden="true"> ▴</span>
             </button>
             <div role="toolbar" aria-label="Decide on this change"

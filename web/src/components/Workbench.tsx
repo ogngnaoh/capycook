@@ -270,6 +270,14 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirs
         if (alternativesExpectedMoveId.current === e.moveId) alternativesExpectedMoveId.current = null
         restoreIntent(e.moveId) // a failed move never discards typed input (BC-A-13)
         setOptimisticProposing(false) // defensive: reconcile if still armed (BC-A-14)
+        // A failure is an async SSE event, not a click — there is no
+        // cancelMove()-style call path to land focus the way Stop's click
+        // does (BC-B-5). Re-arm the same dispatch-focus mechanism used at
+        // move start (BC-A-5): the proposing card is gone and no gate bar
+        // exists on this failure path, so the layout effect below falls
+        // through to the stage heading rather than leaving
+        // document.activeElement on the unmounted card (BC-H-4).
+        dispatchFocusPending.current = true
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
           : d))
