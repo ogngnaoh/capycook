@@ -449,3 +449,38 @@ path; banner-level focus is a non-required UX nicety, noted for B5 if wanted).
 
 **Exit gate:** ×2 consecutive full all-green runs (asserts + fresh-context judges
 + 4 @live-sim parity twins + BC-I-1; BC-J-6 parked by design) → B5.
+
+### Exit Run A (run-027) + judge-capture fixes
+
+**run-027** (full, `72862b9`, guardrails green): **113 pass / 0 fail** assert-side
+— all 5 regressions resolved (G-8, H-4, C-8, C-10@live-sim, I-1), parity twins +
+BC-I-1 green. (run-026, the first attempt, was SIGKILLed exit 137 = jetsam/OOM at
+d/restart — infra, not a criterion fail; re-run as run-027.) Judge fan-out
+(exit-judges wf `wf_63187132-890`): **5 PASS** — BC-B-2, C-11, D-7, E-3, and
+**BC-I-2 the founding finding**; **4 FAIL — all capture-timing artifacts, no
+product defect** (3 flagged evidenceSuspect; each verified by eyeballing the
+regenerated stills in run-028).
+
+USER ruling (2026-07-13): fix capture → re-bless → one full re-run → report
+before the ×2 exit.
+
+**Check-change log — 4 LEAD judge-capture fixes (`5027532`):**
+- **BC-A-8** — `run.mjs` judgeStill falls back to `page.screenshot()` when the
+  recorder has no frame (wedged/late screencast at t≈0); the seed still was
+  silently missing. Verified: 4/4 stills present (run-028).
+- **BC-G-3** — `g-modes.mjs` reduced-motion: the "dark" proposing still was a
+  LIGHT frame (pinTheme sets only [data-theme], which the app's state-driven
+  theme reverts on the next streaming re-render). Use `setTheme` (real toggle →
+  React state, sticks) + 260ms settle. Verified: genuinely dark ("THEME: DARK").
+- **BC-G-6** — `g-viewports.mjs`: wait for `[data-testid=toast]` (2600ms "saved to
+  the timeline" flash) to clear before the idle-cookflow still. Verified: toast
+  gone, "Recompute cost" clear.
+- **BC-B-8** — `b-proposing.mjs`: the screencast lagged the handoff burst,
+  freezing the sampled tail on pre-gate frames. Record tail 3.2s→5.5s, window
+  +3.2s→+6s, frames 12→18. Verified: t30.7s shows "NEEDS YOUR CALL" + gate bar.
+- Capture-timing only; no assertion changed, no product touched. Self-test
+  re-blessed at `5027532` (confirm 27/27 ok:true before the re-run). ⚠ This
+  session edits the checks/capture → the ×2 all-green is EVIDENCE for B5's USER
+  approval, not a self-verification.
+
+Next: one full re-run (run-029) + judge fan-out → report to USER before the ×2 exit.
