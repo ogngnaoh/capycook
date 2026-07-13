@@ -150,7 +150,12 @@ export async function runScenario(def, opts) {
             await new Promise((r) => setTimeout(r, 60));
           }
         }
-        const buf = recorder && recorder.running ? recorder.latestFrame() : await pageBundle.page.screenshot();
+        let buf = recorder && recorder.running ? recorder.latestFrame() : await pageBundle.page.screenshot();
+        // A running recorder can still have no frame (a screencast that wedged
+        // or hasn't pushed its first frame at t≈0 — BC-A-8's seed still went
+        // missing this way). Fall back to a direct screenshot so a judge still
+        // is never silently absent from the evidence.
+        if (!buf) buf = await pageBundle.page.screenshot();
         if (!buf) return null;
         const list = judgeStills.get(id) || [];
         const name = `${String(list.length + 1).padStart(2, '0')}-${label}.png`;

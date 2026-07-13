@@ -137,9 +137,14 @@ export const scenarios = [
       ctx.sampleScreencast('BC-B-2', {
         fromMs: Math.max(0, submitNode - recStart), toMs: readyNode - recStart, maxFrames: 13,
       });
-      await sleep(3200); // let the +3s tail of the ready transition record
+      await sleep(5500); // record a longer post-ready tail: the handoff burst
+      // (gate mount + streaming flush) can make the screencast lag the DOM by a
+      // few seconds, so a short tail froze run-027's BC-B-8 sample on pre-gate
+      // "working" frames. Give the recorder time to catch up to the painted gate.
       ctx.sampleScreencast('BC-B-8', {
-        fromMs: Math.max(0, (readyNode - recStart) - 3000), toMs: (readyNode - recStart) + 3200, maxFrames: 12,
+        // Widen the post-ready window + raise the frame budget so the recovered
+        // handoff frames (working → your-call) are in the sample even with lag.
+        fromMs: Math.max(0, (readyNode - recStart) - 3000), toMs: (readyNode - recStart) + 6000, maxFrames: 18,
       });
 
       // Derived, renderer-side.

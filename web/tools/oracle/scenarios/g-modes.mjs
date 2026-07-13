@@ -921,10 +921,16 @@ export const scenarios = [
         // dispatch); if the proposal already landed, the still just shows the
         // gate — legibility-judged either way. Direct pin (no click) keeps the
         // proposing surface undisturbed.
-        await pinTheme('dark');
-        await sleep(80);
+        // Use the real toggle (setTheme), not pinTheme: a direct [data-theme]
+        // pin is state-driven-reverted to light by the app on the next streaming
+        // re-render, so run-027's "dark" proposing still was actually a light
+        // frame. setTheme flips React theme state, which sticks through
+        // re-renders; the longer settle lets the dark repaint reach a fresh
+        // screencast frame before the still.
+        await setTheme(page, 'dark');
+        await sleep(260);
         await ctx.judgeStill('BC-G-3', 'proposing-dark');
-        await pinTheme('light');
+        await setTheme(page, 'light');
         await sleep(60);
 
         // Alive-signal clause: rationale text appears at t ≤ 20s (renderer

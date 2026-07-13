@@ -453,6 +453,11 @@ export const scenarios = [
           const cf = [...document.querySelectorAll('#stage button')].find((b) => /^I cooked this/.test(b.textContent.trim()));
           if (cf) cf.scrollIntoView({ block: 'center' });
         });
+        // The accept fired a "saved to the timeline" toast (flash, 2600ms). Wait
+        // it out so the fixed bottom toast can't overlap the CookFlow/cost
+        // controls in the still (run-027's BC-G-6 caught it over "Recompute
+        // cost"). Bounded — proceed anyway if it lingers.
+        await page.waitForFunction(() => !document.querySelector('[data-testid="toast"]'), { timeout: 3500 }).catch(() => {});
         await sleep(120);
         await ctx.judgeStill('BC-G-6', 'idle-cookflow');
       }, { name: 'idle-cookflow' });
