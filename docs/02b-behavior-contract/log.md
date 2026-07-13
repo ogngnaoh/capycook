@@ -119,3 +119,10 @@
   is a 0-byte file — no events table); the exit runs must point it at the real
   operator DB (pre-existing, runs 010–012 too). Per the chosen session boundary,
   STOPPED here for USER review before any ×2 exit run or builder run.
+- **2026-07-12 — USER RULING on the exit path: SCOPE-FIRST.** Next session:
+  (1) fix BC-J-5 (worktree DB) so guardrails are meaningful, (2) run ONE
+  informative full oracle pass to enumerate ALL masked regressions (not the exit
+  gate), (3) fix the batch (BC-G-8 + whatever surfaces) via builder runs, (4)
+  then the ×2 consecutive full all-green runs → B5. Rationale: see the true
+  regression scope before committing builder runs to the exit. Session closed at
+  the checkpoint after the ruling; next session executes.

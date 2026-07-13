@@ -1,24 +1,30 @@
 # Handoff — milestone 02b (behavior-contract)
 
 ## Next session start here
-**B4 CHECKPOINT reached — USER review gate before the exit.** The USER-sanctioned
-harness queue is done: both remaining census reds are GREEN as harness artifacts
-(the post-ruling hypothesis held), so **NO builder runs were spent** (both granted
-runs remain unused). Five lead harness commits on `02b-behavior-contract`
-(`3b48b1a` G-10, `6255a66`+`be2a84b` A-12, `823939a` B-8, `982bcfa` G-6), each
-committed then self-tested `ok:true` 27/27 — see `b4-ledger.md` check-change log.
-**Before the ×2 full exit runs, the USER must decide two things surfaced this
-session** (both in `log.md` 2026-07-12 checkpoint entry): (1) authorize a product
-fix for **BC-G-8** — the GateBar "Try another way" disclosure toggle is 104×20px,
-<24px WCAG 2.5.8 at 390px; a real B4 regression the g/narrow-390 abort had masked
-(census had it green). (2) Whether to run **one informative full oracle pass**
-first — B4's targeted `--only` runs never re-checked census-PASSING criteria, so
-B4 product changes silently regressed some (G-5/G-6/G-8 confirmed); a full run is
-the first place ALL criteria are re-checked and MORE masked regressions may
-surface. Only after BC-G-8 (and any others) are fixed should the ×2 consecutive
-FULL all-green runs (asserts + fresh judges + parity twins + I-1) run → B5.
-Also fix **BC-J-5** first: the worktree `data/capycook.db` is a 0-byte file (no
-events table) → the guardrail errors; point it at the real operator DB.
+**B4 CHECKPOINT cleared; USER ruled the exit path (2026-07-12): SCOPE-FIRST —
+one informative full run, enumerate ALL masked regressions, fix as a batch,
+then the ×2 exit.** The sanctioned harness queue is done: both remaining census
+reds are GREEN as harness artifacts (post-ruling hypothesis held), so **NO builder
+runs were spent** (both granted runs remain unused). Five lead harness commits on
+`02b-behavior-contract` (`3b48b1a` G-10, `6255a66`+`be2a84b` A-12, `823939a` B-8,
+`982bcfa` G-6), each self-tested `ok:true` 27/27 — see `b4-ledger.md` check-change
+log. **Execute in this order:**
+1. **Fix `BC-J-5` first** so the full run's guardrails are meaningful: the
+   worktree `data/capycook.db` is a 0-byte file (no events table) → point the
+   guardrail at the real operator DB (or seed the worktree DB); runs 010–012 hit
+   this too.
+2. **Run ONE full oracle pass** (no `--only`, all guardrails, judges merged) —
+   informative, NOT the exit gate. Its purpose: enumerate every regression the
+   loop's targeted `--only` runs never re-checked (B4 changed product silently
+   regressed some census-PASSING criteria; **G-5/G-6/G-8 already confirmed** via
+   g/narrow-390). Expect it to be red in places — that's the point.
+3. **Fix the batch** — known so far: **BC-G-8** (GateBar "Try another way"
+   disclosure toggle is 104×20px, <24px WCAG 2.5.8 at 390px — give it ≥24px
+   height) — plus whatever the full run surfaces. These are PRODUCT fixes →
+   builder runs (the ⚖/frozen rules still apply; each harness touch self-tests).
+4. **Then the ×2 consecutive FULL all-green runs** (asserts + fresh-context
+   judges + the 4 @live-sim parity twins + BC-I-1) → hand to **B5** (USER
+   approval → GIF re-check → merge to `measure-run`).
 
 ## Current state
 - Worktree `../CapyCook-02b` @ `02b-behavior-contract`, HEAD `be2a84b`; main
