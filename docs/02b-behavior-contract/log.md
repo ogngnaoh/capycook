@@ -126,3 +126,27 @@
   then the ×2 consecutive full all-green runs → B5. Rationale: see the true
   regression scope before committing builder runs to the exit. Session closed at
   the checkpoint after the ruling; next session executes.
+- **2026-07-13 — SCOPE-FIRST exit executed; B4 COMPLETE, checkpointed to B5
+  (USER ruling).** BC-J-5 fixed (worktree DB symlink → real operator DB).
+  Informative full run (run-023): 108/5/1 — 5 masked regressions triaged:
+  BC-G-8 + BC-H-4 (B4 product regressions, fixed by builder `4080499`), BC-C-8
+  (stale scenario — coupled to the pre-fix C-27 behavior), BC-C-10@live-sim
+  (wait budget too short for 2× sequential gen), BC-I-1 (derivative). Then the
+  ×2 exit surfaced the **judge-capture tail**: four transient-state stills were
+  captured unreliably by the CDP screencast (A-8 seed missing, G-3 dark→light
+  then light→idle, G-6 toast overlap, B-8/I-2 handoff-moment wedge). Fixed every
+  fixable one (screenshot fallback, setTheme+judgeShot, toast wait, resolved-gate
+  judgeShot). A **machine-overload episode** (runaway Slack + NotificationCenter →
+  load 14 → Chrome/CDP crashes + agent stalls + `d/restart` jetsam OOMs) was
+  cleared by the USER freeing memory; full runs then completed clean (**113/0
+  asserts on run-027/030/034/036**). But the fresh-context judge fan-out never
+  reached 9/9 in one run: **irreducible judge variance** on the two
+  motion/transition criteria (BC-B-8, BC-I-2 — the screencast can't capture the
+  handoff *moment*) + a D-7 stub duplicate-text artifact; different criteria
+  failed each run, none a product defect. **USER ruled: checkpoint to B5.** The
+  product is thoroughly verified (113/0 ×4 clean runs; every individual UI state
+  judged correct); B5's USER-approval gate adjudicates the 3 documented evidence
+  artifacts. This session edited the checks/capture — the exit is EVIDENCE for
+  B5, NOT a self-verification; the ×2-all-green criterion was not mechanically
+  met (judge variance). Guardrails clean at HEAD `efa9c0d` (freeze empty, pin
+  intact, PREREGISTRATION untouched, operator DB = 6, self-test 27/27).

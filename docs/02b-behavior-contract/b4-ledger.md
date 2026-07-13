@@ -506,4 +506,41 @@ before the ×2 exit.
   recorder missed it. Verified run-031: the direct still shows "NEEDS YOUR CALL"
   + the USE IT/TWEAK IT/TRY ANOTHER WAY gate bar. Self-test re-bless follows.
 
-Next: ×2 consecutive full-green exit runs (freed machine, B-8 via judgeShot) → B5.
+### Exit runs (freed machine) + judge-gate variance → USER checkpoint to B5
+
+Once the machine was freed (Slack + NotificationCenter + Chrome trimmed; the
+full-run OOMs at `d/restart` were jetsam on a memory-marginal 91-day-uptime box),
+the full runs completed clean: **run-034, run-036 both 113 pass / 0 fail** (asserts
++ parity twins + BC-I-1). But the fresh-context judge fan-out never reached 9/9 in
+one run — the failures are a **moving target driven by judge variance on
+motion/transition evidence**, never a consistent product defect:
+
+| id | run-029 | run-034 | run-036 | nature |
+|----|---------|---------|---------|--------|
+| BC-B-8 | fail | fail | fail | screencast wedges during the handoff burst — the working→gate *moment* is never captured; a strict judge rejects before/after stills (incl. the direct resolved-gate) |
+| BC-G-3 | pass | fail | **pass** | FIXED — both proposing stills now via direct judgeShot |
+| BC-I-2 | pass | pass | fail | same transition-moment issue; the screencast "jumps" working→ready |
+| BC-D-7 | pass | pass | fail | the STUB (`internal/llm/stub.go:267`) appends " (brightened per feedback)" every iterate_feedback → duplicate description text a strict judge flags (real DeepSeek returns distinct concepts) |
+
+Root: the fresh-context judges have real run-to-run variance, and the two
+transition criteria (B-8, I-2) depend on a CDP screencast that wedges/jumps at
+the exact handoff moment — no machine fix helps. Capture work this session
+(A-8 screenshot fallback, G-3 setTheme+judgeShot, G-6 toast wait, B-8/B-8+I-2
+window+judgeShot) fixed every FIXABLE still; B-8/I-2's "capture the transition
+moment" is at odds with a wedging screencast + a maximally-strict judge.
+
+**USER RULING (2026-07-13): checkpoint to B5 now.** The product is thoroughly
+verified — **113/0 asserts across four clean full runs (run-023 informative,
+run-027, run-030, run-034, run-036)**, and every individual UI state (proposing
+both themes, gate, safety-hold, seed, idle, spine, tasting-note echo) judged
+correct. The 3 remaining judge fails are documented evidence/variance artifacts,
+not defects. B5's USER approval (the human verification gate) adjudicates them
+directly with the assembled evidence. ⚠ This session edited the checks/capture
+extensively — the exit is EVIDENCE for B5, explicitly NOT a self-verification;
+the ratified ×2-all-green-judges criterion was NOT mechanically met (judge
+variance), and B5 decides whether the assembled evidence suffices or whether to
+require a capture/judge rework first.
+
+Guardrails at handoff (HEAD `efa9c0d`): freeze diff vs 32afe54 empty · contract
+pin `965c8eb` byte-intact · PREREGISTRATION untouched · operator DB exactly 6 ·
+self-test 27/27 ok:true.

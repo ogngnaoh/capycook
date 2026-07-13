@@ -32,8 +32,20 @@ the check (the contract) is ratified before the work begins.
 - B1 — milestone docs + spec + contract draft → **USER ratification gate** — shipped (2026-07-11: draft hardened by a 49-round fresh-context UX/a11y review loop, verdict APPROVE; USER ratified as-is same day, both ⚖ criteria in force)
 - B2 — oracle harness + falsifiability self-test — shipped (2026-07-11: ~44 scenarios/12 files via 10-builder fan-out + 10 fresh-context critics [3 CRITICALs fixed] + 27/27 self-test incl. 10 mutation flips; stub fixtures + stub-mode budget metering; plan+record `b2-oracle-plan.md`)
 - B3 — census run against current UI (informative, non-blocking) — shipped (2026-07-11: run-073, 79 pass / 43 fail / 1 parked over 123 rows; every fail explained — 27 marked + 10 unmarked genuine defects + explained derivatives; guardrails all green; posted to USER)
-- B4 — autonomous fix→judge loop to all-green ×2 or stall report — active
-- B5 — exit: USER approval gate, GIF re-check, merge → `measure-run`, ship ritual — pending
+- B4 — autonomous fix→judge loop to all-green ×2 or stall report — **loop
+  complete, checkpointed to B5 (2026-07-13)**: all 43 census reds + 5 exit-run
+  regressions fixed; product verified (113/0 asserts on four clean full runs
+  run-027/030/034/036). The ratified ×2-all-green-**judges** criterion was NOT
+  mechanically met — irreducible fresh-context judge variance on two
+  motion/transition criteria (BC-B-8, BC-I-2, screencast can't capture the
+  handoff moment) + a D-7 stub duplicate-text artifact; different criteria failed
+  each run, none a product defect. Handed to B5 as evidence, NOT a
+  self-verification (this session edited the checks/capture). See b4-ledger.md +
+  handoff.md.
+- B5 — exit: USER approval gate, GIF re-check, merge → `measure-run`, ship ritual
+  — **active**: USER adjudicates the 3 documented judge-evidence artifacts (accept
+  the assembled evidence, or require the D-7 stub declutter + a B-8/I-2 transition
+  capture rework first), then GIF re-check + merge.
 
 **Integration notes**
 - **Contract pin (RATIFIED 2026-07-11, as-is):**
