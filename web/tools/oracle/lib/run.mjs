@@ -164,6 +164,23 @@ export async function runScenario(def, opts) {
         judgeStills.set(id, list);
         return path;
       },
+      // Direct screenshot judge still — composites the LIVE DOM synchronously
+      // via page.screenshot(), bypassing the screencast recorder entirely. A
+      // wedged/lagging screencast (which freezes on a stale frame during the
+      // handoff burst) can therefore never rob the evidence of a required state
+      // (BC-B-8's post-handoff gate). Appends to the same judge evidence list.
+      judgeShot: async (id, label) => {
+        if (parityMode) return null;
+        if (!byId.has(id) || byId.get(id).tag !== 'judge') throw new Error(`oracle: judgeShot for non-judge ${id}`);
+        const buf = await pageBundle.page.screenshot();
+        if (!buf) return null;
+        const list = judgeStills.get(id) || [];
+        const name = `${String(list.length + 1).padStart(2, '0')}-${label}.png`;
+        const path = evidence.writeJudgeStill(id, name, buf);
+        list.push({ path, caption: label });
+        judgeStills.set(id, list);
+        return path;
+      },
       sampleScreencast: (id, { fromMs = 0, toMs = Infinity, maxFrames = 20 } = {}) => {
         if (parityMode || !recorder) return [];
         const frames = recorder.sampleFrames({ fromMs, toMs, maxFrames });
