@@ -373,3 +373,65 @@ BC-C-16, BC-D-12, BC-F-3, BC-E-3, BC-G-12, BC-G-13, BC-G-14, BC-C-26 (36).
   wording → cluster 8 (folded), contrast → cluster 11. Verified: oracle
   addresses verbs by `data-verb` attribute only, so the label rename is
   selector-safe.
+
+## 2026-07-13 — SCOPE-FIRST exit session (USER ruling 2026-07-12)
+
+**BC-J-5 fixed** (lead, no harness code edit): the worktree `data/capycook.db`
+was a 0-byte file → guardrail `sqlite3` failed. Symlinked it to the main
+checkout's real operator DB (`operator 6 / harness 1307`); the guard now
+enforces the live "still 6" invariant. Gitignored + untracked, so freeze-safe.
+
+**Informative full run — run-023** (`d4392b2`, full, guardrails=all incl. BC-J-2
+suites, judges deferred): **108 pass / 5 fail / 1 parked / 9 pending-judgment**
+over 123 rows. Guardrails all green (BC-J-5 now ok). The 5 assert fails, triaged
+against the run-073 census baseline:
+
+| id | run-073 | run-023 | verdict | owner |
+|----|---------|---------|---------|-------|
+| BC-C-8 | pass | fail | B4 regression (stale scenario — see below) | LEAD harness |
+| BC-G-8 | pass | fail | B4 regression (product) | builder |
+| BC-H-4 | pass | fail | B4 regression (product) | builder |
+| BC-C-10@live-sim | fail | fail | pre-existing (loop verified only the fast twin) | LEAD harness |
+| BC-I-1 | fail | fail | derivative of C-10@live-sim (auto-clears) | — |
+
+Root causes: **G-8** — GateBar.tsx:390 expanded disclosure header `text-[12px]`
+= 104×20px (<24 WCAG 2.5.8), fails desktop + 390px (viewport-independent height).
+**H-4** — `onMoveFailed` (Workbench.tsx:266) never redirects focus; B4's
+focus-at-dispatch (`dispatchFocusPending` + layout effect :385, consumed once at
+dispatch) leaves the focused proposing-card heading to unmount on failure →
+`document.body`. **C-8** — stale scenario: the check opened with
+`waitForVerb('accept')` and re-opened take-over via `openTakeover()` between
+rounds, both assuming DECIDE mode — it was coupled to the *broken* C-27 behavior
+(override-exit → decide); B4 fixed C-27 (override-exit stays in take-over mode),
+so every escalation now bailed at the opening guard. **C-10@live-sim** — the
+alternatives verb runs k.n=2 GenerateMove calls SEQUENTIALLY (~25s+25s ≈50s under
+live-sim); the check waited a hardcoded 15s → 0 cards.
+
+### Check-change log — 2 LEAD harness fixes (this session)
+
+- **`c-alternatives live-sim wait` (`f8f5f31`):** `c-alternatives.mjs:181` —
+  hardcoded 15000ms alt-card wait → profile-aware `ctx.liveSimMs ? 2*liveSimMs +
+  15000 : 15000` (live-sim 65s, inside the 90s live-sim check deadline; fast
+  unchanged at 15s). Wait budget only; assertion (`cards===2`) intact. Fixes
+  BC-C-10@live-sim (⇒ BC-I-1). No product change.
+- **`c-safety BC-C-8 stale precondition` (`590c55b`):** `c-safety.mjs` — reset to
+  the clean pending gate (reload — the safe proposal still awaits; C-27 committed
+  nothing) before each of the 4 override escalations, since C-27's fix leaves
+  override-exit in take-over mode. Navigation only; every assertion (alertdialog
+  role, focus-on-Go-back, overrideGone, focus-not-body, versionCount unchanged,
+  confirm commits) byte-identical; deadline 30s→45s for the 4 reload+escalate
+  rounds. **Verified run-024: c/safety 11/11 checks pass, BC-C-8 + BC-C-27
+  both green.**
+- Self-test re-blessed at `590c55b` (final harness HEAD) with `--report run-073`
+  — confirm 27/27 `ok:true` before the exit runs. ⚠ This session edits the
+  checks, so the eventual ×2 all-green is EVIDENCE for B5's USER approval, not a
+  self-verification.
+
+### Product batch — cluster 13 (builder, via b4-iteration workflow)
+
+`b4-briefs/cluster-13-exit-regressions.md`: **BC-G-8** (disclosure toggle ≥24px
+bracket class) + **BC-H-4** (focus redirect in `onMoveFailed`). Both assert (no
+judges). BC-I-1 auto-clears with C-10@live-sim at the full run.
+
+**Exit gate:** ×2 consecutive full all-green runs (asserts + fresh-context judges
++ 4 @live-sim parity twins + BC-I-1; BC-J-6 parked by design) → B5.
