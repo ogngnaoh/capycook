@@ -1,18 +1,16 @@
 ## Start here next session
 
-- Finish the independent whole-branch re-review of the Gate A documentation fixes.
-- If the re-review is clear, present the complete Gate A evidence and concerns to the USER for explicit approval.
+- Run a fresh independent whole-range re-review after Gate A documentation fix 2.
+- If that re-review is clear, present the complete Gate A evidence and concerns to the USER for explicit approval.
 - Do not begin Gate B: every merge, push, tag, GitHub setting/visibility change, or worktree removal remains forbidden until USER approval.
 
 ## Current state
 
-- S8 release-preparation Tasks 1–4 are complete: reporting, current media, private-evidence preservation, and integrated audits.
-- The §9 supporting-outcome deferral row landed unchanged through explicit USER delegation at commit `f160a74`.
-- Nine GIFs, the current hero/social preview and MP4s, preserved private evidence, and the build/integrity results are approved.
-- The final whole-branch review's documentation-state findings are being fixed and re-reviewed.
+- S8 release-preparation Tasks 1–4 are complete, including reporting, current media, private-evidence preservation, and integrated audits.
+- Gate A documentation fix round 1 resolved the original whole-branch review blockers.
+- Its whole-range re-review found one remaining active-milestone contradiction: the historical pre-S5 Tier-1 forecast and obsolete S3 verifier↔author exit criterion conflicted with the landed S5/S6 record.
+- Fix 2 is landed: note (g) is explicitly historical and superseded, the exit criterion names the S6 verifier↔LLM-delegate control, and all three landed amendment paste drafts are marked historical/do-not-paste.
 - Milestone 02 remains active at S8; Gate A awaits explicit USER approval.
-- H2 is final at N=2 decisions across one single-operator session; no additional sessions are planned.
-- Milestone 03 remains parked optional and requires a fresh USER go/no-go.
 
 ## Open concerns
 

@@ -1,3 +1,7 @@
+> **HISTORICAL — LANDED.** This paste draft is retained for provenance only.
+> Its amendment is already recorded in `docs/PREREGISTRATION.md`; do not paste
+> it again.
+
 # §9 draft — Amendment 2 (bounded move retries) + T1 instrument re-pin
 
 **USER-PASTE ONLY — the builder never edits `docs/PREREGISTRATION.md`.**

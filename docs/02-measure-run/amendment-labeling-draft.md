@@ -1,3 +1,7 @@
+> **HISTORICAL — LANDED.** This paste draft is retained for provenance only.
+> Its amendment is already recorded in `docs/PREREGISTRATION.md`; do not paste
+> it again.
+
 # Amendment 1 draft — PREREGISTRATION §9 entry text (labeling reframe)
 
 > **THE USER logs this entry; the builder never edits

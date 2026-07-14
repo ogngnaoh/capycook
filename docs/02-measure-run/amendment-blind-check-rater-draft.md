@@ -1,3 +1,7 @@
+> **HISTORICAL — LANDED.** This paste draft is retained for provenance only.
+> Its amendment is already recorded in `docs/PREREGISTRATION.md`; do not paste
+> it again.
+
 # §9 draft — Amendment 3 (author-delegated LLM rater for the blind-check control)
 
 **USER-PASTE ONLY — the builder never edits `docs/PREREGISTRATION.md`.**
