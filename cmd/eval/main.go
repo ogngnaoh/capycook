@@ -488,8 +488,12 @@ func writeGateDynamics(w io.Writer, g eval.GateDynamics) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, frozenFiveNote)
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "N=%d gate decisions across %d sessions, single operator. move_failed=%d (parse/retry exhaustion — tracked beside the distribution, never inside N).\n",
-		g.Total.N, g.Sessions, g.Total.MoveFailed)
+	sessionNoun := "sessions"
+	if g.Sessions == 1 {
+		sessionNoun = "session"
+	}
+	fmt.Fprintf(w, "N=%d gate decisions across %d %s, single operator. move_failed=%d (parse/retry exhaustion — tracked beside the distribution, never inside N).\n",
+		g.Total.N, g.Sessions, sessionNoun, g.Total.MoveFailed)
 	fmt.Fprintln(w)
 	if g.Total.N == 0 && g.Total.MoveFailed == 0 {
 		fmt.Fprintln(w, "No operator gate decisions in the event log (harness events are excluded from H2).")

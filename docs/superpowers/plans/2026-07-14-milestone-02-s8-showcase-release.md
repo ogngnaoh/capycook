@@ -99,6 +99,16 @@ worktree removal, or milestone-03 activation.
 
 Begin this sequence only after the USER explicitly approves Gate A.
 
+Gate A approval does **not** authorize another edit to the frozen
+`docs/PREREGISTRATION.md`. Before the archival ship commit, obtain separate, exact
+USER authorization to append this administrative §9 row and no other change:
+
+> | 2026-07-14 | **Evidence-log relocation (administrative).** Under milestone-02 D6, the unchanged Amendment-2 failure-evidence log moved from `docs/02-measure-run/log.md` to the [`archived log`](archive/02-measure-run/log.md). This relocation changes no methodology, data, result, or inference. | Prevent a stale evidence-location reference after archival; no analytical change. |
+
+Without that exact USER authorization, Gate B may stage and verify the private
+release candidate, but it must not perform the archival ship commit or the public
+debut.
+
 - [ ] Reconfirm the repository is **PRIVATE**, the working tree is clean apart from
   explicitly allowed local files, and the Gate A commit is the intended tip.
 - [ ] Locally merge `measure-run` into `master` with `--no-ff`. Retain both branches;
@@ -112,13 +122,33 @@ Begin this sequence only after the USER explicitly approves Gate A.
 - [ ] Before moving either milestone folder, rewrite the final
   `docs/02-measure-run/handoff.md` and `docs/02b-behavior-contract/handoff.md` so the
   archived records are current.
-- [ ] Perform the milestone-02 ship ritual in one commit: mark S8 and milestone 02
-  shipped; move `docs/02-measure-run/` to `docs/archive/02-measure-run/` and
-  `docs/02b-behavior-contract/` to `docs/archive/02b-behavior-contract/`; update
-  `docs/milestones.md` statuses and pointers to those archive paths; and keep
-  milestone 03 parked optional rather than activating it. Keep the local
-  `docs/private-evidence/` directory in place and ignored/untracked; do not move,
-  stage, or commit it. Push that `master` commit while still private.
+- [ ] After receiving the separate exact authorization above, append only that §9
+  row and include it in the milestone-02 ship ritual's one atomic commit, with no
+  broken committed intermediate state:
+  - mark S8 and milestone 02 shipped; move `docs/02-measure-run/` to
+    `docs/archive/02-measure-run/` and `docs/02b-behavior-contract/` to
+    `docs/archive/02b-behavior-contract/`; update `docs/milestones.md` and both
+    archived handoffs; keep milestone 03 parked optional;
+  - change the oracle's current contract read in
+    `web/tools/oracle/lib/contract.mjs` and its current working-tree guard read in
+    `web/tools/oracle/lib/guardrails.mjs` to the archived contract, while preserving
+    the historical `git show 965c8eb:docs/02b-behavior-contract/contract.md` path
+    exactly;
+  - change `web/tools/oracle/oracle.mjs`'s default evidence root to
+    `docs/archive/02b-behavior-contract/evidence`;
+  - add the archive evidence path to `.gitignore` while retaining the old live-path
+    evidence ignore during local cleanup;
+  - update the live DeepSeek source comment and the immediately adjacent live oracle
+    comments to the archive paths, leaving bannered historical bodies unchanged; and
+  - keep local `docs/private-evidence/` in place and ignored/untracked: never move,
+    stage, or commit it.
+- [ ] While still private, verify the ship commit with `oracle.mjs list`; a focused
+  partial oracle run using an explicit temporary `--report-dir`; ignore behavior for
+  both archive and retained old evidence paths; the web tests and build; and the
+  absence of recreated `docs/02-measure-run/` and
+  `docs/02b-behavior-contract/` directories. Push that `master` commit only after
+  these checks pass, then inspect the final private GitHub rendering of the archived
+  log and contract links.
 - [ ] Require final green private CI, create the milestone-02 release tag on the
   verified private `master`, and push that tag while the repository remains private.
 - [ ] Present the final private CI, tag, settings, render, and rollback evidence to the
@@ -148,6 +178,16 @@ Begin this sequence only after the USER explicitly approves Gate A.
   statuses.
 - Local `docs/private-evidence/` remains in place and ignored/untracked; it is absent
   from the ship-ritual commit.
+- The administrative §9 relocation row was appended only after its separate exact
+  USER authorization; without that authorization there is no archival ship commit
+  and no public debut.
+- The live oracle reads the archived contract and writes default evidence under the
+  archived folder; the historical `git show` contract path is unchanged; both
+  evidence roots remain ignored during cleanup; live source comments point to the
+  archive while bannered historical bodies remain historical.
+- `oracle.mjs list`, the focused partial run with an explicit temporary report
+  directory, ignore probes, web tests/build, old-live-directory absence checks, and
+  the final private GitHub render all pass before the release tag or public debut.
 
 ## Self-review
 

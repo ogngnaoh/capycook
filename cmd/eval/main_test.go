@@ -175,6 +175,29 @@ func TestKappaCommand(t *testing.T) {
 
 // --- replay ---
 
+func TestWriteGateDynamicsSessionGrammar(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		sessions int
+		want     string
+	}{
+		{name: "zero", sessions: 0, want: "across 0 sessions"},
+		{name: "singular", sessions: 1, want: "across 1 session,"},
+		{name: "plural", sessions: 2, want: "across 2 sessions"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			writeGateDynamics(&out, eval.GateDynamics{
+				Total:    &eval.Dynamics{Counts: map[string]int{}},
+				Sessions: tc.sessions,
+			})
+			if !strings.Contains(out.String(), tc.want) {
+				t.Errorf("output missing %q:\n%s", tc.want, out.String())
+			}
+		})
+	}
+}
+
 func TestReplayCommand(t *testing.T) {
 	db := seedEventDB(t)
 	code, stdout, stderr := runCLI(t, "replay", "--db", db)

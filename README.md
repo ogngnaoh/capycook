@@ -295,7 +295,7 @@ Single-operator telemetry: one human (the author) generated every gate decision 
 
 Frozen-five derivation (spec §4 mapping; the native distribution is primary): cancel folds into reject; alternatives, take_over, blocked, and auto_advanced remain additional labeled rows — PREREG froze only accept/edit/regenerate/reject/redirect.
 
-N=2 gate decisions across 1 sessions, single operator. move_failed=0 (parse/retry exhaustion — tracked beside the distribution, never inside N).
+N=2 gate decisions across 1 session, single operator. move_failed=0 (parse/retry exhaustion — tracked beside the distribution, never inside N).
 
 Native distribution (primary):
 
