@@ -254,6 +254,21 @@ func TestSystemPromptListsHighRiskClassesFromCSV(t *testing.T) {
 	}
 }
 
+// --- system prompt pins the machine-checkable provenance vocabulary ---
+
+func TestSystemPromptPinsProvenanceVocabulary(t *testing.T) {
+	msgs, err := RenderPrompt(MoveRequest{Draft: promptDraft(), MoveType: MoveTypeFlavorDirection})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sys := msgs[0].Content
+	for _, want := range []string{"pairing:", "fdc:", "foodon:", "provenance"} {
+		if !strings.Contains(sys, want) {
+			t.Errorf("system prompt missing provenance-vocabulary token %q", want)
+		}
+	}
+}
+
 // --- steering thread is truncated to the last 50 turns ---
 
 func TestThreadTruncatedToLast50(t *testing.T) {

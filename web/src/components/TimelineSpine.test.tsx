@@ -10,17 +10,17 @@ const nodes: TimelineNode[] = [
   {
     id: 'ver_1', n: 1, head: 'Trial 1', note: 'First concept', when: 'Mon 1:00p',
     cooked: true, cookNote: 'Needed more salt', branch: false,
-    isCurrent: false, isViewing: false, pending: false,
+    isCurrent: false, isViewing: false, pending: false, auto: false,
   },
   {
     id: 'ver_2', n: 2, head: 'Trial 2', note: 'Second concept', when: 'Mon 2:00p',
     cooked: false, cookNote: undefined, branch: true,
-    isCurrent: true, isViewing: true, pending: false,
+    isCurrent: true, isViewing: true, pending: false, auto: false,
   },
   {
     id: 'pending', n: 3, head: 'Trial 3 — your decision', note: 'Cutting salt', when: '',
     cooked: false, cookNote: undefined, branch: false,
-    isCurrent: false, isViewing: false, pending: true,
+    isCurrent: false, isViewing: false, pending: true, auto: false,
   },
 ]
 
@@ -67,6 +67,54 @@ test('a cooked node renders the Cooked badge and its cook-note quote', () => {
   expect(screen.getByText('Cooked')).toBeInTheDocument()
   expect(screen.getByText('Branch')).toBeInTheDocument() // ver_2 only
   expect(screen.getByText(/Needed more salt/)).toBeInTheDocument()
+})
+
+// BC-D-7 de-risk: the BRANCH badge alone is color/label-only self-explanation
+// ("Branch" carries no context on its own); a branch trial also carries a
+// quiet text note naming the trial it forked from, exposed as real text in
+// the accessibility tree (not merely implied by position on the rail). A
+// dedicated node list (rather than the shared `nodes` fixture) keeps the
+// "Trial 1" the note names from colliding with other cards' own "Trial 1"
+// accessible names in unrelated tests above.
+test('a branch node carries an inline "Branched from Trial N" note naming its parent trial', () => {
+  const branchNodes: TimelineNode[] = [
+    {
+      id: 'ver_1', n: 1, head: 'Trial 1', note: 'First concept', when: 'Mon 1:00p',
+      cooked: false, cookNote: undefined, branch: false,
+      isCurrent: false, isViewing: false, pending: false, auto: false,
+    },
+    {
+      id: 'ver_2', n: 2, head: 'Trial 2', note: 'Second concept', when: 'Mon 2:00p',
+      cooked: false, cookNote: undefined, branch: true, branchFromN: 1,
+      isCurrent: true, isViewing: true, pending: false, auto: false,
+    },
+  ]
+  mount({ nodes: branchNodes })
+  const branchCard = screen.getByRole('button', { name: /^Trial 2\b/ })
+  expect(branchCard).toHaveTextContent(/Branched from/)
+  expect(branchCard.textContent).toMatch(/Branched from.*Trial 1/)
+})
+
+test('a non-branch node renders no "Branched from" note even when cooked', () => {
+  mount()
+  const trial1Card = screen.getByRole('button', { name: /^Trial 1\b/ })
+  expect(trial1Card).not.toHaveTextContent('Branched from')
+})
+
+// BC-F-3: an auto-applied trial carries a durable, text-exposed marker the
+// vanished toast can't provide — unconditional on the spine card (never
+// gated behind technical view, same as Cooked/Branch), and never color-only.
+test('an auto-applied trial renders the Auto-applied badge; a human-accepted one does not', () => {
+  const mixed: TimelineNode[] = [
+    { ...nodes[0], id: 'ver_1', head: 'Trial 1', auto: true },
+    { ...nodes[1], id: 'ver_2', head: 'Trial 2', auto: false },
+  ]
+  mount({ nodes: mixed })
+  expect(screen.getByText('Auto-applied')).toBeInTheDocument()
+  const autoCard = screen.getByRole('button', { name: /^Trial 1\b/ })
+  const humanCard = screen.getByRole('button', { name: /^Trial 2\b/ })
+  expect(autoCard).toHaveTextContent('Auto-applied')
+  expect(humanCard).not.toHaveTextContent('Auto-applied')
 })
 
 test('technical toggles the ver-id line', () => {

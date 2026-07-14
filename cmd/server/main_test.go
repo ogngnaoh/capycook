@@ -21,6 +21,9 @@ func testHandler(t *testing.T) http.Handler {
 		Port:    "0",
 		DBPath:  filepath.Join(t.TempDir(), "server.db"),
 		DataDir: filepath.Join("..", "..", "data"),
+		// The stub edge is budget-metered (BC-H-4); mirror config.Load's
+		// default cap so moves aren't refused pre-call (LLM_BUDGET_USD=0).
+		LLMBudgetUSD: 10,
 	})
 	if err != nil {
 		t.Fatalf("wire: %v", err)

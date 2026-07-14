@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ogngnaoh/capycook/internal/draft"
 	"github.com/ogngnaoh/capycook/internal/proposal"
@@ -18,14 +19,28 @@ import (
 // Seeded unsafe case: a steer containing "garlic oil" (case-insensitive)
 // makes the proposed draft gain a garlic ingredient plus a room-temperature
 // garlic-in-oil infuse_oil step, so the safety stub can block it.
-type Stub struct{}
+type Stub struct {
+	// Latency, when nonzero, delays each GenerateMove so the proposing
+	// state stays on screen long enough for demo capture
+	// (CAPYCOOK_STUB_LATENCY_MS, server-only). The wait is context-aware:
+	// a cancel mid-wait returns at once, so the Stop button really stops.
+	//
+	// The full proposal is always computed first (fast, deterministic), so
+	// when the caller wires MoveRequest.OnDraft the wait is spent revealing
+	// its rationale live — one word per pace step, spread across the window
+	// with a trailing silent buffer — instead of blocking silently and
+	// handing everything over in one post-completion burst (the founding
+	// 02b finding: nothing streamed during a 15-40s wait). OnDraft decides
+	// whether streaming happens at all; the stub never second-guesses that.
+	Latency time.Duration
+}
 
 var _ LLM = Stub{}
 
 // GenerateMove renders the move type's template against req.Draft. Unknown
 // move types error; ID/MoveID and Safety stay zero (the orchestrator and
 // the safety gate own them).
-func (Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Proposal, error) {
+func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Proposal, error) {
 	if err := ctx.Err(); err != nil {
 		return proposal.Proposal{}, err
 	}
@@ -34,25 +49,149 @@ func (Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Proposa
 		return proposal.Proposal{}, fmt.Errorf("llm: unknown move type %q", req.MoveType)
 	}
 	proposed := clone(req.Draft)
+	before := len(proposed.FlavorRationale)
 	tmpl.mutate(&proposed)
-	if strings.Contains(strings.ToLower(req.Steer), "garlic oil") {
+	// BC-E-3: iterate_feedback's mutate is the only template that touches no
+	// flavor_rationale claim at all, so the "why it works" panel renders
+	// byte-identical before and after a rework — no visible sign the cook's
+	// own tasting note drove anything. A feedback-echoing claim closes that
+	// gap: it appends (never replaces, so earlier claims + their provenance
+	// survive untouched) whenever real feedback text rode the steer.
+	if req.MoveType == MoveTypeIterateFeedback {
+		if note := strings.TrimSpace(req.Steer); note != "" {
+			addFeedbackClaim(&proposed, note)
+		}
+	}
+	// Seeded steer fixtures (case-insensitive contains on req.Steer, any LLM
+	// move type): each drives one deterministic contract rule so the behavior
+	// oracle (B2) can exercise it end-to-end. garlic oil is the original
+	// anaerobic case; peanut/rare chicken feed the two remaining safety rules,
+	// saffron the unpriced-cost path, moonshot the low-confidence gate.
+	steer := strings.ToLower(req.Steer)
+	if strings.Contains(steer, "garlic oil") {
 		addGarlicOil(&proposed)
+	}
+	if strings.Contains(steer, "peanut") {
+		addPeanut(&proposed)
+	}
+	if strings.Contains(steer, "rare chicken") {
+		addUndercookedChicken(&proposed)
+	}
+	if strings.Contains(steer, "saffron") {
+		addSaffron(&proposed)
+	}
+	if strings.Contains(steer, "spring clean") {
+		springClean(&proposed)
+	}
+	confidence := 0.6
+	if strings.Contains(steer, "moonshot") {
+		confidence = 0.15
+	}
+	// Pinned-vocabulary provenance (Amendment 1 / Tier-1 dry-run coverage):
+	// flavor claims appended by this move cite the first supplied pairing,
+	// exactly as the prompt contract instructs the live model to.
+	if len(req.Evidence.Pairings) > 0 && len(proposed.FlavorRationale) > before {
+		ref := "pairing:" + req.Evidence.Pairings[0].Ingredient
+		for i := before; i < len(proposed.FlavorRationale); i++ {
+			proposed.FlavorRationale[i].Provenance = &ref
+		}
 	}
 	change := proposal.ComputeDiff(req.Draft, proposed)
 	rationale := tmpl.rationale
-	if req.Steer != "" {
+	switch note := strings.TrimSpace(req.Steer); {
+	// BC-E-3: the cook → taste → rework loop must read as closing the loop —
+	// the rationale explicitly echoes the tasting note's own words (not just
+	// a mechanical "steer applied" restatement) so a screenshot of the
+	// tasting form next to this proposal's rationale shows the connection.
+	case req.MoveType == MoveTypeIterateFeedback && note != "":
+		rationale += fmt.Sprintf(" Responding to your tasting note: %q.", note)
+	case req.Steer != "":
 		rationale += fmt.Sprintf(" Steer applied: %q.", req.Steer)
 	}
-	return proposal.Proposal{
+	result := proposal.Proposal{
 		MoveType:      req.MoveType,
 		TargetFields:  proposal.TargetFields(change),
 		Change:        change,
 		Rationale:     rationale,
 		Citations:     []proposal.Citation{{Source: "stub", Ref: "template:" + req.MoveType, Date: "2026-07-06"}},
-		Confidence:    0.6,
+		Confidence:    confidence,
 		Unverified:    []string{"templated stub output — flavor claims unchecked"},
 		SuggestedNext: tmpl.next,
-	}, nil
+	}
+	// The proposal is fully known now (deterministic, no real "thinking"
+	// required) — offer the early preview before spending the demo-visible
+	// latency, so a streaming-aware caller can decide, before anything is
+	// revealed, whether this generation is safe to show live.
+	var onToken func(string)
+	if req.OnDraft != nil {
+		onToken = req.OnDraft(result)
+	}
+	if err := s.pace(ctx, result.Rationale, onToken); err != nil {
+		return proposal.Proposal{}, err
+	}
+	return result, nil
+}
+
+// pace spends s.Latency (when set) before GenerateMove returns — the
+// demo-capture knob that keeps the proposing state on screen long enough to
+// observe. With a token sink, the wait is spent revealing rationale's words
+// live, evenly paced across the window minus a trailing silent buffer (so a
+// downstream progress summary and the eventual completion land comfortably
+// apart — BC-B-10); with none, the wait is silent, exactly as before.
+// Cancel-aware throughout: ctx cancellation (Stop) returns at once.
+func (s Stub) pace(ctx context.Context, rationale string, onToken func(string)) error {
+	if s.Latency <= 0 {
+		return nil
+	}
+	if onToken == nil {
+		return sleepCtx(ctx, s.Latency)
+	}
+	words := strings.Fields(rationale)
+	if len(words) == 0 {
+		return sleepCtx(ctx, s.Latency)
+	}
+	tail := s.Latency / 6
+	switch {
+	case tail < 500*time.Millisecond:
+		tail = 500 * time.Millisecond
+	case tail > 3*time.Second:
+		tail = 3 * time.Second
+	}
+	if tail >= s.Latency {
+		tail = s.Latency / 2
+	}
+	window := s.Latency - tail
+	perWord := window / time.Duration(len(words))
+	if perWord <= 0 {
+		perWord = time.Millisecond
+	}
+	for i, w := range words {
+		text := w
+		if i < len(words)-1 {
+			text += " "
+		}
+		onToken(text)
+		if err := sleepCtx(ctx, perWord); err != nil {
+			return err
+		}
+	}
+	return sleepCtx(ctx, tail)
+}
+
+// sleepCtx waits out d, or returns ctx's error at once if ctx is cancelled
+// first. d<=0 returns immediately.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 // moveTemplate is one canned move: an in-place mutation of a cloned draft,
@@ -185,6 +324,19 @@ var templates = map[string]moveTemplate{
 	},
 }
 
+// addFeedbackClaim appends a flavor-rationale claim that names the cook's
+// own tasting note (BC-E-3): the one deterministic hook that makes the
+// "why it works" panel visibly change after a rework, echoing the note's own
+// words rather than restating the template's fixed lemon-and-acid prose.
+// Provenance stays nil ([unverified]) — this is a link to the cook's
+// feedback, not a grounded flavor-pairing claim.
+func addFeedbackClaim(d *draft.Draft, note string) {
+	d.FlavorRationale = append(d.FlavorRationale, draft.FlavorClaim{
+		Claim:          fmt.Sprintf("responds to your tasting note — %q", note),
+		CuisineContext: d.Constraints.Cuisine,
+	})
+}
+
 // addGarlicOil injects the seeded unsafe case: raw garlic left in oil at
 // room temperature (Clostridium botulinum risk) — exactly what the safety
 // stub's anaerobic-garlic-oil rule blocks.
@@ -195,6 +347,63 @@ func addGarlicOil(d *draft.Draft) {
 		Technique: "infuse_oil",
 		Why:       "slow room-temperature infusion carries the garlic through the oil",
 	})
+}
+
+// addPeanut injects a Big-9 peanut allergen: "peanut butter" resolves in the
+// FoodOn closure table (data/foodon/allergens.csv) to the "peanuts" class, so
+// a dish that declares a peanut allergen constraint blocks — the allergen
+// half of the deterministic safety gate (BC-C-15). Steer keyword: "peanut".
+func addPeanut(d *draft.Draft) {
+	d.Ingredients = append(d.Ingredients, draft.Ingredient{Name: "peanut butter", Qty: 30, Unit: "g"})
+}
+
+// addUndercookedChicken injects an under-temperature high-risk protein: a
+// chicken breast (poultry, FSIS 74 C / 165 F minimum per
+// data/safety/protein_classes.csv + min_temps.csv) whose only cooking step
+// states an internal temperature of 55 C — below the minimum — so the safety
+// gate's min-temp rule blocks (BC-C-15). Steer keyword: "rare chicken".
+func addUndercookedChicken(d *draft.Draft) {
+	temp := 55.0
+	d.Ingredients = append(d.Ingredients, draft.Ingredient{Name: "chicken breast", Qty: 300, Unit: "g"})
+	d.Steps = append(d.Steps, draft.Step{
+		Text:          "Sear the chicken breast in a hot pan, pulling it at 55 C so the centre stays pink.",
+		Technique:     "fry",
+		InternalTempC: &temp,
+		Why:           "keeps the meat rare and juicy",
+	})
+}
+
+// addSaffron injects an ingredient absent from the price table
+// (data/cost/prices.csv), so a cost recompute footnotes it in
+// analysis.cost.missing. ⚠ saffron is also ungrounded in the FoodOn subset,
+// and the allergen gate fails closed on unknown ingredients — on a dish that
+// declares any allergen constraint this move trips a safety hold ("allergen
+// status unknown"), which is correct gate behavior. Use it only on dishes
+// with no declared allergens; BC-D-10's allergen-declared recipe is served
+// by the ordinary seed_expand template's unpriced parsley instead
+// (2026-07-11 area-D oracle finding). Steer keyword: "saffron".
+func addSaffron(d *draft.Draft) {
+	d.Ingredients = append(d.Ingredients, draft.Ingredient{Name: "saffron", Qty: 1, Unit: "pinch"})
+}
+
+// springClean injects the three diff shapes BC-C-16 needs from a single
+// proposal — an add, an in-place change, and a remove — that no plain
+// template produces on its own: it appends one inert grounded ingredient
+// (carrot: priced and allergen-resolved, tripping no safety rule), rewrites
+// an EXISTING step in place (a replace op on a /steps/N path, not an append),
+// and drops one EXISTING flavor_rationale entry (a remove op on a
+// /flavor_rationale path). The modify/remove halves are guarded so a draft
+// with no steps or no flavor claims never panics. Steer keyword: "spring
+// clean".
+func springClean(d *draft.Draft) {
+	d.Ingredients = append(d.Ingredients, draft.Ingredient{Name: "carrot", Qty: 100, Unit: "g"})
+	if len(d.Steps) > 0 {
+		d.Steps[0].Text = "Wipe down the board and reset the mise en place before the first cook."
+		d.Steps[0].Why = "a clean spring reset keeps the following steps tidy"
+	}
+	if n := len(d.FlavorRationale); n > 0 {
+		d.FlavorRationale = d.FlavorRationale[:n-1]
+	}
 }
 
 // clone deep-copies a Draft through JSON so template mutations never touch

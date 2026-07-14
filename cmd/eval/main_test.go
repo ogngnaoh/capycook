@@ -10,7 +10,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -19,7 +21,9 @@ import (
 
 	"github.com/ogngnaoh/capycook/internal/eval"
 	"github.com/ogngnaoh/capycook/internal/eventlog"
+	"github.com/ogngnaoh/capycook/internal/llm"
 	"github.com/ogngnaoh/capycook/internal/store"
+	"github.com/ogngnaoh/capycook/internal/telemetry"
 )
 
 // Fixture paths relative to this package (cmd/eval).
@@ -171,6 +175,29 @@ func TestKappaCommand(t *testing.T) {
 
 // --- replay ---
 
+func TestWriteGateDynamicsSessionGrammar(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		sessions int
+		want     string
+	}{
+		{name: "zero", sessions: 0, want: "across 0 sessions"},
+		{name: "singular", sessions: 1, want: "across 1 session,"},
+		{name: "plural", sessions: 2, want: "across 2 sessions"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			writeGateDynamics(&out, eval.GateDynamics{
+				Total:    &eval.Dynamics{Counts: map[string]int{}},
+				Sessions: tc.sessions,
+			})
+			if !strings.Contains(out.String(), tc.want) {
+				t.Errorf("output missing %q:\n%s", tc.want, out.String())
+			}
+		})
+	}
+}
+
 func TestReplayCommand(t *testing.T) {
 	db := seedEventDB(t)
 	code, stdout, stderr := runCLI(t, "replay", "--db", db)
@@ -223,8 +250,9 @@ func TestRunCommandStubAllArms(t *testing.T) {
 	if strings.Contains(stderr, "UNRATIFIED") {
 		t.Errorf("explicit --seeds must not print the unratified-default warning, stderr=%q", stderr)
 	}
-	mustContain(t, "run summary", stdout, "stub", "UNLABELED")
-	// 2 synthetic seeds × 3 claims each (arithmetic in internal/eval/runner_test.go).
+	mustContain(t, "run summary", stdout, "stub",
+		"label_r1/label_r2 are EMPTY — author R1 and judge R2 label Tier-2 claims (PREREG §9 Amendment 1)")
+	// 2 synthetic seeds × 4 claims each (arithmetic in internal/eval/runner_test.go).
 	for _, arm := range eval.Arms {
 		path := filepath.Join(outDir, "claims_"+arm+".jsonl")
 		mustContain(t, "run summary", stdout, path)
@@ -237,16 +265,73 @@ func TestRunCommandStubAllArms(t *testing.T) {
 		if err != nil {
 			t.Fatalf("arm %s: ReadClaims: %v", arm, err)
 		}
-		if len(claims) != 6 {
-			t.Errorf("arm %s: %d claims, want 6", arm, len(claims))
+		if len(claims) != 8 {
+			t.Errorf("arm %s: %d claims, want 8", arm, len(claims))
 		}
+		// The S3-exit coverage flag (PREREG §9 Amendment 1): the operator must
+		// see per-arm how many claims the Tier-1 verifier settled machine-side
+		// vs. how many fell through to Tier 2.
+		tc := eval.Tier1Coverage(claims)
+		wantTier1 := fmt.Sprintf("tier-1: %-11s %d/%d labeled (fell through to Tier 2: %d)",
+			arm, tc.Labeled, tc.Labeled+tc.FellThrough, tc.FellThrough)
+		mustContain(t, "run summary", stdout, wantTier1)
 		for _, c := range claims {
-			// The phase-4 stop-line: exports are labeling-ready, never labeled.
+			// The Amendment-1 stop-line: label_r1/label_r2 come only from the
+			// author (R1) and the judge (R2) — never from this code. label_tier1
+			// is machine-written by the Tier-1 verifier and may be non-empty.
 			if c.LabelR1 != "" || c.LabelR2 != "" {
-				t.Errorf("claim %s carries labels (%q/%q) — labels only ever come from human raters", c.ClaimID, c.LabelR1, c.LabelR2)
+				t.Errorf("claim %s carries labels (%q/%q) — label_r1/label_r2 only ever come from author R1 / judge R2 (PREREG §9 Amendment 1)", c.ClaimID, c.LabelR1, c.LabelR2)
 			}
 		}
 	}
+}
+
+// The live campaign must be traceable OTel→Langfuse (milestone-02 spec Part 2
+// "runs traced"); buildDeps wires the tracer from LANGFUSE_* env exactly like
+// cmd/server — but only for --live runs: stub dry-runs must never export
+// spans into the real Langfuse project (harness/operator separation, same as
+// the event log's run_kind). The operator always sees which mode is active.
+func TestBuildDepsTelemetry(t *testing.T) {
+	build := func(t *testing.T, traced bool) (telemetry.Tracer, string) {
+		t.Helper()
+		var out bytes.Buffer
+		deps, cleanup, err := buildDeps(filepath.Join(t.TempDir(), "t.db"), testDataDirPath, llm.Stub{}, traced, &out)
+		if err != nil {
+			t.Fatalf("buildDeps: %v", err)
+		}
+		t.Cleanup(cleanup)
+		return deps.Tracer, out.String()
+	}
+	t.Run("live, no keys: noop tracer, explicit notice", func(t *testing.T) {
+		t.Setenv("LANGFUSE_PUBLIC_KEY", "")
+		t.Setenv("LANGFUSE_SECRET_KEY", "")
+		t.Setenv("LANGFUSE_HOST", "")
+		tracer, out := build(t, true)
+		if _, ok := tracer.(telemetry.Noop); !ok {
+			t.Errorf("Tracer = %T, want telemetry.Noop without LANGFUSE_* keys", tracer)
+		}
+		mustContain(t, "buildDeps stdout", out, "telemetry: no-op")
+	})
+	t.Run("live, keys set: real tracer, enabled banner", func(t *testing.T) {
+		t.Setenv("LANGFUSE_PUBLIC_KEY", "pk")
+		t.Setenv("LANGFUSE_SECRET_KEY", "sk")
+		t.Setenv("LANGFUSE_HOST", "https://lf.example")
+		tracer, out := build(t, true)
+		if _, ok := tracer.(telemetry.Noop); ok {
+			t.Error("Tracer is the no-op — LANGFUSE_* keys must wire the real exporter (spec: runs traced OTel→Langfuse)")
+		}
+		mustContain(t, "buildDeps stdout", out, "Langfuse enabled")
+	})
+	t.Run("stub, keys set: never exports", func(t *testing.T) {
+		t.Setenv("LANGFUSE_PUBLIC_KEY", "pk")
+		t.Setenv("LANGFUSE_SECRET_KEY", "sk")
+		t.Setenv("LANGFUSE_HOST", "https://lf.example")
+		tracer, out := build(t, false)
+		if _, ok := tracer.(telemetry.Noop); !ok {
+			t.Errorf("Tracer = %T on a stub run — dry-run spans must never reach the real Langfuse project", tracer)
+		}
+		mustContain(t, "buildDeps stdout", out, "telemetry: off (stub run")
+	})
 }
 
 func TestRunCommandSingleArm(t *testing.T) {
@@ -445,21 +530,21 @@ func writeUnlabeledClaims(t *testing.T, dir, arm string, n int) string {
 func TestExportLabelsCommand(t *testing.T) {
 	dir := t.TempDir()
 	paths := []string{
-		writeUnlabeledClaims(t, dir, "ungrounded", 5),  // k = max(1, round(0.9)) = 1
-		writeUnlabeledClaims(t, dir, "flavorgraph", 4), // k = 1
-		writeUnlabeledClaims(t, dir, "grounded", 3),    // k = 1
+		writeUnlabeledClaims(t, dir, "ungrounded", 5),
+		writeUnlabeledClaims(t, dir, "flavorgraph", 4),
+		writeUnlabeledClaims(t, dir, "grounded", 3),
 	}
 	out := filepath.Join(dir, "labels.csv")
 	code, stdout, stderr := runCLI(t, "export-labels", "--claims", strings.Join(paths, ","), "--out", out)
 	if code != 0 {
 		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
 	}
-	// Seed + per-arm marks are printed so the operator can see the pinned
-	// sampler at work; labels are EMPTY by the stop-line.
+	// All 12 claims are Tier-2 (label_tier1 empty): none is filtered out, and
+	// every row is double-labeled — no sampler, no per-arm rate (Amendment 1).
 	mustContain(t, "export summary", stdout,
-		"seed=20260706",
-		"ungrounded  1/5", "flavorgraph 1/4", "grounded    1/3",
-		"EMPTY", "human raters",
+		"tier-2 sheet: 12 claims (tier-1 already labeled: 0)",
+		"every row double-labeled", "Amendment 1",
+		"EMPTY",
 	)
 
 	raw, err := os.ReadFile(out)
@@ -472,8 +557,8 @@ func TestExportLabelsCommand(t *testing.T) {
 			marked++
 		}
 	}
-	if marked != 3 {
-		t.Errorf("marked rows = %d, want 3 (one per arm)", marked)
+	if marked != 12 {
+		t.Errorf("marked rows = %d, want 12 (every row double-labeled)", marked)
 	}
 	f, err := os.Open(out)
 	if err != nil {
@@ -542,6 +627,460 @@ func TestImportLabelsCommand(t *testing.T) {
 	}
 	if _, err := os.Stat(badOut); !os.IsNotExist(err) {
 		t.Errorf("rejected import still wrote %s (stat err = %v)", badOut, err)
+	}
+}
+
+// --- judge (Task 20: Tier-2 R2 labeling) ---
+
+// fakeJudge is the test-only judgeClient double: it returns a canned verdict
+// (or error) and counts calls, so tests can assert exactly which claims the
+// CLI actually sent to the judge. budgetAt (1-indexed, 0 = never) makes it
+// return llm.ErrBudgetExhausted on that call, so a test can exercise the
+// mid-run budget hard-stop.
+type fakeJudge struct {
+	calls    int
+	verdict  llm.JudgeVerdict
+	err      error
+	budgetAt int
+}
+
+func (f *fakeJudge) LabelClaim(ctx context.Context, text, source string) (llm.JudgeVerdict, error) {
+	f.calls++
+	if f.budgetAt != 0 && f.calls == f.budgetAt {
+		return llm.JudgeVerdict{}, fmt.Errorf("call %d: %w", f.calls, llm.ErrBudgetExhausted)
+	}
+	return f.verdict, f.err
+}
+
+// withFakeJudge overrides the package-level judgeFactory seam for the
+// duration of the test, restoring the original (real, live-gated) factory on
+// cleanup.
+func withFakeJudge(t *testing.T, fj *fakeJudge) {
+	t.Helper()
+	orig := judgeFactory
+	judgeFactory = func(dbPath string, stdout io.Writer) (judgeClient, error) {
+		return fj, nil
+	}
+	t.Cleanup(func() { judgeFactory = orig })
+}
+
+// judge refuses without --live: there is no stub judging (a canned label
+// would be fabricated data), so the CLI must name both the missing flag and
+// the underlying env gate it maps to — mirroring run --live's refusal shape.
+func TestJudgeCommandRefusesNonLive(t *testing.T) {
+	dir := t.TempDir()
+	claimsPath := writeUnlabeledClaims(t, dir, "grounded", 1)
+	outPath := filepath.Join(dir, "claims_judged.jsonl")
+
+	code, _, stderr := runCLI(t, "judge", "--claims", claimsPath, "--out", outPath)
+	if code != 1 {
+		t.Fatalf("code=%d stderr=%q, want 1", code, stderr)
+	}
+	mustContain(t, "judge non-live refusal", stderr, "--live", "CAPYCOOK_LIVE_TEST")
+	if _, err := os.Stat(outPath); !os.IsNotExist(err) {
+		t.Errorf("refused judge run still wrote %s", outPath)
+	}
+}
+
+// judge only labels claims with both label_tier1 and label_r2 empty: a
+// tier-1-settled claim is never judged, and a claim already carrying label_r2
+// is skipped (idempotent resume) — over this 3-claim file exactly one claim
+// is eligible, so the fake judge must see exactly one call.
+func TestJudgeCommandLabelsOnlyEligibleClaims(t *testing.T) {
+	dir := t.TempDir()
+	claims := []eval.Claim{
+		{ClaimID: "clm-1", Arm: "grounded", Dish: "dish-1", Text: "text one", Source: "source one", LabelTier1: eval.LabelGroundedCorrect},
+		{ClaimID: "clm-2", Arm: "grounded", Dish: "dish-1", Text: "text two", Source: "source two", LabelR2: eval.LabelHallucinated},
+		{ClaimID: "clm-3", Arm: "grounded", Dish: "dish-1", Text: "text three", Source: "source three"},
+	}
+	claimsPath := filepath.Join(dir, "claims.jsonl")
+	if err := eval.WriteClaims(claimsPath, claims); err != nil {
+		t.Fatalf("write claims fixture: %v", err)
+	}
+	outPath := filepath.Join(dir, "claims_judged.jsonl")
+
+	fj := &fakeJudge{verdict: llm.JudgeVerdict{Label: eval.LabelGroundedCorrect, Rationale: "fake rationale"}}
+	withFakeJudge(t, fj)
+
+	code, stdout, stderr := runCLI(t, "judge", "--live", "--claims", claimsPath, "--out", outPath)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	if fj.calls != 1 {
+		t.Fatalf("LabelClaim calls = %d, want 1 (only clm-3 is eligible)", fj.calls)
+	}
+	mustContain(t, "judge summary", stdout,
+		"judge R2: 1 labeled, 1 skipped (already labeled), 1 tier-1 (not judged)")
+
+	f, err := os.Open(outPath)
+	if err != nil {
+		t.Fatalf("open judged output: %v", err)
+	}
+	defer f.Close()
+	got, err := eval.ReadClaims(f)
+	if err != nil {
+		t.Fatalf("ReadClaims: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("output claims = %d, want 3 (every claim carried through)", len(got))
+	}
+	byID := map[string]eval.Claim{}
+	for _, c := range got {
+		byID[c.ClaimID] = c
+	}
+	if byID["clm-1"].LabelR2 != "" {
+		t.Errorf("tier-1-labeled claim got label_r2 = %q, want empty (never judged)", byID["clm-1"].LabelR2)
+	}
+	if byID["clm-2"].LabelR2 != eval.LabelHallucinated {
+		t.Errorf("already-labeled claim label_r2 changed to %q, want unchanged %q", byID["clm-2"].LabelR2, eval.LabelHallucinated)
+	}
+	if byID["clm-3"].LabelR2 != eval.LabelGroundedCorrect {
+		t.Errorf("eligible claim label_r2 = %q, want %q (from the fake judge)", byID["clm-3"].LabelR2, eval.LabelGroundedCorrect)
+	}
+}
+
+// A claim the judge errors on after retries keeps label_r2 empty and is
+// counted abstained rather than failing the whole run — the summary surfaces
+// the count only when it's non-zero.
+func TestJudgeCommandAbstainsOnJudgeError(t *testing.T) {
+	dir := t.TempDir()
+	claimsPath := writeUnlabeledClaims(t, dir, "grounded", 1)
+	outPath := filepath.Join(dir, "claims_judged.jsonl")
+
+	fj := &fakeJudge{err: errors.New("exhausted retries")}
+	withFakeJudge(t, fj)
+
+	code, stdout, stderr := runCLI(t, "judge", "--live", "--claims", claimsPath, "--out", outPath)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0 (abstain is not fatal)", code, stderr)
+	}
+	mustContain(t, "judge abstain summary", stdout,
+		"judge R2: 0 labeled, 0 skipped (already labeled), 0 tier-1 (not judged), 1 abstained")
+
+	f, err := os.Open(outPath)
+	if err != nil {
+		t.Fatalf("open judged output: %v", err)
+	}
+	defer f.Close()
+	got, err := eval.ReadClaims(f)
+	if err != nil {
+		t.Fatalf("ReadClaims: %v", err)
+	}
+	if len(got) != 1 || got[0].LabelR2 != "" {
+		t.Fatalf("got claims = %+v, want 1 claim with label_r2 empty", got)
+	}
+}
+
+// Budget exhaustion is a hard-stop on the shared cap, not a per-claim abstain:
+// once LabelClaim returns llm.ErrBudgetExhausted the loop stops early, every
+// remaining claim keeps label_r2 empty, and a distinct final line reports the
+// unjudged count alongside the (correct) labeled count.
+func TestJudgeCommandStopsEarlyOnBudgetExhaustion(t *testing.T) {
+	dir := t.TempDir()
+	claims := []eval.Claim{
+		{ClaimID: "clm-1", Arm: "grounded", Dish: "dish-1", Text: "text one", Source: "src one"},
+		{ClaimID: "clm-2", Arm: "grounded", Dish: "dish-1", Text: "text two", Source: "src two"},
+		{ClaimID: "clm-3", Arm: "grounded", Dish: "dish-1", Text: "text three", Source: "src three"},
+	}
+	claimsPath := filepath.Join(dir, "claims.jsonl")
+	if err := eval.WriteClaims(claimsPath, claims); err != nil {
+		t.Fatalf("write claims fixture: %v", err)
+	}
+	outPath := filepath.Join(dir, "claims_judged.jsonl")
+
+	// Call 1 labels clm-1; call 2 (clm-2) hits the cap and stops the loop —
+	// clm-3 is never even sent.
+	fj := &fakeJudge{verdict: llm.JudgeVerdict{Label: eval.LabelGroundedCorrect, Rationale: "r"}, budgetAt: 2}
+	withFakeJudge(t, fj)
+
+	code, stdout, stderr := runCLI(t, "judge", "--live", "--claims", claimsPath, "--out", outPath)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0 (budget stop is a clean early exit, not a failure)", code, stderr)
+	}
+	if fj.calls != 2 {
+		t.Fatalf("LabelClaim calls = %d, want 2 (loop must stop at the cap, not send clm-3)", fj.calls)
+	}
+	mustContain(t, "judge budget-stop summary", stdout,
+		"judge R2: 1 labeled, 0 skipped (already labeled), 0 tier-1 (not judged)",
+		"budget cap reached — stopped with 2 claims unjudged (label_r2 empty)")
+
+	f, err := os.Open(outPath)
+	if err != nil {
+		t.Fatalf("open judged output: %v", err)
+	}
+	defer f.Close()
+	got, err := eval.ReadClaims(f)
+	if err != nil {
+		t.Fatalf("ReadClaims: %v", err)
+	}
+	byID := map[string]eval.Claim{}
+	for _, c := range got {
+		byID[c.ClaimID] = c
+	}
+	if byID["clm-1"].LabelR2 != eval.LabelGroundedCorrect {
+		t.Errorf("clm-1 label_r2 = %q, want %q (labeled before the cap)", byID["clm-1"].LabelR2, eval.LabelGroundedCorrect)
+	}
+	if byID["clm-2"].LabelR2 != "" || byID["clm-3"].LabelR2 != "" {
+		t.Errorf("post-cap claims label_r2 = %q/%q, want both empty (unjudged)", byID["clm-2"].LabelR2, byID["clm-3"].LabelR2)
+	}
+}
+
+// --- blind kit (PREREG §9 Amendment 1 R1 blinding + verifier↔author
+// blind-check) ---
+
+func TestExportLabelsBlindCommand(t *testing.T) {
+	dir := t.TempDir()
+	paths := []string{
+		writeUnlabeledClaims(t, dir, "ungrounded", 3),
+		writeUnlabeledClaims(t, dir, "flavorgraph", 3),
+		writeUnlabeledClaims(t, dir, "grounded", 3),
+	}
+	out := filepath.Join(dir, "labels_blind.csv")
+	mapOut := filepath.Join(dir, "labels_blind_map.csv")
+	code, stdout, stderr := runCLI(t, "export-labels", "--blind", "--claims", strings.Join(paths, ","), "--out", out, "--map", mapOut)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	mustContain(t, "blind export summary", stdout,
+		"tier-2 sheet: 9 claims (tier-1 already labeled: 0)",
+		"blind sheet -> "+out,
+		"blind map -> "+mapOut,
+		"do not open the map until R1 labeling is done",
+	)
+
+	f, err := os.Open(out)
+	if err != nil {
+		t.Fatalf("open blind sheet: %v", err)
+	}
+	sheet, err := eval.ReadBlindCSV(f)
+	f.Close()
+	if err != nil {
+		t.Fatalf("ReadBlindCSV: %v", err)
+	}
+	if len(sheet) != 9 {
+		t.Errorf("blind sheet rows = %d, want 9", len(sheet))
+	}
+	for _, h := range eval.BlindCSVHeader {
+		if h == "arm" || h == "claim_id" {
+			t.Errorf("blind sheet header carries a %q column", h)
+		}
+	}
+
+	mapRaw, err := os.ReadFile(mapOut)
+	if err != nil {
+		t.Fatalf("read blind map: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(mapRaw)), "\n")
+	if len(lines) != 10 { // header + 9 rows
+		t.Errorf("blind map lines = %d, want 10 (header + 9 rows)", len(lines))
+	}
+
+	if code, _, stderr := runCLI(t, "export-labels", "--blind", "--out", out); code != 1 || !strings.Contains(stderr, "--claims") {
+		t.Errorf("missing --claims (blind): code=%d stderr=%q, want 1 naming the flag", code, stderr)
+	}
+}
+
+func TestImportLabelsBlindCommand(t *testing.T) {
+	dir := t.TempDir()
+	paths := []string{
+		writeUnlabeledClaims(t, dir, "ungrounded", 2),
+		writeUnlabeledClaims(t, dir, "flavorgraph", 2),
+	}
+	blindOut := filepath.Join(dir, "labels_blind.csv")
+	mapOut := filepath.Join(dir, "labels_blind_map.csv")
+	if code, _, stderr := runCLI(t, "export-labels", "--blind", "--claims", strings.Join(paths, ","), "--out", blindOut, "--map", mapOut); code != 0 {
+		t.Fatalf("export-labels --blind: code=%d stderr=%q", code, stderr)
+	}
+
+	// Simulate the author blind-labeling every row of the sheet.
+	f, err := os.Open(blindOut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheet, err := eval.ReadBlindCSV(f)
+	f.Close()
+	if err != nil {
+		t.Fatalf("ReadBlindCSV: %v", err)
+	}
+	for i := range sheet {
+		sheet[i].LabelR1 = eval.LabelGroundedCorrect
+	}
+	sf, err := os.Create(blindOut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := eval.WriteBlindCSV(sf, sheet); err != nil {
+		t.Fatal(err)
+	}
+	if err := sf.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// RejoinBlind needs the original claims to write label_r1 onto: combine
+	// the two arm files export-labels read from.
+	var all []eval.Claim
+	for _, p := range paths {
+		pf, err := os.Open(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cs, err := eval.ReadClaims(pf)
+		pf.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		all = append(all, cs...)
+	}
+	claimsCombined := filepath.Join(dir, "claims_all.jsonl")
+	if err := eval.WriteClaims(claimsCombined, all); err != nil {
+		t.Fatal(err)
+	}
+
+	out := filepath.Join(dir, "claims_labeled.jsonl")
+	code, stdout, stderr := runCLI(t, "import-labels", "--blind", "--csv", blindOut, "--map", mapOut, "--claims", claimsCombined, "--out", out)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	mustContain(t, "blind import summary", stdout, "4 imported", "4 labeled by R1", out)
+
+	rf, err := os.Open(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	labeled, err := eval.ReadClaims(rf)
+	rf.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(labeled) != 4 {
+		t.Fatalf("labeled claims = %d, want 4", len(labeled))
+	}
+	for _, c := range labeled {
+		if c.LabelR1 != eval.LabelGroundedCorrect {
+			t.Errorf("claim %s label_r1 = %q, want %q", c.ClaimID, c.LabelR1, eval.LabelGroundedCorrect)
+		}
+	}
+
+	if code, _, stderr := runCLI(t, "import-labels", "--blind", "--csv", blindOut, "--claims", claimsCombined, "--out", out); code != 1 || !strings.Contains(stderr, "--map") {
+		t.Errorf("missing --map: code=%d stderr=%q, want 1 naming the flag", code, stderr)
+	}
+}
+
+// tier1LabeledClaims builds n claims per arm, every one already Tier-1-
+// labeled (label_tier1 = label) — the verifier↔author blind-check draws
+// from exactly this subset.
+func tier1LabeledClaims(arms []string, label string, n int) []eval.Claim {
+	var claims []eval.Claim
+	for _, arm := range arms {
+		for i := 0; i < n; i++ {
+			claims = append(claims, eval.Claim{
+				ClaimID:    fmt.Sprintf("clm-%s-bench-01-%03d", arm, i+1),
+				Arm:        arm,
+				Dish:       "bench-01",
+				Text:       fmt.Sprintf("SYNTHETIC claim %d", i+1),
+				LabelTier1: label,
+			})
+		}
+	}
+	return claims
+}
+
+func TestBlindCheckCommand(t *testing.T) {
+	dir := t.TempDir()
+	claims := tier1LabeledClaims([]string{"ungrounded", "flavorgraph", "grounded"}, eval.LabelGroundedCorrect, 3)
+	claimsPath := filepath.Join(dir, "claims_tier1.jsonl")
+	if err := eval.WriteClaims(claimsPath, claims); err != nil {
+		t.Fatal(err)
+	}
+
+	out := filepath.Join(dir, "blind_check.csv")
+	code, stdout, stderr := runCLI(t, "blind-check", "--claims", claimsPath, "--out", out)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	mustContain(t, "blind-check summary", stdout,
+		"blind-check sample: 9 of 9 Tier-1-labeled claims",
+		"blind-check sheet -> "+out,
+		"label_tier1 is withheld",
+	)
+
+	f, err := os.Open(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	sheet, err := eval.ReadBlindCSV(f)
+	if err != nil {
+		t.Fatalf("ReadBlindCSV: %v", err)
+	}
+	if len(sheet) != 9 {
+		t.Errorf("blind-check sheet rows = %d, want 9", len(sheet))
+	}
+	mapPath := filepath.Join(dir, "blind_check_map.csv")
+	if _, err := os.Stat(mapPath); err != nil {
+		t.Errorf("derived map path %s missing: %v", mapPath, err)
+	}
+
+	unlabeledPath := writeUnlabeledClaims(t, dir, "grounded", 2)
+	if code, _, stderr := runCLI(t, "blind-check", "--claims", unlabeledPath, "--out", filepath.Join(dir, "bc2.csv")); code != 1 || !strings.Contains(stderr, "no Tier-1-labeled claims") {
+		t.Errorf("no tier-1 claims: code=%d stderr=%q, want 1 naming it", code, stderr)
+	}
+}
+
+func TestBlindCheckScoreCommand(t *testing.T) {
+	dir := t.TempDir()
+	claims := tier1LabeledClaims([]string{"ungrounded", "flavorgraph", "grounded"}, eval.LabelGroundedCorrect, 3)
+	claimsPath := filepath.Join(dir, "claims_tier1.jsonl")
+	if err := eval.WriteClaims(claimsPath, claims); err != nil {
+		t.Fatal(err)
+	}
+
+	sheetPath := filepath.Join(dir, "blind_check.csv")
+	mapPath := filepath.Join(dir, "blind_check_map.csv")
+	if code, _, stderr := runCLI(t, "blind-check", "--claims", claimsPath, "--out", sheetPath, "--map", mapPath); code != 0 {
+		t.Fatalf("blind-check: code=%d stderr=%q", code, stderr)
+	}
+
+	f, err := os.Open(sheetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheet, err := eval.ReadBlindCSV(f)
+	f.Close()
+	if err != nil {
+		t.Fatalf("ReadBlindCSV: %v", err)
+	}
+	// The author agrees on every row but one — exercises both the agreement
+	// count and a non-trivial confusion cell.
+	for i := range sheet {
+		if i == 0 {
+			sheet[i].LabelR1 = eval.LabelHallucinated
+		} else {
+			sheet[i].LabelR1 = eval.LabelGroundedCorrect
+		}
+	}
+	sf, err := os.Create(sheetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := eval.WriteBlindCSV(sf, sheet); err != nil {
+		t.Fatal(err)
+	}
+	if err := sf.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	code, stdout, stderr := runCLI(t, "blind-check-score", "--csv", sheetPath, "--map", mapPath, "--claims", claimsPath)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%q, want 0", code, stderr)
+	}
+	mustContain(t, "blind-check-score summary", stdout,
+		fmt.Sprintf("verifier↔author agreement: %d/9", len(sheet)-1),
+		eval.LabelGroundedCorrect+" -> "+eval.LabelHallucinated+": 1",
+	)
+
+	if code, _, stderr := runCLI(t, "blind-check-score", "--csv", sheetPath, "--map", mapPath); code != 1 || !strings.Contains(stderr, "--claims") {
+		t.Errorf("missing --claims: code=%d stderr=%q, want 1 naming the flag", code, stderr)
 	}
 }
 

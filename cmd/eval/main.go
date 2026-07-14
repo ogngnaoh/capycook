@@ -7,14 +7,16 @@
 // everything into paste-ready markdown on stdout plus a JSON document).
 //
 // Phase-4 rails the CLI enforces rather than merely documents: exported
-// claims are UNLABELED (labels only ever come from human raters); benchmark
-// seeds default to the UNRATIFIED draft with a printed warning until Gate C
-// ratifies eval/fixtures/seeds.json; gate dynamics fold run_kind=operator
-// events only and always carry the explicit N + single-operator caveat.
+// claims carry no human labels (label_r1/label_r2 empty at export); seeds
+// resolve to the Gate-C-ratified eval/fixtures/seeds.json (2026-07-07),
+// falling back to the archived draft only if the fixture is missing; gate
+// dynamics fold run_kind=operator events only and always carry the explicit
+// N + single-operator caveat.
 package main
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -34,6 +36,7 @@ import (
 	"github.com/ogngnaoh/capycook/internal/orchestrator"
 	"github.com/ogngnaoh/capycook/internal/services"
 	"github.com/ogngnaoh/capycook/internal/store"
+	"github.com/ogngnaoh/capycook/internal/telemetry"
 )
 
 // Default instrument and data locations, relative to the repo root (the
@@ -41,7 +44,7 @@ import (
 const (
 	defaultScriptPath = "eval/fixtures/move_script.json"
 	ratifiedSeeds     = "eval/fixtures/seeds.json"
-	proposedSeeds     = "docs/01-end-to-end/proposed-benchmark-seeds.json"
+	proposedSeeds     = "docs/archive/01-end-to-end/proposed-benchmark-seeds.json"
 	defaultOutDir     = "eval/out"
 )
 
@@ -61,9 +64,11 @@ const (
 		"belongs to the writeup, not this tool; at ~30–40 double-labeled claims the confidence " +
 		"interval is wide."
 	bannerNoLabels = "NO LABELED DATA — no labeled-claim file (--labels): every rate and κ below is " +
-		"absent by design; exported claims stay UNLABELED until human labeling (PREREG §7)."
+		"absent by design; exported claims stay UNLABELED until Tier-2 labeling (author R1 + " +
+		"judge R2, PREREG §9 Amendment 1)."
 	bannerUnlabeled = "UNLABELED — the claims file carries no label_r1 values yet: rates and κ await " +
-		"human labeling (PREREG §7); the explicit zero denominators below carry the message."
+		"Tier-2 labeling (author R1 + judge R2, PREREG §9 Amendment 1); the explicit zero " +
+		"denominators below carry the message."
 )
 
 // errUsage marks flag/usage errors: the flag package (or the caller) has
@@ -92,6 +97,12 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		err = cmdExportLabels(args[1:], stdout, stderr)
 	case "import-labels":
 		err = cmdImportLabels(args[1:], stdout, stderr)
+	case "judge":
+		err = cmdJudge(args[1:], stdout, stderr)
+	case "blind-check":
+		err = cmdBlindCheck(args[1:], stdout, stderr)
+	case "blind-check-score":
+		err = cmdBlindCheckScore(args[1:], stdout, stderr)
 	case "kappa":
 		err = cmdKappa(args[1:], stdout, stderr)
 	case "report":
@@ -131,11 +142,25 @@ func usage(w io.Writer) {
   report  compose rates + κ + gate dynamics into markdown (stdout) + JSON
 
   export-labels
-          turn the run subcommand's UNLABELED claims JSONL into a labeler CSV
-          sheet, marking the seeded stratified double-label subset for R2
+          filter the run subcommand's claims JSONL down to Tier-2 claims
+          (label_tier1 empty) and write a labeler CSV sheet, every row
+          marked for double-labeling (PREREG §9 Amendment 1: 100% coverage)
   import-labels
           validate a labeled CSV sheet against the five frozen PREREG §7a
           categories and write the labeled-claim JSONL rates/kappa consume
+          (--blind rejoins a blind sheet via --map onto --claims first)
+  judge   run the Tier-2 R2 judge over a claims JSONL, writing label_r2
+          (live-gated like run --live, sharing its budget cap; idempotent —
+          re-running resumes past already-labeled/tier-1 claims)
+
+  blind-check
+          draw the seeded verifier<->author blind-check sample (Tier-1-
+          labeled claims, stratified per arm) and export it as a blind sheet
+          with label_tier1 withheld (PREREG §9 Amendment 1 verifier
+          validation)
+  blind-check-score
+          score an author-filled blind-check sheet against label_tier1:
+          agreement + confusion counts
 
 Run 'eval <subcommand> -h' for flags.
 `)
@@ -180,6 +205,7 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 	dataDir := fs.String("data", defaultDataDir(), "committed data/ assets directory")
 	outDir := fs.String("out", defaultOutDir, "output directory for claims_<arm>.jsonl (gitignored)")
 	live := fs.Bool("live", false, "use the live DeepSeek client instead of the stub (requires CAPYCOOK_LIVE_TEST=1 and DEEPSEEK_API_KEY; spends the metered budget)")
+	moveTimeout := fs.Duration("move-timeout", 660*time.Second, "per-move outcome wait — must cover up to 5 live LLM attempts at 120s each (<=0 falls back to the runner's 30s stub-era default)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -215,7 +241,7 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	deps, cleanup, err := buildDeps(*db, *dataDir, edge)
+	deps, cleanup, err := buildDeps(*db, *dataDir, edge, *live, stdout)
 	if err != nil {
 		return err
 	}
@@ -225,7 +251,7 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 	fmt.Fprintf(stdout, "script: %s (version %d, %d moves, policy %s/%s)\n",
 		*scriptFlag, script.Version, len(script.Moves), script.Policy.Verb, script.Policy.OnBlocked)
 
-	byArm, err := eval.Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: *outDir}.Run(context.Background(), arms)
+	byArm, skipped, err := eval.Runner{Deps: deps, Script: script, Seeds: seeds, OutDir: *outDir, Timeout: *moveTimeout}.Run(context.Background(), arms)
 	if err != nil {
 		return err
 	}
@@ -234,9 +260,23 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 		ran = eval.Arms
 	}
 	for _, a := range ran {
-		fmt.Fprintf(stdout, "arm %-11s %3d claims -> %s\n", a, len(byArm[a]), filepath.Join(*outDir, "claims_"+a+".jsonl"))
+		claims := byArm[a]
+		fmt.Fprintf(stdout, "arm %-11s %3d claims -> %s\n", a, len(claims), filepath.Join(*outDir, "claims_"+a+".jsonl"))
+		// Retry-policy skips (PREREG §9 amendment): reported per arm, never
+		// silent — a skipped seed contributes zero claims to this arm and the
+		// completed-seed count is the arm's explicit denominator context.
+		for _, sk := range skipped[a] {
+			fmt.Fprintf(stdout, "arm %-11s SKIPPED seed %s at move %d (%s): %s\n", a, sk.SeedID, sk.Move, sk.MoveType, sk.Reason)
+		}
+		fmt.Fprintf(stdout, "arm %-11s seeds completed: %d/%d\n", a, len(seeds)-len(skipped[a]), len(seeds))
+		// S3-exit coverage flag (PREREG §9 Amendment 1): the operator must see,
+		// per arm, how many claims the Tier-1 verifier settled machine-side vs.
+		// how many fell through to Tier 2 — never inferred from silence.
+		tc := eval.Tier1Coverage(claims)
+		fmt.Fprintf(stdout, "tier-1: %-11s %d/%d labeled (fell through to Tier 2: %d)\n",
+			a, tc.Labeled, tc.Labeled+tc.FellThrough, tc.FellThrough)
 	}
-	fmt.Fprintln(stdout, "all exported claims are UNLABELED (label_r1/label_r2 empty) — labels only ever come from human raters (PREREG §7); harness events carry run_kind=harness and are excluded from H2.")
+	fmt.Fprintln(stdout, "label_r1/label_r2 are EMPTY — author R1 and judge R2 label Tier-2 claims (PREREG §9 Amendment 1); harness events carry run_kind=harness and are excluded from H2.")
 	return nil
 }
 
@@ -289,7 +329,12 @@ func liveLLM(dbPath string, stdout io.Writer) (llm.LLM, error) {
 	if key == "" {
 		return nil, errors.New("refusing --live: DEEPSEEK_API_KEY is not set")
 	}
-	ds, err := llm.NewDeepSeek(llm.DeepSeekConfig{APIKey: key, Meter: meter})
+	// 120s per call, double the interactive-server default: the campaign
+	// generates full drafts (up to maxOutputTokens) and an arm abort loses
+	// the whole arm's spend — generous ceilings only bound failure, healthy
+	// calls return as fast as ever. Keep run's --move-timeout above
+	// 5 attempts × this value.
+	ds, err := llm.NewDeepSeek(llm.DeepSeekConfig{APIKey: key, Meter: meter, CallTimeout: 120 * time.Second})
 	if err != nil {
 		return nil, err
 	}
@@ -306,15 +351,50 @@ func budgetUSD() float64 {
 	return 10
 }
 
-// buildDeps wires the same real deterministic services + grounding cmd/server
-// uses (minus telemetry) over the committed data/ assets, with the given LLM
-// edge, onto the SQLite store at dbPath.
-func buildDeps(dbPath, dataDir string, edge llm.LLM) (orchestrator.Deps, func(), error) {
+// buildDeps wires the same real deterministic services + grounding + tracer
+// cmd/server uses over the committed data/ assets, with the given LLM edge,
+// onto the SQLite store at dbPath. Live campaign runs (traced=true) export
+// OTel→OTLP/HTTP→Langfuse when all three LANGFUSE_* env vars are set
+// (milestone-02 spec Part 2: "runs traced"); missing keys fall back to the
+// no-op, non-fatal. Stub runs never export — dry-run spans in the real
+// Langfuse project would mix harness noise into operator traces, the same
+// separation the event log's run_kind enforces. The active mode is always
+// printed — never inferred from silence.
+func buildDeps(dbPath, dataDir string, edge llm.LLM, traced bool, stdout io.Writer) (orchestrator.Deps, func(), error) {
 	st, err := store.Open(dbPath)
 	if err != nil {
 		return orchestrator.Deps{}, nil, err
 	}
-	cleanup := func() { st.Close() }
+	tracer := telemetry.Tracer(telemetry.Noop{})
+	flushTraces := func(context.Context) error { return nil }
+	if traced {
+		tracer, flushTraces, err = telemetry.Setup(telemetry.Config{
+			PublicKey: os.Getenv("LANGFUSE_PUBLIC_KEY"),
+			SecretKey: os.Getenv("LANGFUSE_SECRET_KEY"),
+			Host:      os.Getenv("LANGFUSE_HOST"),
+		})
+		if err != nil {
+			st.Close()
+			return orchestrator.Deps{}, nil, err
+		}
+		if _, isNoop := tracer.(telemetry.Noop); isNoop {
+			fmt.Fprintln(stdout, "telemetry: no-op — set LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY/LANGFUSE_HOST to export traces")
+		} else {
+			fmt.Fprintf(stdout, "telemetry: OTel -> OTLP/HTTP -> Langfuse enabled (host %s)\n", os.Getenv("LANGFUSE_HOST"))
+		}
+	} else {
+		fmt.Fprintln(stdout, "telemetry: off (stub run — only --live campaign runs export traces)")
+	}
+	cleanup := func() {
+		// Flush batched spans before exit (cmdRun defers this cleanup;
+		// same 5s grace as cmd/server's graceful shutdown).
+		flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := flushTraces(flushCtx); err != nil {
+			fmt.Fprintf(stdout, "telemetry flush failed: %v\n", err)
+		}
+		st.Close()
+	}
 	fail := func(err error) (orchestrator.Deps, func(), error) {
 		cleanup()
 		return orchestrator.Deps{}, nil, err
@@ -361,6 +441,7 @@ func buildDeps(dbPath, dataDir string, edge llm.LLM) (orchestrator.Deps, func(),
 		Nutrition: nutrition,
 		Cost:      cost,
 		Grounding: ground,
+		Tracer:    tracer,
 	}, cleanup, nil
 }
 
@@ -407,8 +488,12 @@ func writeGateDynamics(w io.Writer, g eval.GateDynamics) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, frozenFiveNote)
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "N=%d gate decisions across %d sessions, single operator. move_failed=%d (parse/retry exhaustion — tracked beside the distribution, never inside N).\n",
-		g.Total.N, g.Sessions, g.Total.MoveFailed)
+	sessionNoun := "sessions"
+	if g.Sessions == 1 {
+		sessionNoun = "session"
+	}
+	fmt.Fprintf(w, "N=%d gate decisions across %d %s, single operator. move_failed=%d (parse/retry exhaustion — tracked beside the distribution, never inside N).\n",
+		g.Total.N, g.Sessions, sessionNoun, g.Total.MoveFailed)
 	fmt.Fprintln(w)
 	if g.Total.N == 0 && g.Total.MoveFailed == 0 {
 		fmt.Fprintln(w, "No operator gate decisions in the event log (harness events are excluded from H2).")
@@ -532,7 +617,7 @@ func writeRates(w io.Writer, rates map[string]eval.ArmRates) {
 	fmt.Fprintln(w, ratesNote)
 	fmt.Fprintln(w)
 	if labeledClaims(rates) == 0 {
-		fmt.Fprintln(w, "All claims are UNLABELED — rates await human labeling (PREREG §7).")
+		fmt.Fprintln(w, "All claims are UNLABELED — rates await Tier-2 labeling (author R1 + judge R2, PREREG §9 Amendment 1).")
 		fmt.Fprintln(w)
 	}
 	fmt.Fprint(w, eval.RatesTable(rates))
@@ -548,15 +633,22 @@ func labeledClaims(rates map[string]eval.ArmRates) int {
 
 // --- export-labels / import-labels (plan 4.6 labeling kit) ---
 
-// cmdExportLabels turns the runner's UNLABELED claims exports into one
-// labeler CSV sheet (schema + workflow: eval/fixtures/README.md). The label
-// columns are always empty — the phase-4 stop-line — and the seeded sampler
-// marks the PREREG §6 double-label subset per arm.
+// cmdExportLabels turns the runner's claims exports into one labeler CSV
+// sheet, filtering out every Tier-1-settled claim (label_tier1 non-empty) so
+// the sheet carries Tier-2 claims only (schema + workflow:
+// eval/fixtures/README.md). The label_r1/label_r2 columns are always empty
+// — the Amendment-1 stop-line — and every row is marked for double-labeling:
+// PREREG §9 Amendment 1 sets Tier-2 coverage to 100%, superseding §6's
+// 15–20% sample. --blind exports a blinded sheet instead (opaque blind_id,
+// no arm/claim_id columns, seeded-shuffled row order) plus the sidecar
+// blind_id→claim_id map — PREREG §9 Amendment 1's R1 blinding requirement.
 func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("export-labels", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	claimsFlag := fs.String("claims", "", "comma-separated UNLABELED claims JSONL files (required; the run subcommand's claims_<arm>.jsonl exports)")
-	out := fs.String("out", filepath.Join(defaultOutDir, "labels.csv"), "labeler CSV sheet to write")
+	out := fs.String("out", "", "labeler CSV sheet to write (default: "+filepath.Join(defaultOutDir, "labels.csv")+", or "+filepath.Join(defaultOutDir, "labels_blind.csv")+" with --blind)")
+	blind := fs.Bool("blind", false, "export a blinded sheet: opaque blind_id, no arm/claim_id columns, seeded-shuffled row order (PREREG §9 Amendment 1 R1 blinding)")
+	mapOut := fs.String("map", "", "blind_id→claim_id map CSV to write (--blind only; default: "+filepath.Join(defaultOutDir, "labels_blind_map.csv")+")")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -581,10 +673,38 @@ func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
+
+	fmt.Fprintf(stdout, "claims: %d from %d files\n", len(claims), files)
+	fmt.Fprintf(stdout, "tier-2 sheet: %d claims (tier-1 already labeled: %d) — every row double-labeled (Amendment 1)\n",
+		len(rows), len(claims)-len(rows))
+
+	if *blind {
+		outPath := *out
+		if outPath == "" {
+			outPath = filepath.Join(defaultOutDir, "labels_blind.csv")
+		}
+		mapPath := *mapOut
+		if mapPath == "" {
+			mapPath = filepath.Join(defaultOutDir, "labels_blind_map.csv")
+		}
+		sheet, m := eval.BuildBlindSheet(rows)
+		if err := writeBlindFiles(outPath, mapPath, sheet, m); err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "blind sheet -> %s\n", outPath)
+		fmt.Fprintf(stdout, "blind map -> %s\n", mapPath)
+		fmt.Fprintln(stdout, "do not open the map until R1 labeling is done")
+		return nil
+	}
+
+	outPath := *out
+	if outPath == "" {
+		outPath = filepath.Join(defaultOutDir, "labels.csv")
+	}
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
 		return err
 	}
-	f, err := os.Create(*out)
+	f, err := os.Create(outPath)
 	if err != nil {
 		return err
 	}
@@ -596,53 +716,151 @@ func cmdExportLabels(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	total := map[string]int{}
-	marked := map[string]int{}
-	for _, r := range rows {
-		total[r.Arm]++
-		if r.DoubleLabel {
-			marked[r.Arm]++
-		}
-	}
-	arms := make([]string, 0, len(total))
-	for arm := range total {
-		arms = append(arms, arm)
-	}
-	sort.Strings(arms)
-	fmt.Fprintf(stdout, "claims: %d from %d files\n", len(rows), files)
-	fmt.Fprintf(stdout, "double-label subset: seeded sampler seed=%d rate=%d%% stratified per arm, min 1 (PREREG §6)\n",
-		eval.DoubleLabelSeed, int(eval.DoubleLabelRate*100))
-	for _, arm := range arms {
-		fmt.Fprintf(stdout, "arm %-11s %d/%d marked for R2 (double_label=true)\n", arm, marked[arm], total[arm])
-	}
-	fmt.Fprintf(stdout, "labeler sheet -> %s\n", *out)
-	fmt.Fprintln(stdout, "label_r1/label_r2 are EMPTY — labels only ever come from human raters (PREREG §7).")
+	fmt.Fprintf(stdout, "labeler sheet -> %s\n", outPath)
+	fmt.Fprintln(stdout, "label_r1/label_r2 are EMPTY — author R1 and judge R2 label Tier-2 claims (PREREG §9 Amendment 1).")
 	return nil
+}
+
+// writeBlindFiles writes the blind sheet and its blind_id→claim_id map,
+// creating each file's parent directory as needed.
+func writeBlindFiles(sheetPath, mapPath string, sheet []eval.BlindRow, m map[string]string) error {
+	if err := os.MkdirAll(filepath.Dir(sheetPath), 0o755); err != nil {
+		return err
+	}
+	f, err := os.Create(sheetPath)
+	if err != nil {
+		return err
+	}
+	if err := eval.WriteBlindCSV(f, sheet); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(mapPath), 0o755); err != nil {
+		return err
+	}
+	mf, err := os.Create(mapPath)
+	if err != nil {
+		return err
+	}
+	if err := eval.WriteBlindMap(mf, m); err != nil {
+		mf.Close()
+		return err
+	}
+	return mf.Close()
+}
+
+// readBlindMap parses the blind_id,claim_id sidecar WriteBlindMap writes.
+func readBlindMap(path string) (map[string]string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open blind map: %w", err)
+	}
+	defer f.Close()
+	cr := csv.NewReader(f)
+	header, err := cr.Read()
+	if err != nil {
+		return nil, fmt.Errorf("blind map: read header: %w", err)
+	}
+	if len(header) > 0 {
+		header[0] = strings.TrimPrefix(header[0], "\ufeff")
+	}
+	if len(header) != 2 || header[0] != "blind_id" || header[1] != "claim_id" {
+		return nil, fmt.Errorf("blind map: header %q does not match the pinned blind_id,claim_id schema", strings.Join(header, ","))
+	}
+	m := map[string]string{}
+	for {
+		rec, err := cr.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("blind map: %w", err)
+		}
+		if rec[0] == "" {
+			return nil, errors.New("blind map: empty blind_id")
+		}
+		m[rec[0]] = rec[1]
+	}
+	if len(m) == 0 {
+		return nil, errors.New("blind map: no rows")
+	}
+	return m, nil
 }
 
 // cmdImportLabels validates a labeled sheet (frozen §7a categories only;
 // label_r2 only inside the marked subset) and writes the labeled-claim JSONL
-// that rates/kappa/report consume. Rejection writes nothing.
+// that rates/kappa/report consume. Rejection writes nothing. --blind treats
+// --csv as a blind sheet (opaque blind_id) and rejoins it via --map onto
+// --claims before writing — PREREG §9 Amendment 1's R1 blinding.
 func cmdImportLabels(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("import-labels", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	csvFlag := fs.String("csv", "", "labeled CSV sheet (required)")
+	csvFlag := fs.String("csv", "", "labeled CSV sheet (required; a blind sheet with --blind)")
 	out := fs.String("out", filepath.Join(defaultOutDir, "claims_labeled.jsonl"), "labeled-claim JSONL to write")
+	blind := fs.Bool("blind", false, "--csv is a blind sheet: rejoin via --map onto --claims (PREREG §9 Amendment 1 R1 blinding)")
+	mapFlag := fs.String("map", "", "blind_id→claim_id map CSV (required with --blind)")
+	claimsFlag := fs.String("claims", "", "comma-separated claims JSONL files to rejoin blind labels onto (required with --blind)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if *csvFlag == "" {
 		return errors.New("import-labels: --csv is required (the labeled sheet)")
 	}
-	f, err := os.Open(*csvFlag)
-	if err != nil {
-		return fmt.Errorf("open label sheet: %w", err)
+
+	var claims []eval.Claim
+	if *blind {
+		if *mapFlag == "" {
+			return errors.New("import-labels --blind: --map is required (the blind_id→claim_id map CSV)")
+		}
+		if *claimsFlag == "" {
+			return errors.New("import-labels --blind: --claims is required (comma-separated claims JSONL files to rejoin blind labels onto)")
+		}
+		f, err := os.Open(*csvFlag)
+		if err != nil {
+			return fmt.Errorf("open blind sheet: %w", err)
+		}
+		rows, err := eval.ReadBlindCSV(f)
+		f.Close()
+		if err != nil {
+			return err
+		}
+		m, err := readBlindMap(*mapFlag)
+		if err != nil {
+			return err
+		}
+		var base []eval.Claim
+		for _, p := range strings.Split(*claimsFlag, ",") {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			cs, err := readClaimsFile(p)
+			if err != nil {
+				return err
+			}
+			base = append(base, cs...)
+		}
+		claims, err = eval.RejoinBlind(rows, m, base)
+		if err != nil {
+			return err
+		}
+	} else {
+		f, err := os.Open(*csvFlag)
+		if err != nil {
+			return fmt.Errorf("open label sheet: %w", err)
+		}
+		cs, err := eval.ReadLabelCSV(f)
+		f.Close()
+		if err != nil {
+			return err
+		}
+		claims = cs
 	}
-	claims, err := eval.ReadLabelCSV(f)
-	f.Close()
-	if err != nil {
-		return err
-	}
+
 	if err := eval.WriteClaims(*out, claims); err != nil {
 		return err
 	}
@@ -662,6 +880,296 @@ func cmdImportLabels(args []string, stdout, stderr io.Writer) error {
 		len(claims), labeled, double, unlabeled)
 	fmt.Fprintf(stdout, "labeled claims -> %s\n", *out)
 	fmt.Fprintf(stdout, "next: eval rates --labels=%s · eval kappa --labels=%s\n", *out, *out)
+	return nil
+}
+
+// --- judge (Task 20: Tier-2 R2 labeling, PREREG §9 Amendment 1) ---
+
+// judgeClient is the slice of *llm.Judge cmdJudge needs — narrowed to a
+// package-local interface so tests can substitute a fake judge without going
+// through llm.NewJudge's live-only construction path.
+type judgeClient interface {
+	LabelClaim(ctx context.Context, text, source string) (llm.JudgeVerdict, error)
+}
+
+// judgeFactory builds the judge client cmdJudge labels claims with. The
+// default wraps liveJudge — the only real construction path, so every
+// non-test invocation goes through the same CAPYCOOK_LIVE_TEST +
+// DEEPSEEK_API_KEY gate as liveLLM; tests override this var to return a fake
+// judge with canned verdicts. There is no stub judge path otherwise — a
+// canned label would be fabricated data (phase-4 rail).
+var judgeFactory = func(dbPath string, stdout io.Writer) (judgeClient, error) {
+	return liveJudge(dbPath, stdout)
+}
+
+// liveJudge is judge's counterpart to liveLLM: it opens the UsageMeter on the
+// SAME sidecar ledger (db+".budget.json") liveLLM uses, so generation and
+// judging spend against one shared budget cap, then gates unconditionally on
+// CAPYCOOK_LIVE_TEST=1 + DEEPSEEK_API_KEY exactly like liveLLM.
+func liveJudge(dbPath string, stdout io.Writer) (*llm.Judge, error) {
+	meter, err := llm.OpenUsageMeter(dbPath+".budget.json", budgetUSD())
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintf(stdout, "llm budget: $%.4f spent of $%.2f cap (%s)\n", meter.Spent(), meter.Cap(), dbPath+".budget.json")
+	if os.Getenv("CAPYCOOK_LIVE_TEST") != "1" {
+		return nil, errors.New("refusing --live: CAPYCOOK_LIVE_TEST=1 is required (no live LLM calls outside the Gate-B rail)")
+	}
+	key := os.Getenv("DEEPSEEK_API_KEY")
+	if key == "" {
+		return nil, errors.New("refusing --live: DEEPSEEK_API_KEY is not set")
+	}
+	j, err := llm.NewJudge(llm.DeepSeekConfig{APIKey: key, Meter: meter})
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintf(stdout, "judge: LIVE mode — model %s, usage metered against the cap\n", j.Model())
+	return j, nil
+}
+
+// cmdJudge runs the Tier-2 R2 judge over a claims JSONL: every claim with
+// both LabelTier1 and LabelR2 empty is sent to the judge and its verdict
+// written to label_r2; claims already carrying label_r2 are skipped
+// (idempotent resume — re-running over a partially-judged file picks up
+// where it left off) and tier-1-labeled claims are never judged (Tier 1
+// already settled them). A claim the judge errors on after retries keeps
+// label_r2 empty and is counted abstained, not fatal — every other claim
+// still gets judged and the file still gets written. Budget exhaustion is the
+// one exception: the shared cap is a hard-stop the retry loop can never
+// recover from, so the loop stops early (remaining claims stay unjudged,
+// label_r2 empty) and a distinct final line reports the count. There is no
+// non-live path: a canned judge label would be fabricated data, so --live
+// (plus the CAPYCOOK_LIVE_TEST + DEEPSEEK_API_KEY rail liveJudge enforces) is
+// required.
+func cmdJudge(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("judge", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	claimsFlag := fs.String("claims", "", "claims JSONL file to judge (required)")
+	out := fs.String("out", "", "labeled-claim JSONL to write (required)")
+	db := fs.String("db", defaultDBPath(), "SQLite database path — the shared budget ledger is db+\".budget.json\" (same cap as run --live)")
+	live := fs.Bool("live", false, "use the live DeepSeek judge (required: no stub judging — a canned judge label would be fabricated data)")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if *claimsFlag == "" {
+		return errors.New("judge: --claims is required (a claims JSONL file)")
+	}
+	if *out == "" {
+		return errors.New("judge: --out is required (the labeled-claim JSONL to write)")
+	}
+	if !*live {
+		return errors.New("judge: refusing to run without --live: no stub judging — a canned judge label would be fabricated data " +
+			"(pass --live; requires CAPYCOOK_LIVE_TEST=1 and DEEPSEEK_API_KEY, same rail as run --live)")
+	}
+
+	j, err := judgeFactory(*db, stdout)
+	if err != nil {
+		return err
+	}
+
+	claims, err := readClaimsFile(*claimsFlag)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	labeled, skipped, tier1, abstained := 0, 0, 0, 0
+	// unjudged counts claims left untouched by an early budget stop — distinct
+	// from abstained (a genuine per-claim judge failure). Budget exhaustion is
+	// a hard-stop on the SHARED cap: PreCheck will reject every remaining
+	// claim, so continuing the loop only manufactures identical failures.
+	budgetStopped := false
+	unjudged := 0
+	for i := range claims {
+		c := &claims[i]
+		switch {
+		case budgetStopped:
+			unjudged++
+		case c.LabelTier1 != "":
+			tier1++
+		case c.LabelR2 != "":
+			skipped++
+		default:
+			v, err := j.LabelClaim(ctx, c.Text, c.Source)
+			switch {
+			case err == nil:
+				c.LabelR2 = v.Label
+				labeled++
+			case errors.Is(err, llm.ErrBudgetExhausted):
+				// Stop here: this claim and every remaining one stay unjudged.
+				budgetStopped = true
+				unjudged++
+			default:
+				abstained++
+			}
+		}
+		if (i+1)%10 == 0 {
+			fmt.Fprintf(stdout, "judge: %d/%d claims processed (%d labeled, %d skipped, %d tier-1, %d abstained)\n",
+				i+1, len(claims), labeled, skipped, tier1, abstained)
+		}
+	}
+
+	if err := eval.WriteClaims(*out, claims); err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "labeled claims -> %s\n", *out)
+	summary := fmt.Sprintf("judge R2: %d labeled, %d skipped (already labeled), %d tier-1 (not judged)", labeled, skipped, tier1)
+	if abstained > 0 {
+		summary += fmt.Sprintf(", %d abstained", abstained)
+	}
+	fmt.Fprintln(stdout, summary)
+	if budgetStopped {
+		fmt.Fprintf(stdout, "judge R2: budget cap reached — stopped with %d claims unjudged (label_r2 empty)\n", unjudged)
+	}
+	return nil
+}
+
+// --- blind-check / blind-check-score (PREREG §9 Amendment 1 verifier
+// validation: the author blind-labels a seeded sample of Tier-1-labeled
+// claims; agreement with label_tier1 is the control on Tier-1's residual
+// risk) ---
+
+// cmdBlindCheck draws the seeded blind-check sample from a Tier-1-labeled
+// claims file and exports it as a blind sheet (label_tier1 withheld, same
+// opaque-id/no-arm shape as the R1 blind sheet) plus its blind_id→claim_id
+// map.
+func cmdBlindCheck(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("blind-check", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	claimsFlag := fs.String("claims", "", "Tier-1-labeled claims JSONL (required; label_tier1 non-empty rows are sampled)")
+	out := fs.String("out", filepath.Join(defaultOutDir, "blind_check.csv"), "blind-check sheet CSV to write (label_tier1 withheld)")
+	mapOut := fs.String("map", "", "blind_id→claim_id map CSV to write (default: derived from --out)")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if *claimsFlag == "" {
+		return errors.New("blind-check: --claims is required (a Tier-1-labeled claims JSONL file)")
+	}
+	claims, err := readClaimsFile(*claimsFlag)
+	if err != nil {
+		return err
+	}
+	sample := eval.BuildBlindCheckSample(claims)
+	if len(sample) == 0 {
+		return errors.New("blind-check: no Tier-1-labeled claims found (label_tier1 empty for every claim)")
+	}
+	rows := make([]eval.LabelRow, len(sample))
+	for i, c := range sample {
+		rows[i] = eval.LabelRow{Claim: c}
+	}
+	sheet, m := eval.BuildBlindSheet(rows)
+
+	mapPath := *mapOut
+	if mapPath == "" {
+		mapPath = derivedMapPath(*out)
+	}
+	if err := writeBlindFiles(*out, mapPath, sheet, m); err != nil {
+		return err
+	}
+
+	byArm := map[string]int{}
+	for _, c := range sample {
+		byArm[c.Arm]++
+	}
+	arms := make([]string, 0, len(byArm))
+	for a := range byArm {
+		arms = append(arms, a)
+	}
+	sort.Strings(arms)
+	fmt.Fprintf(stdout, "blind-check sample: %d of %d Tier-1-labeled claims\n", len(sample), tier1LabeledCount(claims))
+	for _, a := range arms {
+		fmt.Fprintf(stdout, "  %-11s %d\n", a, byArm[a])
+	}
+	fmt.Fprintf(stdout, "blind-check sheet -> %s\n", *out)
+	fmt.Fprintf(stdout, "blind-check map -> %s\n", mapPath)
+	fmt.Fprintln(stdout, "label_tier1 is withheld — do not open the map until the author's blind pass is done")
+	return nil
+}
+
+// derivedMapPath appends _map before a blind sheet path's extension
+// (labels_blind.csv -> labels_blind_map.csv), the same convention
+// export-labels' default --map uses.
+func derivedMapPath(out string) string {
+	ext := filepath.Ext(out)
+	return strings.TrimSuffix(out, ext) + "_map" + ext
+}
+
+func tier1LabeledCount(claims []eval.Claim) int {
+	n := 0
+	for _, c := range claims {
+		if c.LabelTier1 != "" {
+			n++
+		}
+	}
+	return n
+}
+
+// cmdBlindCheckScore rejoins an author-filled blind-check sheet back onto
+// the same Tier-1-labeled claims file the sample was drawn from (recomputing
+// the deterministic sample), then reports verifier↔author agreement and the
+// confusion counts.
+func cmdBlindCheckScore(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("blind-check-score", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	csvFlag := fs.String("csv", "", "author-filled blind-check sheet CSV (required)")
+	mapFlag := fs.String("map", "", "blind_id→claim_id map CSV (required)")
+	claimsFlag := fs.String("claims", "", "the same Tier-1-labeled claims JSONL blind-check sampled from (required)")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if *csvFlag == "" {
+		return errors.New("blind-check-score: --csv is required (the author-filled blind-check sheet)")
+	}
+	if *mapFlag == "" {
+		return errors.New("blind-check-score: --map is required (the blind_id→claim_id map)")
+	}
+	if *claimsFlag == "" {
+		return errors.New("blind-check-score: --claims is required (the Tier-1-labeled claims JSONL)")
+	}
+
+	f, err := os.Open(*csvFlag)
+	if err != nil {
+		return fmt.Errorf("open blind-check sheet: %w", err)
+	}
+	rows, err := eval.ReadBlindCSV(f)
+	f.Close()
+	if err != nil {
+		return err
+	}
+	m, err := readBlindMap(*mapFlag)
+	if err != nil {
+		return err
+	}
+	claims, err := readClaimsFile(*claimsFlag)
+	if err != nil {
+		return err
+	}
+	sample := eval.BuildBlindCheckSample(claims)
+	if len(sample) == 0 {
+		return errors.New("blind-check-score: no Tier-1-labeled claims found (label_tier1 empty for every claim)")
+	}
+	authored, err := eval.RejoinBlind(rows, m, claims)
+	if err != nil {
+		return err
+	}
+	agree, total, confusion := eval.ScoreBlindCheck(sample, authored)
+	if total == 0 {
+		return errors.New("blind-check-score: no scored claims (no authored label_r1 matched a sampled claim)")
+	}
+	fmt.Fprintf(stdout, "verifier↔author agreement: %d/%d (%.0f%%)\n", agree, total, float64(agree)/float64(total)*100)
+	keys := make([][2]string, 0, len(confusion))
+	for k := range confusion {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i][0] != keys[j][0] {
+			return keys[i][0] < keys[j][0]
+		}
+		return keys[i][1] < keys[j][1]
+	})
+	for _, k := range keys {
+		fmt.Fprintf(stdout, "  %s -> %s: %d\n", k[0], k[1], confusion[k])
+	}
 	return nil
 }
 

@@ -33,11 +33,10 @@ tidy:
 docker-build:
 	docker build -t capycook:dev .
 
-# Eval harness (plan 4.4). Runs on the stub LLM; seeds default to the
-# UNRATIFIED draft (warning printed) until Gate C ratifies eval/fixtures/
-# seeds.json. Set EVAL_LABELS to a labeled-claim JSONL once labeling (4.6)
-# produces one; without it, eval-report renders the no-data banner and
-# eval-kappa asks for the flag.
+# Eval harness (plan 4.4). Runs on the stub LLM by default; seeds resolve to
+# the Gate-C-ratified eval/fixtures/seeds.json (2026-07-07). Set EVAL_LABELS
+# to a labeled-claim JSONL once labeling produces one; without it,
+# eval-report renders the no-data banner and eval-kappa asks for the flag.
 EVAL_LABELS ?=
 EVAL_LABELS_FLAG = $(if $(EVAL_LABELS),--labels=$(EVAL_LABELS))
 

@@ -3,8 +3,10 @@ package eval
 // This file implements PREREGISTRATION §7a EXACTLY: the three per-claim
 // rates, per arm, over the checkable denominator (all categories except
 // opinion / non-checkable). grounded-mischaracterized counts neither for nor
-// against — it is its own visible bucket. Rates are scored on label_r1 (the
-// primary rater); label_r2 exists for the double-labeled κ subset.
+// against — it is its own visible bucket. Rates are scored on each claim's
+// FINAL label (PREREG §9 Amendment 1): label_tier1 if the Tier-1 verifier has
+// set it, else label_r1 (the primary rater) as fallback; label_r2 exists for
+// the double-labeled κ subset.
 
 import (
 	"bufio"
@@ -25,16 +27,27 @@ const (
 )
 
 // Claim is one row of a labeled-claim file (plan 4.6 schema), stored as
-// JSONL. An empty label_r1 means not yet labeled: such rows are excluded
+// JSONL. An empty FinalLabel means not yet labeled: such rows are excluded
 // from every rate and surfaced via ArmRates.Unlabeled — never guessed.
 type Claim struct {
-	ClaimID string `json:"claim_id"`
-	Arm     string `json:"arm"`
-	Dish    string `json:"dish"`
-	Text    string `json:"text"`
-	Source  string `json:"source"`
-	LabelR1 string `json:"label_r1"`
-	LabelR2 string `json:"label_r2"`
+	ClaimID    string `json:"claim_id"`
+	Arm        string `json:"arm"`
+	Dish       string `json:"dish"`
+	Text       string `json:"text"`
+	Source     string `json:"source"`
+	LabelTier1 string `json:"label_tier1"`
+	LabelR1    string `json:"label_r1"`
+	LabelR2    string `json:"label_r2"`
+}
+
+// FinalLabel is the rate-assembly rule PREREG §9 Amendment 1 registers: the
+// machine-written label_tier1 wins when the Tier-1 verifier has set it,
+// otherwise label_r1 (the human primary rater) is the fallback.
+func (c Claim) FinalLabel() string {
+	if c.LabelTier1 != "" {
+		return c.LabelTier1
+	}
+	return c.LabelR1
 }
 
 // ReadClaims parses a JSONL labeled-claim stream: one Claim per line, blank
@@ -76,9 +89,11 @@ type ArmRates struct {
 	Hallucination       float64 // hallucinated / checkable
 }
 
-// ComputeRates folds labeled claims into the per-arm §7a rates. A label
-// value outside the frozen categories is an error — the harness never
-// guesses what a labeler meant. With Checkable == 0 the rates stay 0; the
+// ComputeRates folds labeled claims into the per-arm §7a rates, counting each
+// claim by its FinalLabel() (PREREG §9 Amendment 1: label_tier1 where set,
+// else label_r1). A final label value outside the frozen categories is an
+// error — the harness never guesses what a labeler meant; an empty final
+// label still counts as Unlabeled. With Checkable == 0 the rates stay 0; the
 // explicit zero denominator carries the message.
 func ComputeRates(claims []Claim) (map[string]ArmRates, error) {
 	byArm := map[string]ArmRates{}
@@ -89,18 +104,19 @@ func ComputeRates(claims []Claim) (map[string]ArmRates, error) {
 			r.Counts = map[string]int{}
 		}
 		r.Total++
-		switch c.LabelR1 {
+		label := c.FinalLabel()
+		switch label {
 		case "":
 			r.Unlabeled++
 		case LabelOpinionNonCheckable:
-			r.Counts[c.LabelR1]++
+			r.Counts[label]++
 			r.Excluded++
 		case LabelGroundedCorrect, LabelGroundedMischaracterized,
 			LabelCorrectlyUnverified, LabelHallucinated:
-			r.Counts[c.LabelR1]++
+			r.Counts[label]++
 			r.Checkable++
 		default:
-			return nil, fmt.Errorf("eval: claim %s: unknown label_r1 %q (PREREG §7a categories are frozen)", c.ClaimID, c.LabelR1)
+			return nil, fmt.Errorf("eval: claim %s: unknown final label %q (PREREG §7a categories are frozen)", c.ClaimID, label)
 		}
 		byArm[c.Arm] = r
 	}

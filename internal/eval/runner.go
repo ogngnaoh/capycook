@@ -7,10 +7,12 @@ package eval
 // normal operation uses, never a re-implementation. Every event it causes is
 // stamped run_kind=harness + the arm, which is exactly what the H2 fold
 // (replay.go) excludes from gate dynamics. After each arm's run the accepted
-// version drafts and proposals are walked and exported as UNLABELED claims
-// (the spec §7 claim unit: flavor_rationale[].claim + unverified[] entries)
-// with empty label_r1/label_r2 — label values only ever come from human
-// raters, never from this code.
+// version drafts and proposals are walked and exported as claims (the spec §7
+// claim unit: flavor_rationale[].claim + unverified[] entries), each labeled
+// at add-time by the Tier-1 verifier (VerifyTier1) against the evidence
+// re-derived for the move that introduced it. The Amendment-1 stop-line:
+// label_r1/label_r2 only ever come from the author and the judge — never from
+// this code. label_tier1 is machine-written by the Tier-1 verifier.
 
 import (
 	"bufio"
@@ -28,6 +30,7 @@ import (
 
 	"github.com/ogngnaoh/capycook/internal/draft"
 	"github.com/ogngnaoh/capycook/internal/eventlog"
+	"github.com/ogngnaoh/capycook/internal/grounding"
 	"github.com/ogngnaoh/capycook/internal/llm"
 	"github.com/ogngnaoh/capycook/internal/orchestrator"
 	"github.com/ogngnaoh/capycook/internal/proposal"
@@ -38,12 +41,20 @@ import (
 // values a harness run may use ("none" is the operator stamp, spec §4).
 var Arms = []string{llm.ArmUngrounded, llm.ArmFlavorgraph, llm.ArmGrounded}
 
-// OnBlockedAbort is the only pinned on_blocked policy: a safety block ends
-// the seed's run with an error — the harness never routes around the gate.
-const OnBlockedAbort = "abort"
+// OnBlockedAbort ends the run on a safety block — the harness never routes
+// around the gate. PolicyRetry (PREREG §9 amendment, 2026-07-09) instead
+// retries the move with a bounded number of FRESH generations before
+// dropping the whole seed: a block is answered with gate verb=regenerate —
+// the same recovery a cook uses, recorded in the eventlog — and a failed
+// move is re-proposed from idle. Either way the gate itself is never routed
+// around; only how many times the model may re-roll changes.
+const (
+	OnBlockedAbort = "abort"
+	PolicyRetry    = "retry"
+)
 
 // Seed is one benchmark seed: a dish idea plus its typed constraints. The
-// real proposed seeds live in docs/01-end-to-end/proposed-benchmark-seeds.json
+// real proposed seeds live in docs/archive/01-end-to-end/proposed-benchmark-seeds.json
 // until Gate C ratification (plan 4.5); tests use synthetic seeds from
 // internal/eval/testdata.
 type Seed struct {
@@ -96,13 +107,17 @@ type ScriptMove struct {
 	Steer    string `json:"steer"`
 }
 
-// ScriptPolicy is the script's gate policy. Verb "accept" (gate every
-// proposal with accept, first card) and OnBlocked "abort" are the only
-// supported values — the policy is part of the pinned instrument, not a
-// runtime knob.
+// ScriptPolicy is the script's gate policy — part of the pinned instrument,
+// not a runtime knob. Verb "accept" (gate every proposal with accept, first
+// card) is the only supported verb. OnBlocked/OnFailed take "abort" or
+// "retry" (PREREG §9 amendment, 2026-07-09); "retry" requires RetryLimit,
+// the bounded number of fresh re-generations per move before the seed is
+// dropped and reported.
 type ScriptPolicy struct {
-	Verb      string `json:"verb"`
-	OnBlocked string `json:"on_blocked"`
+	Verb       string `json:"verb"`
+	OnBlocked  string `json:"on_blocked"`
+	OnFailed   string `json:"on_failed,omitempty"`
+	RetryLimit int    `json:"retry_limit,omitempty"`
 }
 
 // Script is the versioned move-script instrument
@@ -141,8 +156,18 @@ func (s Script) Validate() error {
 	if s.Policy.Verb != orchestrator.VerbAccept {
 		return fmt.Errorf("eval: move script: unsupported policy verb %q (auto-accept is the only pinned policy)", s.Policy.Verb)
 	}
-	if s.Policy.OnBlocked != OnBlockedAbort {
-		return fmt.Errorf("eval: move script: unsupported on_blocked %q (abort is the only pinned policy)", s.Policy.OnBlocked)
+	if s.Policy.OnBlocked != OnBlockedAbort && s.Policy.OnBlocked != PolicyRetry {
+		return fmt.Errorf("eval: move script: unsupported on_blocked %q (abort or retry)", s.Policy.OnBlocked)
+	}
+	if s.Policy.OnFailed != "" && s.Policy.OnFailed != OnBlockedAbort && s.Policy.OnFailed != PolicyRetry {
+		return fmt.Errorf("eval: move script: unsupported on_failed %q (abort or retry; empty means abort)", s.Policy.OnFailed)
+	}
+	retries := s.Policy.OnBlocked == PolicyRetry || s.Policy.OnFailed == PolicyRetry
+	if retries && s.Policy.RetryLimit < 1 {
+		return errors.New("eval: move script: retry policy requires retry_limit >= 1")
+	}
+	if !retries && s.Policy.RetryLimit != 0 {
+		return errors.New("eval: move script: retry_limit set without a retry policy")
 	}
 	for i, m := range s.Moves {
 		if _, ok := MoveRollup[m.MoveType]; !ok {
@@ -163,43 +188,72 @@ type Runner struct {
 	Timeout time.Duration // per-move outcome wait; <=0 means 30s
 }
 
+// SkippedSeed reports one seed dropped from an arm after the retry policy
+// exhausted (PREREG §9 amendment, 2026-07-09): none of its claims are
+// exported — partial SEEDS never appear — and the skip is always surfaced
+// to the operator, never silent.
+type SkippedSeed struct {
+	SeedID   string
+	Move     int // 1-based script move index that exhausted
+	MoveType string
+	Reason   string
+}
+
+// seedSkip is runSeed's retry-exhaustion sentinel; runArm converts it into a
+// SkippedSeed and continues. Any other error still aborts the run.
+type seedSkip struct {
+	move     int
+	moveType string
+	reason   string
+}
+
+func (e *seedSkip) Error() string {
+	return fmt.Sprintf("move %d (%s): %s — retry policy exhausted, seed skipped", e.move, e.moveType, e.reason)
+}
+
 // Run executes the script for every seed under each requested arm (nil/empty
 // = all three eval arms) and writes one claims_<arm>.jsonl per completed arm.
-// It returns the exported claims per arm. Any blocked or failed move aborts
-// the whole run with an error and leaves that arm's file unwritten — partial
-// exports are never presented as a completed run.
-func (r Runner) Run(ctx context.Context, arms []string) (map[string][]Claim, error) {
+// It returns the exported claims per arm plus every seed the retry policy
+// dropped (PREREG §9 amendment: a move still blocked/failed after
+// retry_limit fresh generations skips its whole seed; the arm continues).
+// Under on_blocked=abort any blocked or failed move still aborts the whole
+// run with an error and leaves that arm's file unwritten. Either way partial
+// SEEDS are never exported, and infrastructure errors always abort.
+func (r Runner) Run(ctx context.Context, arms []string) (map[string][]Claim, map[string][]SkippedSeed, error) {
 	if len(arms) == 0 {
 		arms = Arms
 	}
 	for _, arm := range arms {
 		if !isEvalArm(arm) {
-			return nil, fmt.Errorf("eval: %q is not an eval arm (want one of %s)", arm, strings.Join(Arms, "|"))
+			return nil, nil, fmt.Errorf("eval: %q is not an eval arm (want one of %s)", arm, strings.Join(Arms, "|"))
 		}
 	}
 	if err := r.Script.Validate(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(r.Seeds) == 0 {
-		return nil, errors.New("eval: runner: no seeds")
+		return nil, nil, errors.New("eval: runner: no seeds")
 	}
 	byArm := make(map[string][]Claim, len(arms))
+	skippedByArm := make(map[string][]SkippedSeed, len(arms))
 	for _, arm := range arms {
-		claims, err := r.runArm(ctx, arm)
+		claims, skipped, err := r.runArm(ctx, arm)
 		if err != nil {
-			return nil, fmt.Errorf("eval: arm %s: %w", arm, err)
+			return nil, nil, fmt.Errorf("eval: arm %s: %w", arm, err)
 		}
 		if err := WriteClaims(filepath.Join(r.OutDir, "claims_"+arm+".jsonl"), claims); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		byArm[arm] = claims
+		skippedByArm[arm] = skipped
 	}
-	return byArm, nil
+	return byArm, skippedByArm, nil
 }
 
 // runArm builds one real orchestrator configured for the arm with
-// run_kind=harness and runs every seed through the script sequentially.
-func (r Runner) runArm(ctx context.Context, arm string) ([]Claim, error) {
+// run_kind=harness and runs every seed through the script sequentially,
+// collecting retry-policy skips instead of aborting on them.
+func (r Runner) runArm(ctx context.Context, arm string) ([]Claim, []SkippedSeed, error) {
 	// Buffered well past the single outstanding move so a late generation
 	// goroutine can never block on a run the harness already abandoned.
 	outcomes := make(chan orchestrator.Outcome, 16)
@@ -210,19 +264,30 @@ func (r Runner) runArm(ctx context.Context, arm string) ([]Claim, error) {
 	orch := orchestrator.New(deps)
 
 	var claims []Claim
+	var skipped []SkippedSeed
 	for _, seed := range r.Seeds {
 		run, err := r.runSeed(ctx, orch, deps, arm, seed, outcomes)
-		if err != nil {
-			return nil, fmt.Errorf("seed %s: %w", seed.ID, err)
+		var skip *seedSkip
+		if errors.As(err, &skip) {
+			skipped = append(skipped, SkippedSeed{
+				SeedID: seed.ID, Move: skip.move, MoveType: skip.moveType, Reason: skip.reason,
+			})
+			continue
 		}
-		claims = append(claims, extractClaims(arm, seed, run)...)
+		if err != nil {
+			return nil, nil, fmt.Errorf("seed %s: %w", seed.ID, err)
+		}
+		claims = append(claims, extractClaims(arm, seed, run, deps.Grounding)...)
 	}
-	return claims, nil
+	return claims, skipped, nil
 }
 
-// seedRun is one seed's completed script run: the accepted proposals and the
+// seedRun is one seed's completed script run: the pre-move initial draft
+// (constraints only, no accepted moves yet — the ground truth the first
+// move's evidence is re-derived against), the accepted proposals, and the
 // version snapshots they produced, in move order.
 type seedRun struct {
+	initial   draft.Draft
 	proposals []proposal.Proposal
 	versions  []draft.Draft
 }
@@ -262,40 +327,87 @@ func (r Runner) runSeed(ctx context.Context, orch *orchestrator.Orchestrator, de
 		return seedRun{}, fmt.Errorf("append dish_created: %w", err)
 	}
 
-	var run seedRun
+	// The pre-move draft: an empty draft carrying only the dish's constraints
+	// — exactly what orchestrator.currentDraft hands the first move before
+	// any version exists, so evidence re-derived against it matches what the
+	// real orchestrator supplied when generating that move.
+	run := seedRun{initial: draft.Draft{Constraints: seed.Constraints}}
+	policy := r.Script.Policy
 	for i, mv := range r.Script.Moves {
 		moveID, err := orch.Move(ctx, dishID, sessionID, mv.MoveType, mv.Steer)
 		if err != nil {
 			return seedRun{}, fmt.Errorf("move %d (%s): %w", i+1, mv.MoveType, err)
 		}
-		out, err := r.waitOutcome(ctx, outcomes, moveID)
-		if err != nil {
-			return seedRun{}, fmt.Errorf("move %d (%s): %w", i+1, mv.MoveType, err)
-		}
 		var prop proposal.Proposal
 		var versionID string
-		switch out.Kind {
-		case orchestrator.OutcomeReady:
-			// Auto-accept policy: gate the first card with verb accept.
-			prop = out.Proposals[0]
-			res, err := orch.Gate(ctx, orchestrator.GateRequest{
-				DishID: dishID, SessionID: sessionID,
-				ProposalID: prop.ID, Verb: orchestrator.VerbAccept,
-			})
+		// Retry loop (PREREG §9 amendment, 2026-07-09): a blocked or failed
+		// move may be re-generated up to retry_limit times — blocks via gate
+		// verb=regenerate (the cook's own recovery, eventlogged), failures
+		// via a fresh Move (the dish returns to idle on move_failed). The
+		// counter is shared across both classes per scripted move.
+		retries := 0
+	attempt:
+		for {
+			out, err := r.waitOutcome(ctx, outcomes, moveID)
 			if err != nil {
-				return seedRun{}, fmt.Errorf("move %d (%s): accept: %w", i+1, mv.MoveType, err)
+				return seedRun{}, fmt.Errorf("move %d (%s): %w", i+1, mv.MoveType, err)
 			}
-			versionID = res.NewVersionID
-		case orchestrator.OutcomeAutoAdvanced:
-			prop = out.Proposals[0]
-			versionID = out.NewVersionID
-		case orchestrator.OutcomeBlocked:
-			// Policy on_blocked=abort: the block stays in the eventlog as
-			// real harness telemetry; the run itself ends here.
-			return seedRun{}, fmt.Errorf("move %d (%s): proposal blocked (%s / %s); script policy aborts the run",
-				i+1, mv.MoveType, out.Reason, out.RuleID)
-		default:
-			return seedRun{}, fmt.Errorf("move %d (%s): unexpected outcome %q (%s)", i+1, mv.MoveType, out.Kind, out.Reason)
+			switch out.Kind {
+			case orchestrator.OutcomeReady:
+				// Auto-accept policy: gate the first card with verb accept.
+				prop = out.Proposals[0]
+				res, err := orch.Gate(ctx, orchestrator.GateRequest{
+					DishID: dishID, SessionID: sessionID,
+					ProposalID: prop.ID, Verb: orchestrator.VerbAccept,
+				})
+				if err != nil {
+					return seedRun{}, fmt.Errorf("move %d (%s): accept: %w", i+1, mv.MoveType, err)
+				}
+				versionID = res.NewVersionID
+				break attempt
+			case orchestrator.OutcomeAutoAdvanced:
+				prop = out.Proposals[0]
+				versionID = out.NewVersionID
+				break attempt
+			case orchestrator.OutcomeBlocked:
+				// The block stays in the eventlog as real harness telemetry
+				// either way; the harness never routes around the gate.
+				if policy.OnBlocked == PolicyRetry && retries < policy.RetryLimit {
+					retries++
+					res, err := orch.Gate(ctx, orchestrator.GateRequest{
+						DishID: dishID, SessionID: sessionID,
+						ProposalID: out.MoveID, Verb: orchestrator.VerbRegenerate,
+					})
+					if err != nil {
+						return seedRun{}, fmt.Errorf("move %d (%s): regenerate after block: %w", i+1, mv.MoveType, err)
+					}
+					moveID = res.NewMoveID
+					continue
+				}
+				if policy.OnBlocked == PolicyRetry {
+					return seedRun{}, &seedSkip{move: i + 1, moveType: mv.MoveType,
+						reason: fmt.Sprintf("blocked after %d retries (%s / %s)", retries, out.Reason, out.RuleID)}
+				}
+				return seedRun{}, fmt.Errorf("move %d (%s): proposal blocked (%s / %s); script policy aborts the run",
+					i+1, mv.MoveType, out.Reason, out.RuleID)
+			case orchestrator.OutcomeFailed:
+				if policy.OnFailed == PolicyRetry && retries < policy.RetryLimit {
+					retries++
+					moveID, err = orch.Move(ctx, dishID, sessionID, mv.MoveType, mv.Steer)
+					if err != nil {
+						return seedRun{}, fmt.Errorf("move %d (%s): re-propose after failure: %w", i+1, mv.MoveType, err)
+					}
+					continue
+				}
+				if policy.OnFailed == PolicyRetry {
+					return seedRun{}, &seedSkip{move: i + 1, moveType: mv.MoveType,
+						reason: fmt.Sprintf("failed after %d retries (%s)", retries, out.Reason)}
+				}
+				return seedRun{}, fmt.Errorf("move %d (%s): move failed (%s); script policy aborts the run",
+					i+1, mv.MoveType, out.Reason)
+			default:
+				return seedRun{}, fmt.Errorf("move %d (%s): unexpected outcome %q (%s)", i+1, mv.MoveType, out.Kind, out.Reason)
+			}
 		}
 		d, err := loadVersionDraft(ctx, deps.Store, versionID)
 		if err != nil {
@@ -345,38 +457,48 @@ func loadVersionDraft(ctx context.Context, st store.Store, versionID string) (dr
 // order and emits one Claim per distinct structured entry (spec §7 claim
 // unit): each flavor_rationale[] entry (source = its provenance; empty means
 // it surfaced [unverified]) and each proposal unverified[] entry (source
-// always empty). Duplicate (text, source) pairs within the dish collapse to
-// one claim. label_r1/label_r2 are left empty — the phase-4 stop-line: labels
-// only ever come from human raters.
-func extractClaims(arm string, seed Seed, run seedRun) []Claim {
+// always empty). Each claim is labeled at add-time via VerifyTier1 against the
+// evidence re-derived for the move that introduced it — llm.BuildEvidence(arm,
+// prev, g) where prev is the draft immediately before that move (run.initial,
+// the pre-move seed draft, for the first move). Duplicate (text, source)
+// pairs within the dish collapse to one claim, keeping the label from the
+// move that introduced them (first-occurrence wins). The Amendment-1
+// stop-line: label_r1/label_r2 only ever come from the author and the judge —
+// never from this code. label_tier1 is machine-written by the Tier-1
+// verifier.
+func extractClaims(arm string, seed Seed, run seedRun, g grounding.Grounding) []Claim {
 	type key struct{ text, source string }
 	seen := map[key]bool{}
 	var claims []Claim
-	add := func(text, source string) {
+	add := func(text, source string, ev llm.Evidence) {
 		k := key{text, source}
 		if text == "" || seen[k] {
 			return
 		}
 		seen[k] = true
 		claims = append(claims, Claim{
-			ClaimID: fmt.Sprintf("clm-%s-%s-%03d", arm, seed.ID, len(claims)+1),
-			Arm:     arm,
-			Dish:    seed.ID,
-			Text:    text,
-			Source:  source,
+			ClaimID:    fmt.Sprintf("clm-%s-%s-%03d", arm, seed.ID, len(claims)+1),
+			Arm:        arm,
+			Dish:       seed.ID,
+			Text:       text,
+			Source:     source,
+			LabelTier1: VerifyTier1(source, ev),
 		})
 	}
+	prev := run.initial
 	for i := range run.versions {
+		ev := llm.BuildEvidence(arm, prev, g)
 		for _, fc := range run.versions[i].FlavorRationale {
 			source := ""
 			if fc.Provenance != nil {
 				source = *fc.Provenance
 			}
-			add(fc.Claim, source)
+			add(fc.Claim, source, ev)
 		}
 		for _, u := range run.proposals[i].Unverified {
-			add(u, "")
+			add(u, "", ev)
 		}
+		prev = run.versions[i]
 	}
 	return claims
 }

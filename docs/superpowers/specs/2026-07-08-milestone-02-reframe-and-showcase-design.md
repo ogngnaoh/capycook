@@ -1,5 +1,12 @@
 # Milestone 02 Reframe + Repo Showcase — Design
 
+> **HISTORICAL RECORD — 2026-07-14.** This document records the S1–S7 design
+> history. All remaining S8 operational instructions and exit criteria below are
+> superseded by `docs/superpowers/plans/2026-07-14-milestone-02-s8-showcase-release.md`
+> and **must not be executed**. Final release facts: H2 is complete at N=2 with no
+> more collection; the showcase has nine GIFs; there is no external portfolio;
+> Gate B is private-first; and milestone 03 remains parked.
+
 **Date:** 2026-07-08 · **Status:** spec review complete (2026-07-08); factual + honesty edits folded, ready for planning
 **Supersedes:** the "human-led campaign" framing of milestone 02 in `docs/milestones.md` (T1 instrument freeze, operator sessions, labeling campaign **+ second labeler**, κ).
 
@@ -83,7 +90,7 @@ H2 operator sessions run in the background throughout S3–S6 (real usage, not a
 
 ## Exit criteria
 
-- PREREGISTRATION §9 carries one dated amendment; body untouched; CI frozen-doc guard still green.
+- PREREGISTRATION §9 carries the reframe amendment + the T1 instrument-pin entries (two user gates — the T1 pin machinery was discovered at planning); body untouched; CI frozen-doc guard still green.
 - `go test ./...` green including the new verifier; judge writes only `label_r2`; blinding verified by test; verifier↔author blind-check agreement reported at S3 exit.
 - Results table filled per §7a with explicit denominators; **pre-adjudication** κ + confusion matrix reported (any adjudicated author-final set clearly labeled as such, not as the reliability figure); findings paragraph present; H3b null (if it lands) framed as confirmed prediction.
 - README: surgery items done, 8 GIFs + 3 diagrams render on GitHub, hero + badges live, no stale claims.

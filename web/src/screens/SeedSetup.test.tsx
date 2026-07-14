@@ -113,3 +113,65 @@ test('a valid form posts typed constraints and reports the created dish', async 
     cuisine: 'western',
   })
 })
+
+// --- BC-A-12: create dedup under a double submit ---------------------------
+
+test('a double-click on submit fires exactly one POST /api/dishes and creates one dish', async () => {
+  const created = dishDetail({ id: 'd10' })
+  const fetchMock = vi.fn(async () => jsonResponse(created, 201))
+  vi.stubGlobal('fetch', fetchMock)
+  const onCreated = vi.fn()
+  render(<SeedSetup onCreated={onCreated} />)
+
+  fireEvent.change(screen.getByLabelText(/seed/i), { target: { value: 'a cozy chicken dinner' } })
+  const btn = screen.getByRole('button', { name: /develop this dish/i })
+  fireEvent.click(btn)
+  fireEvent.click(btn)
+
+  await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1))
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+})
+
+test('double-Enter with focus in a text field fires exactly one POST /api/dishes', async () => {
+  const created = dishDetail({ id: 'd11' })
+  const fetchMock = vi.fn(async () => jsonResponse(created, 201))
+  vi.stubGlobal('fetch', fetchMock)
+  const onCreated = vi.fn()
+  render(<SeedSetup onCreated={onCreated} />)
+
+  fireEvent.change(screen.getByLabelText(/seed/i), { target: { value: 'a cozy chicken dinner' } })
+  // A real browser submits the enclosing <form> when Enter is pressed with
+  // focus in a single-line text field (BC-A-12's "not the button" path) —
+  // jsdom does not implement that implicit-submission default action off a
+  // bare keydown, so two 'submit' events on the form is the faithful jsdom
+  // stand-in for two rapid real-browser Enter presses, landing on the exact
+  // same onSubmit the click path exercises (there is no separate Enter
+  // handler in this component to bypass).
+  const form = screen.getByTestId('seed-setup')
+  fireEvent.submit(form)
+  fireEvent.submit(form)
+
+  await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1))
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+})
+
+test('the submit button disables via aria-disabled while in flight — never native disabled, focus stays put', async () => {
+  const created = dishDetail({ id: 'd12' })
+  let resolveFetch!: (r: Response) => void
+  const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { resolveFetch = resolve }))
+  vi.stubGlobal('fetch', fetchMock)
+  render(<SeedSetup onCreated={() => {}} />)
+
+  fireEvent.change(screen.getByLabelText(/seed/i), { target: { value: 'a cozy chicken dinner' } })
+  const btn = screen.getByRole('button', { name: /develop this dish/i })
+  btn.focus()
+  fireEvent.click(btn)
+
+  await waitFor(() => expect(btn).toHaveTextContent(/developing/i))
+  expect(btn).toHaveAttribute('aria-disabled', 'true')
+  expect(btn).not.toHaveAttribute('disabled')
+  expect(document.activeElement).toBe(btn)
+
+  resolveFetch(jsonResponse(created, 201))
+  await waitFor(() => expect(btn).toHaveAttribute('aria-disabled', 'false'))
+})

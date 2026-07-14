@@ -6,18 +6,30 @@
 // write for that dish — subscriptions, tokens, terminal events, heartbeats —
 // so no write ever races another (the single-goroutine-select-loop pattern of
 // SPEC §4a). Outcomes arrive via Notify, which httpapi plugs into
-// orchestrator.Deps.Notify: they are post-safety-screen by construction, so a
-// blocked move reaches a client only as proposal-blocked{reason,ruleId,ops} —
-// the held change's ops only, never a token, never the full proposal payload.
+// orchestrator.Deps.Notify: every one is safety-screened by construction
+// before this package ever sees it, so a blocked move reaches a client only
+// as proposal-blocked{reason,ruleId,ops} — the held change's ops only, never
+// a token, never the full proposal payload. That holds for OutcomeToken too:
+// the orchestrator only emits it for a single-proposal move whose own early
+// safety verdict — run on a preview of the SAME proposal it later commits —
+// already cleared, so live tokens can never precede or outrun the screen
+// (orchestrator.generate's OnDraft path; the milestone's founding finding —
+// rationale streams DURING generation, not only after it completes).
 //
-// A ready outcome is not sent at once: the stored Proposal.Rationale is
-// replayed word-by-word as token events at TokenCadence (default ~30ms), then
-// the full Proposal lands as proposal-ready. Hub.Cancel interrupts a replay
-// in flight — tokens stop, move-cancelled is emitted — covering the window
-// after the orchestrator has already committed the move to awaiting_gate and
-// its own Cancel is a no-op. auto_advanced outcomes are deliberately not
-// emitted: they are not a pinned SSE event, and deterministic moves resolve
-// before their HTTP request returns, so the client re-syncs via GET.
+// A ready outcome's rationale is not necessarily replayed at all: when the
+// generation already streamed it live as OutcomeToken events,
+// Outcome.SkipRationaleReplay says so and the hub jumps straight to
+// proposal-ready. Otherwise (alternatives' second-and-later proposals, a
+// non-streaming LLM implementation, or any zero-latency/fast-profile run)
+// the stored Proposal.Rationale is replayed word-by-word as token events at
+// TokenCadence (default ~30ms) exactly as before — this is also what a late
+// subscriber's catch-up rides. Hub.Cancel interrupts a replay in flight —
+// tokens stop, move-cancelled is emitted — covering the window after the
+// orchestrator has already committed the move to awaiting_gate and its own
+// Cancel is a no-op (e.g. mid-replay of alternatives' staggered second
+// card). auto_advanced outcomes are deliberately not emitted: they are not a
+// pinned SSE event, and deterministic moves resolve before their HTTP
+// request returns, so the client re-syncs via GET.
 package transport
 
 import (
@@ -250,8 +262,15 @@ func (d *dishHub) run() {
 		stopReplay()
 		rp = &replay{
 			moveID: out.MoveID,
-			words:  strings.Fields(out.Proposals[0].Rationale),
 			queue:  out.Proposals,
+		}
+		// SkipRationaleReplay: the first proposal's rationale already
+		// reached subscribers live, as OutcomeToken events during
+		// generation (orchestrator.generate's OnDraft path) — replaying it
+		// here too would duplicate the proposing card's text. Any further
+		// proposal (alternatives) still replays normally below.
+		if !out.SkipRationaleReplay {
+			rp.words = strings.Fields(out.Proposals[0].Rationale)
 		}
 		timer = time.NewTimer(d.hub.tokenCadence)
 		timerC = timer.C
@@ -305,6 +324,12 @@ func (d *dishHub) run() {
 
 		case out := <-d.outcomes:
 			switch out.Kind {
+			case orchestrator.OutcomeToken:
+				// Live rationale, forwarded as generate() produces it — the
+				// orchestrator only ever sends these for a move its own
+				// early safety screen already cleared (never a blocked
+				// one), so no gating is needed here.
+				broadcast(EventToken, tokenEvent{MoveID: out.MoveID, Text: out.Token})
 			case orchestrator.OutcomeReady:
 				if len(out.Proposals) == 0 {
 					slog.Error("transport: ready outcome without proposals", "dish", d.dishID, "move", out.MoveID)

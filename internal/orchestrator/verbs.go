@@ -8,6 +8,7 @@ import (
 	"github.com/ogngnaoh/capycook/internal/draft"
 	"github.com/ogngnaoh/capycook/internal/eventlog"
 	"github.com/ogngnaoh/capycook/internal/proposal"
+	"github.com/ogngnaoh/capycook/internal/store"
 )
 
 // Gate verb wire names (spec §4).
@@ -163,13 +164,13 @@ func (o *Orchestrator) gateAccept(ctx context.Context, ds *dishState, req GateRe
 	if err != nil {
 		return GateResult{}, nil, fmt.Errorf("orchestrator: apply proposal: %w", err)
 	}
-	verID, err := o.commitVersion(ctx, dish, applied, pp.baseVersion)
+	verID, err := o.commitVersion(ctx, dish, applied, pp.baseVersion, pp.prop.Rationale, store.VersionOriginAccepted)
 	if err != nil {
 		return GateResult{}, nil, err
 	}
 	if err := o.append(ctx, req.DishID, req.SessionID, eventlog.TypeGateAccept, gatePayload{
 		Verb: VerbAccept, ProposalID: pp.prop.ID, MoveID: pp.prop.MoveID, MoveType: pp.moveType,
-		NewVersionID: verID, AutonomyDial: dish.AutonomyDial,
+		NewVersionID: verID, AutonomyDial: dish.AutonomyDial, Rationale: pp.prop.Rationale,
 	}); err != nil {
 		return GateResult{}, nil, err
 	}
@@ -203,13 +204,13 @@ func (o *Orchestrator) gateEdit(ctx context.Context, ds *dishState, req GateRequ
 	if err != nil {
 		return GateResult{}, nil, fmt.Errorf("orchestrator: apply edited ops: %w", err)
 	}
-	verID, err := o.commitVersion(ctx, dish, applied, pp.baseVersion)
+	verID, err := o.commitVersion(ctx, dish, applied, pp.baseVersion, pp.prop.Rationale, store.VersionOriginAccepted)
 	if err != nil {
 		return GateResult{}, nil, err
 	}
 	if err := o.append(ctx, req.DishID, req.SessionID, eventlog.TypeGateEdit, gatePayload{
 		Verb: VerbEdit, ProposalID: pp.prop.ID, MoveID: pp.prop.MoveID, MoveType: pp.moveType,
-		NewVersionID: verID, AutonomyDial: dish.AutonomyDial,
+		NewVersionID: verID, AutonomyDial: dish.AutonomyDial, Rationale: pp.prop.Rationale,
 	}); err != nil {
 		return GateResult{}, nil, err
 	}
@@ -241,13 +242,18 @@ func (o *Orchestrator) gateTakeOver(ctx context.Context, ds *dishState, req Gate
 	if err != nil {
 		return GateResult{}, nil, err
 	}
-	verID, err := o.commitVersion(ctx, dish, userDraft, "")
+	// No proposal sits behind a take_over — the cook wrote the draft
+	// directly — so the "why" recorded is a fixed note rather than any
+	// model's prose (BC-D-12 still recovers something on this trial, never
+	// a blank).
+	const takeOverRationale = "Directly edited by the cook."
+	verID, err := o.commitVersion(ctx, dish, userDraft, "", takeOverRationale, store.VersionOriginAccepted)
 	if err != nil {
 		return GateResult{}, nil, err
 	}
 	if err := o.append(ctx, req.DishID, req.SessionID, eventlog.TypeGateTakeOver, gatePayload{
 		Verb: VerbTakeOver, ProposalID: req.ProposalID,
-		NewVersionID: verID, AutonomyDial: dish.AutonomyDial,
+		NewVersionID: verID, AutonomyDial: dish.AutonomyDial, Rationale: takeOverRationale,
 	}); err != nil {
 		return GateResult{}, nil, err
 	}

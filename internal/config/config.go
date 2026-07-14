@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"time"
 )
 
 // Config holds runtime configuration read from the environment.
@@ -18,8 +19,9 @@ type Config struct {
 	LangfusePublicKey string
 	LangfuseSecretKey string
 	LangfuseHost      string
-	LLMBudgetUSD      float64 // LLM_BUDGET_USD hard spend cap; default 10 (spec §3)
-	StubLLM           bool    // CAPYCOOK_STUB_LLM: force the stub LLM even with a key
+	LLMBudgetUSD      float64       // LLM_BUDGET_USD hard spend cap; default 10 (spec §3)
+	StubLLM           bool          // CAPYCOOK_STUB_LLM: force the stub LLM even with a key
+	StubLatency       time.Duration // CAPYCOOK_STUB_LATENCY_MS: stub delay for demo capture; default 0
 }
 
 // Load reads configuration from environment variables. Absent secrets are
@@ -49,6 +51,14 @@ func Load() Config {
 			slog.Warn("config: CAPYCOOK_STUB_LLM unparsable, keeping default false", "value", v)
 		} else {
 			c.StubLLM = b
+		}
+	}
+	if v := os.Getenv("CAPYCOOK_STUB_LATENCY_MS"); v != "" {
+		ms, err := strconv.Atoi(v)
+		if err != nil || ms < 0 {
+			slog.Warn("config: CAPYCOOK_STUB_LATENCY_MS unparsable, keeping default 0", "value", v)
+		} else {
+			c.StubLatency = time.Duration(ms) * time.Millisecond
 		}
 	}
 	for _, k := range []string{

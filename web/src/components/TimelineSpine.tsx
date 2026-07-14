@@ -1,4 +1,5 @@
 import type { TimelineNode } from '../lib/trials'
+import { trialAlias } from '../vocab'
 
 // TimelineSpine is the left rail's "line of development" (redesign design
 // lines 146-184): one card per trial, oldest-first, threaded by a rail +
@@ -108,8 +109,21 @@ function TimelineCardBody({ node, technical, highlighted }: {
         {node.branch && (
           <span className="px-[6px] py-[1px] text-[10px] uppercase tracking-[0.08em] border border-hairline-strong text-faint">Branch</span>
         )}
+        {node.auto && (
+          // BC-F-3: the durable, text-exposed attribution the ~2.6s toast
+          // alone can't provide — a plain badge, never color-only, in the
+          // accessibility tree beside Cooked/Branch (unconditional, not
+          // gated behind technical view — attribution matters to every cook).
+          <span className="px-[6px] py-[1px] text-[10px] uppercase tracking-[0.08em] border border-hairline-strong text-faint">Auto-applied</span>
+        )}
       </div>
       <div className="mt-[3px] leading-[1.5] text-muted">{node.note}</div>
+      {node.branch && node.branchFromN !== undefined && (
+        <div className="mt-[8px] px-[10px] py-[8px] leading-[1.5] bg-surface border-l-2 border-hairline-strong text-faint">
+          <span className="mb-[2px] block text-[10px] uppercase tracking-[0.08em] text-faint">Branched from —</span>
+          {trialAlias(node.branchFromN)}
+        </div>
+      )}
       {node.cookNote && (
         <div className="mt-[8px] px-[10px] py-[8px] leading-[1.5] bg-surface border-l-2 border-accent">
           <span className="mb-[2px] block text-[10px] uppercase tracking-[0.08em] text-accent-text">You cooked it —</span>

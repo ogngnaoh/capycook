@@ -1,10 +1,12 @@
 package eval
 
-// Tests for the plan-4.6 labeling kit: the seeded stratified double-label
-// sampler, the labeler-CSV export, and the validating import. Label-bearing
-// sheets are fixture files in testdata/ (the only home for synthetic label
-// values); claims built inline here carry NO label values, and label
-// constants appear only as expectations or in rejection-path inputs.
+// Tests for the labeling kit: the Tier-2 filter + 100%-double-label
+// BuildLabelSheet, the labeler-CSV export, and the validating import
+// (PREREG §9 Amendment 1 — supersedes the old §6 15–20% seeded sample).
+// Label-bearing sheets are fixture files in testdata/ (the only home for
+// synthetic label values); claims built inline here carry NO label values,
+// and label constants appear only as expectations or in rejection-path
+// inputs.
 
 import (
 	"bytes"
@@ -30,78 +32,42 @@ func synthClaims(arm string, n int) []Claim {
 	return claims
 }
 
-func markedIDs(t *testing.T, rows []LabelRow) map[string]bool {
-	t.Helper()
-	ids := map[string]bool{}
-	for _, r := range rows {
-		if r.DoubleLabel {
-			ids[r.ClaimID] = true
-		}
+// BuildLabelSheet filters out every Tier-1-settled claim (label_tier1
+// non-empty) and keeps the Tier-2 remainder in input order, each marked
+// DoubleLabel: true — PREREG §9 Amendment 1 sets Tier-2 coverage to 100%,
+// so there is no sampler and no rate to compute.
+func TestBuildLabelSheetFiltersTier1(t *testing.T) {
+	settled := synthClaims("grounded", 3)
+	for i := range settled {
+		settled[i].LabelTier1 = LabelCorrectlyUnverified
 	}
-	return ids
-}
-
-// The sampler draws round(0.18·n) per arm (minimum 1), only from that arm,
-// and — being seeded — the same subset for the same claim-id set regardless
-// of input row order.
-func TestBuildLabelSheetSampler(t *testing.T) {
-	var claims []Claim
-	claims = append(claims, synthClaims("ungrounded", 20)...)  // k = round(3.6) = 4
-	claims = append(claims, synthClaims("flavorgraph", 17)...) // k = round(3.06) = 3
-	claims = append(claims, synthClaims("grounded", 13)...)    // k = round(2.34) = 2
+	tier2 := synthClaims("flavorgraph", 2)
+	// Interleaved input proves the filter inspects each claim, not position.
+	claims := []Claim{settled[0], tier2[0], settled[1], tier2[1], settled[2]}
 
 	rows, err := BuildLabelSheet(claims)
 	if err != nil {
 		t.Fatalf("BuildLabelSheet: %v", err)
 	}
-	if len(rows) != len(claims) {
-		t.Fatalf("rows = %d, want %d", len(rows), len(claims))
+	if len(rows) != len(tier2) {
+		t.Fatalf("rows = %d, want %d (Tier-1-settled claims filtered out)", len(rows), len(tier2))
 	}
-	for i, r := range rows {
-		if r.Claim != claims[i] {
-			t.Fatalf("row %d claim = %+v, want input order preserved (%+v)", i, r.Claim, claims[i])
+	for i, want := range tier2 {
+		if rows[i].Claim != want {
+			t.Errorf("row %d claim = %+v, want %+v (Tier-2 input order preserved)", i, rows[i].Claim, want)
 		}
-	}
-	perArm := map[string]int{}
-	for _, r := range rows {
-		if r.DoubleLabel {
-			perArm[r.Arm]++
+		if !rows[i].DoubleLabel {
+			t.Errorf("row %d DoubleLabel = false, want true (Amendment 1: 100%% double-label coverage)", i)
 		}
-	}
-	want := map[string]int{"ungrounded": 4, "flavorgraph": 3, "grounded": 2}
-	if !reflect.DeepEqual(perArm, want) {
-		t.Errorf("marked per arm = %v, want %v (round(0.18·n), stratified)", perArm, want)
-	}
-
-	// Determinism: reversing the input order must select the same ids.
-	first := markedIDs(t, rows)
-	reversed := make([]Claim, len(claims))
-	for i, c := range claims {
-		reversed[len(claims)-1-i] = c
-	}
-	rows2, err := BuildLabelSheet(reversed)
-	if err != nil {
-		t.Fatalf("BuildLabelSheet(reversed): %v", err)
-	}
-	if second := markedIDs(t, rows2); !reflect.DeepEqual(first, second) {
-		t.Errorf("seeded sampler is order-dependent:\n first=%v\nsecond=%v", first, second)
-	}
-}
-
-// Every non-empty arm gets at least one double-labeled claim even where
-// round(0.18·n) would be zero.
-func TestBuildLabelSheetSamplerMinimumOnePerArm(t *testing.T) {
-	rows, err := BuildLabelSheet(synthClaims("grounded", 2)) // round(0.36) = 0 → min 1
-	if err != nil {
-		t.Fatalf("BuildLabelSheet: %v", err)
-	}
-	if n := len(markedIDs(t, rows)); n != 1 {
-		t.Errorf("marked = %d, want the minimum of 1", n)
 	}
 }
 
 func TestBuildLabelSheetRejectsBadInput(t *testing.T) {
 	base := synthClaims("grounded", 3)
+	allTier1 := synthClaims("grounded", 2)
+	for i := range allTier1 {
+		allTier1[i].LabelTier1 = LabelGroundedCorrect
+	}
 	cases := []struct {
 		name   string
 		claims []Claim
@@ -111,7 +77,8 @@ func TestBuildLabelSheetRejectsBadInput(t *testing.T) {
 		{"missing id", append(synthClaims("grounded", 2), Claim{Arm: "grounded", Text: "SYNTHETIC no id"}), "claim_id"},
 		{"missing arm", append(synthClaims("grounded", 2), Claim{ClaimID: "clm-synth-noarm", Text: "SYNTHETIC no arm"}), "arm"},
 		{"duplicate id", append(base[:3:3], base[0]), "duplicate"},
-		// The stop-line: a sheet is built once, from UNLABELED claims.
+		{"all claims already tier-1 settled", allTier1, "no Tier-2 claims"},
+		// The stop-line: a sheet is built once, from unlabeled Tier-2 claims.
 		{"already labeled r1", append(base[:3:3], Claim{ClaimID: "clm-synth-pre1", Arm: "grounded", Text: "SYNTHETIC pre", LabelR1: LabelGroundedCorrect}), "labels"},
 		{"already labeled r2", append(base[:3:3], Claim{ClaimID: "clm-synth-pre2", Arm: "grounded", Text: "SYNTHETIC pre", LabelR2: LabelHallucinated}), "labels"},
 	}

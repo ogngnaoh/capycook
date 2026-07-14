@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -273,6 +274,109 @@ func TestReadyWithEmptyRationaleEmitsNoTokens(t *testing.T) {
 	evs := s.collectUntil(t, "proposal-ready")
 	if len(evs) != 1 {
 		t.Fatalf("got %d events %v, want just proposal-ready", len(evs), evs)
+	}
+}
+
+// TestOutcomeTokenBroadcastsLive: OutcomeToken is a direct, immediate
+// broadcast — no replay pacing, no waiting on a queued proposal — the
+// mechanism orchestrator.generate's OnDraft path uses to reveal rationale
+// DURING generation (BC-B-3), well before any Ready/Blocked outcome exists.
+func TestOutcomeTokenBroadcastsLive(t *testing.T) {
+	h := newTestHub(t, Options{})
+	srv := serveDish(t, h, "d1")
+	s := openStream(t, srv.URL)
+	s.awaitConnected(t)
+
+	h.Notify(orchestrator.Outcome{DishID: "d1", MoveID: "mv_1", Kind: orchestrator.OutcomeToken, Token: "Char "})
+	h.Notify(orchestrator.Outcome{DishID: "d1", MoveID: "mv_1", Kind: orchestrator.OutcomeToken, Token: "the "})
+	h.Notify(orchestrator.Outcome{DishID: "d1", MoveID: "mv_1", Kind: orchestrator.OutcomeToken, Token: "leeks."})
+
+	var got []string
+	for i := 0; i < 3; i++ {
+		ev := s.next(t)
+		if ev.Name != "token" {
+			t.Fatalf("event %d = %q, want token", i, ev.Name)
+		}
+		got = append(got, decode[tokenData](t, ev).Text)
+	}
+	if want := []string{"Char ", "the ", "leeks."}; !reflect.DeepEqual(got, want) {
+		t.Errorf("tokens = %v, want %v", got, want)
+	}
+}
+
+// TestSkipRationaleReplaySingleProposalJumpsStraightToReady: a Ready outcome
+// flagged SkipRationaleReplay must not re-stream the first (only) proposal's
+// rationale — it already reached the client live — so the hub emits nothing
+// but proposal-ready for it.
+func TestSkipRationaleReplaySingleProposalJumpsStraightToReady(t *testing.T) {
+	h := newTestHub(t, Options{})
+	srv := serveDish(t, h, "d1")
+	s := openStream(t, srv.URL)
+	s.awaitConnected(t)
+
+	rationale := "Char the leeks hard, then mellow them in brown butter."
+	h.Notify(orchestrator.Outcome{
+		DishID: "d1", MoveID: "mv_1", Kind: orchestrator.OutcomeReady,
+		Proposals:           []proposal.Proposal{sampleProposal("pr_1", "mv_1", rationale)},
+		SkipRationaleReplay: true,
+	})
+
+	ev := s.next(t)
+	if ev.Name != "proposal-ready" {
+		t.Fatalf("got event %q, want proposal-ready with no token replay", ev.Name)
+	}
+	rd := decode[readyData](t, ev)
+	if rd.Proposal.ID != "pr_1" || rd.Proposal.Rationale != rationale {
+		t.Errorf("proposal-ready proposal = %+v, want the full proposal (SkipRationaleReplay only skips the TOKEN replay)", rd.Proposal)
+	}
+	// Confirm nothing else was queued behind it.
+	sentinel(h, "d1")
+	for _, e := range s.collectUntil(t, "move-failed") {
+		if e.Name == "token" {
+			t.Fatalf("skip-replay outcome still emitted a token: %v", e)
+		}
+	}
+}
+
+// TestSkipRationaleReplayAlternativesStillStaggersSecondProposal: with two
+// proposals and SkipRationaleReplay set, the FIRST proposal's rationale is
+// never replayed (it streamed live), but the SECOND still replays
+// word-by-word before its own proposal-ready — the staggered-arrival window
+// BC-C-20 depends on survives untouched.
+func TestSkipRationaleReplayAlternativesStillStaggersSecondProposal(t *testing.T) {
+	h := newTestHub(t, Options{})
+	srv := serveDish(t, h, "d1")
+	s := openStream(t, srv.URL)
+	s.awaitConnected(t)
+
+	h.Notify(orchestrator.Outcome{
+		DishID: "d1", MoveID: "mv_1", Kind: orchestrator.OutcomeReady,
+		Proposals: []proposal.Proposal{
+			sampleProposal("pr_1", "mv_1", "alpha beta"),
+			sampleProposal("pr_2", "mv_1", "gamma delta epsilon"),
+		},
+		SkipRationaleReplay: true,
+	})
+
+	first := s.collectUntil(t, "proposal-ready")
+	if len(first) != 1 {
+		t.Fatalf("first proposal's events = %v, want just proposal-ready (no replay)", first)
+	}
+	if id := decode[readyData](t, first[0]).Proposal.ID; id != "pr_1" {
+		t.Errorf("first proposal-ready carries %q, want pr_1", id)
+	}
+
+	second := s.collectUntil(t, "proposal-ready")
+	if len(second) != 4 { // 3 tokens + proposal-ready
+		t.Fatalf("second proposal's events = %v, want 3 tokens + proposal-ready", second)
+	}
+	for _, ev := range second[:3] {
+		if ev.Name != "token" {
+			t.Fatalf("got event %q, want token", ev.Name)
+		}
+	}
+	if id := decode[readyData](t, second[3]).Proposal.ID; id != "pr_2" {
+		t.Errorf("second proposal-ready carries %q, want pr_2", id)
 	}
 }
 

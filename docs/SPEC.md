@@ -132,6 +132,8 @@ Fallback path (tool-calling unavailable or malformed): request `json_object` mod
 
 **⚠ Verify-before-build:** the exact `deepseek-v4-pro` model identifier, the `/beta` strict-mode endpoint semantics, the `json_object` empty-content caveat, **and the pricing / context-window / parameter-count figures cited in §2** must all be re-checked against live `api-docs.deepseek.com` when the harness is actually built — this spec's DeepSeek-API knowledge predates the harness build and may be stale. *(Verified 2026-07-07, milestone-01 Phase 3: `deepseek-v4-pro` exists (legacy `deepseek-chat`/`deepseek-reasoner` deprecate 2026-07-24); `/beta` strict tool-calling confirmed with strict:true + all-required + additionalProperties:false; `json_object` remains schema-unvalidated with the documented occasional-empty-content caveat plus include-"json"-in-prompt and max_tokens caveats; pricing re-pinned in §2 — no structural drift.)*
 
+**2026-07-08 re-verify (live api-docs.deepseek.com):** generator deepseek-v4-pro confirmed current ($0.435/1M in miss · $0.87/1M out, 1M ctx); judge for Amendment-1 R2 = deepseek-v4-flash ($0.14/$0.28); legacy aliases deepseek-chat/deepseek-reasoner deprecate 2026-07-24 (codebase unaffected — already on v4-pro); json_object caveats confirmed (word "json" required in prompt, occasional empty content → bounded retry); no /beta strict-schema mode documented any longer — existing /beta strict tool-calling still works live (Gate B), noted as doc drift only.
+
 ---
 
 ## 5. Eval + observability
@@ -142,13 +144,13 @@ The eval boundary is **AUGMENT**, not replace: Langfuse is not asked to do anyth
 |---|---|---|
 | LLM-call tracing | ✅ (via OTel/OTLP) | — |
 | Prompt management | ✅ | — |
-| LLM-as-judge evals | ✅ (available, unused in v0 — PREREGISTRATION.md uses human labeling) | — |
+| LLM-as-judge evals | ✅ available, but not used for v0 scoring | ✅ amended Tier-2 DeepSeek judge R2; zero eligible Tier-2 rows in v0 |
 | Benchmark-dataset hosting | ✅ | `eval/fixtures` is the git-tracked source of truth; Langfuse may mirror it |
-| Single-pass human annotation UI | ✅ | — |
+| Tiered claim verification | — | ✅ Tier-1 deterministic verifier (562 v0 rows) + Tier-2 blinded author R1 / DeepSeek judge R2 (zero v0 rows); the 18-row delegated-LLM blind-check covered only Tier-1 empty-source behavior and is not human validation |
 | Move/gate event log | — | ✅ append-only, replayed |
 | Gate-dynamics metrics (accept/edit/reject/redirect, per move-category, explicit N) | — | ✅ |
 | Three provenance rates (honesty · mischaracterization · hallucination) | — | ✅ — Langfuse has no concept of this rubric |
-| Cohen's κ + confusion matrix | — | ✅ — **forced**, not preferred: Langfuse annotation queues have no multi-annotator support and compute no κ, a documented gap ([langfuse/discussions #4348](https://github.com/orgs/langfuse/discussions/4348)) |
+| Cohen's κ + confusion matrix | — | ✅ — **forced**, not preferred: Langfuse annotation queues have no multi-annotator support and compute no κ; v0 had zero Tier-2 pairs, so κ was unmeasurable ([langfuse/discussions #4348](https://github.com/orgs/langfuse/discussions/4348)) |
 
 **Wiring:** OTel-Go SDK → OTLP/HTTP exporter (gRPC is not supported by Langfuse's ingestion path) → `${LANGFUSE_HOST}/api/public/otel`, `Authorization: Basic base64(pk:sk)`, header `x-langfuse-ingestion-version: 4`. Trace-level attributes (`session_id`, `arm`, `move_type`) are attached to *every* span, not just the root — Langfuse's trace-level fields are read per-span ([langfuse.com/integrations/native/opentelemetry](https://langfuse.com/integrations/native/opentelemetry)).
 

@@ -1,12 +1,12 @@
 package eval
 
 // Tests for the plan-4.7 documentation deliverables. These pin the
-// anti-fabrication invariants, not prose: the README results table exists as
-// STRUCTURE ONLY (every data cell "—", no numbers — the phase stop-line: no
-// label values, gate decisions, or telemetry are ever pre-filled or
-// example-filled outside internal/eval/testdata), and the T1 amendment draft
-// pins every spec-§1.9 instrument by commit SHA while stating that the USER,
-// never the builder, logs it into PREREGISTRATION §9.
+// anti-fabrication invariants, not prose: the README results table now pins
+// the exact digits landed by the milestone-02 live campaign (retuned from the
+// original no-data-yet placeholder guard, as its own comment said it would
+// be), and the T1 amendment draft pins every spec-§1.9 instrument by commit
+// SHA while stating that the USER, never the builder, logs it into
+// PREREGISTRATION §9.
 
 import (
 	"os"
@@ -17,7 +17,7 @@ import (
 
 const (
 	readmePath  = "../../README.md"
-	t1DraftPath = "../../docs/01-end-to-end/T1-amendment-draft.md"
+	t1DraftPath = "../../docs/archive/01-end-to-end/T1-amendment-draft.md"
 )
 
 // resultsSection extracts the README's "## Results" section (heading to the
@@ -66,60 +66,33 @@ func TestREADMEMethodologyLinksPrereg(t *testing.T) {
 	}
 }
 
-// TestREADMEResultsTableEmpty pins the stop-line: the results table is
-// structure only — three arm rows + a gate-dynamics row, every data cell
-// exactly "—", under the bold no-eval-data banner.
-func TestREADMEResultsTableEmpty(t *testing.T) {
+// TestREADMEResultsPinned retunes the former TestREADMEResultsTableEmpty
+// anti-fabrication guard now that the milestone-02 live campaign has landed
+// (its original doc comment flagged this retune as expected). The guard's
+// job flips: instead of pinning the no-data placeholder, it pins the exact
+// landed digits, keeping the same anti-fabrication spirit — byte-exact
+// strings, never a regex that would wave through any number — so a future
+// edit can't silently drift the reported rates or agreement figure.
+func TestREADMEResultsPinned(t *testing.T) {
 	section := resultsSection(t)
 
-	// Normalize blockquote markers and hard wraps so the banner check sees
-	// the rendered sentence, not the source line breaks.
-	normalized := strings.Join(strings.Fields(strings.ReplaceAll(section, ">", " ")), " ")
-	banner := "**No eval data yet — results land in milestone 02 after the human-led measurement campaign"
-	if !strings.Contains(normalized, banner) {
-		t.Errorf("results section missing the bold no-data banner %q", banner)
+	banner := "**No eval data yet.**"
+	if strings.Contains(section, banner) {
+		t.Errorf("results section still has the no-data banner %q; milestone-02 data has landed", banner)
 	}
 
-	var tableRows []string
-	for _, line := range strings.Split(section, "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "|") || strings.Contains(line, "---") {
-			continue // not a table row, or the separator row
-		}
-		tableRows = append(tableRows, line)
-	}
-	if len(tableRows) == 0 {
-		t.Fatalf("results section has no table")
-	}
-	bodyRows := tableRows[1:] // tableRows[0] is the header row
-	if len(bodyRows) != 4 {
-		t.Fatalf("results table body rows = %d, want 4 (three arms + gate dynamics):\n%s",
-			len(bodyRows), strings.Join(bodyRows, "\n"))
-	}
-	for _, label := range []string{"ungrounded", "flavorgraph", "grounded", "gate dynamics"} {
-		found := false
-		for _, row := range bodyRows {
-			if strings.Contains(strings.ToLower(row), label) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("results table missing a %q row", label)
+	for _, row := range []string{
+		"| ungrounded | 150 | 150 | 1.000 | 0.000 | 0.000 |",
+		"| flavorgraph | 203 | 203 | 1.000 | 0.000 | 0.000 |",
+		"| grounded | 209 | 209 | 1.000 | 0.000 | 0.000 |",
+	} {
+		if !strings.Contains(section, row) {
+			t.Errorf("results section missing landed §7a rate row %q", row)
 		}
 	}
-	for _, row := range bodyRows {
-		cells := strings.Split(strings.Trim(row, "|"), "|")
-		if len(cells) < 2 {
-			t.Errorf("row %q has no data cells", row)
-			continue
-		}
-		for _, cell := range cells[1:] { // cells[0] is the row label
-			if got := strings.TrimSpace(cell); got != "—" {
-				t.Errorf("results cell in %q = %q, want %q (structure only — no values ever pre-filled)",
-					cells[0], got, "—")
-			}
-		}
+
+	if !strings.Contains(section, "15/18") {
+		t.Errorf("results section missing the blind-check agreement fraction \"15/18\"")
 	}
 }
 

@@ -120,6 +120,35 @@ func TestComputeRatesZeroCheckable(t *testing.T) {
 	}
 }
 
+// FinalLabel is the rate-assembly rule from PREREG §9 Amendment 1: label_tier1
+// wins when the Tier-1 verifier has set it, else label_r1 is the fallback.
+func TestFinalLabelPrecedence(t *testing.T) {
+	c := Claim{LabelTier1: LabelCorrectlyUnverified, LabelR1: LabelHallucinated}
+	if got := c.FinalLabel(); got != LabelCorrectlyUnverified {
+		t.Fatalf("FinalLabel = %q, want tier1 to win", got)
+	}
+	if got := (Claim{LabelR1: LabelGroundedCorrect}).FinalLabel(); got != LabelGroundedCorrect {
+		t.Fatalf("FinalLabel = %q, want r1 fallback", got)
+	}
+}
+
+// ComputeRates must fold on FinalLabel(), not the raw label_r1 column, so a
+// Tier-1 machine label is counted even when label_r1 is empty or disagrees.
+func TestComputeRatesUsesFinalLabel(t *testing.T) {
+	claims := []Claim{
+		{ClaimID: "a", Arm: "grounded", LabelTier1: LabelGroundedCorrect},
+		{ClaimID: "b", Arm: "grounded", LabelR1: LabelHallucinated},
+	}
+	rates, err := ComputeRates(claims)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := rates["grounded"]
+	if g.Checkable != 2 || g.Provenance != 0.5 || g.Hallucination != 0.5 {
+		t.Fatalf("rates over final labels wrong: %+v", g)
+	}
+}
+
 func TestReadClaims(t *testing.T) {
 	t.Run("skips blank lines", func(t *testing.T) {
 		in := `{"claim_id":"clm-synth-1","arm":"grounded","dish":"d","text":"SYNTHETIC","source":"","label_r1":"hallucinated","label_r2":""}

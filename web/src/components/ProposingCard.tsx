@@ -13,7 +13,12 @@ export default function ProposingCard({ text, onCancel }: {
       <div className="flex items-center gap-2 mb-[10px]">
         <span aria-hidden="true" data-testid="proposing-spinner"
           className="inline-block w-[13px] h-[13px] rounded-[50%] border-2 border-accent border-t-transparent animate-[cc-spin_.7s_linear_infinite]" />
-        <span className="text-2xs tracking-[0.1em] uppercase text-accent-text">Working on your idea</span>
+        {/* The card's heading doubles as the focus target at move dispatch
+            (BC-A-5): programmatically focusable, never the Stop control. */}
+        <span data-testid="proposing-heading" tabIndex={-1}
+          className="text-2xs tracking-[0.1em] uppercase text-accent-text focus:outline-none">
+          Working on your idea
+        </span>
         <div className="flex-1" />
         <button type="button" onClick={onCancel}
           className="border border-accent bg-transparent text-accent-text uppercase font-medium text-2xs px-3 min-h-[30px]">

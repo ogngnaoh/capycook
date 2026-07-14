@@ -348,10 +348,47 @@ func TestDeepSeekEmptyContentThenSuccessRetry(t *testing.T) {
 	}
 }
 
+// Observed live (S5 first grounded run, 2026-07-09): one strict misfire
+// permanently demoted the move to the unenforced json_object fallback, which
+// then emitted a schema-violating stray "title" field on every remaining
+// attempt — exhausting retries and aborting the whole arm. The fallback must
+// bounce back to the server-enforced strict path when its content misbehaves:
+// strict cannot repeat a shape violation, so alternating beats re-rolling
+// unenforced dice.
+func TestDeepSeekFallbackMalformedContentReturnsToStrict(t *testing.T) {
+	r, ts := newReplayServer(t,
+		"synthetic_malformed_tool_call.json",    // attempt 1: strict, malformed → demote
+		"synthetic_fallback_unknown_field.json", // attempt 2: fallback, stray "title" → bounce back
+		"synthetic_strict_tool_call.json",       // attempt 3: strict, success
+	)
+	ds := newTestDeepSeek(t, ts.URL, newTestMeter(t, 10))
+
+	p, err := ds.GenerateMove(context.Background(), testMoveRequest())
+	if err != nil {
+		t.Fatalf("GenerateMove: %v", err)
+	}
+	calls := r.calls()
+	if len(calls) != 3 {
+		t.Fatalf("made %d calls, want 3", len(calls))
+	}
+	third := calls[2]
+	if len(third.Tools) == 0 {
+		t.Fatal("attempt 3 sent no tools — a fallback content failure must return to the strict path")
+	}
+	if third.ResponseFormat != nil {
+		t.Fatalf("attempt 3 response_format = %+v, want none (strict path)", third.ResponseFormat)
+	}
+	if len(p.Change) == 0 {
+		t.Fatal("empty Change after strict-path recovery")
+	}
+}
+
 func TestDeepSeekRetryExhaustionTypedError(t *testing.T) {
 	r, ts := newReplayServer(t,
-		"synthetic_malformed_tool_call.json",
-		"synthetic_empty_content.json",
+		"synthetic_malformed_tool_call.json", // attempt 1: strict → demote
+		"synthetic_empty_content.json",       // attempts 2-5: fallback (empty
+		"synthetic_empty_content.json",       // content is the fallback's own
+		"synthetic_empty_content.json",       // retryable caveat — no bounce)
 		"synthetic_empty_content.json",
 	)
 	meter := newTestMeter(t, 10)
@@ -362,18 +399,18 @@ func TestDeepSeekRetryExhaustionTypedError(t *testing.T) {
 	if !errors.As(err, &ex) {
 		t.Fatalf("err = %v (%T), want *ExhaustedError", err, err)
 	}
-	if ex.Attempts != 3 {
-		t.Fatalf("Attempts = %d, want 3 (1 try + 2 retries)", ex.Attempts)
+	if ex.Attempts != 5 {
+		t.Fatalf("Attempts = %d, want 5 (1 try + 4 retries, spec-§7 bound raised at S5)", ex.Attempts)
 	}
 	if !errors.Is(err, errEmptyContent) {
 		t.Fatalf("err chain %v does not carry the empty-content cause", err)
 	}
-	if got := len(r.calls()); got != 3 {
-		t.Fatalf("made %d calls, want 3", got)
+	if got := len(r.calls()); got != 5 {
+		t.Fatalf("made %d calls, want 5", got)
 	}
-	// Failed extractions still cost money: all three responses' usage is
+	// Failed extractions still cost money: all five responses' usage is
 	// recorded.
-	wantSpend := costUSD(1000, 0, 20) + 2*costUSD(1000, 500, 0)
+	wantSpend := costUSD(1000, 0, 20) + 4*costUSD(1000, 500, 0)
 	if got := meter.Spent(); math.Abs(got-wantSpend) > 1e-12 {
 		t.Fatalf("meter.Spent() = %v, want %v", got, wantSpend)
 	}
