@@ -1,10 +1,12 @@
 # Handoff — milestone 02 (measure-run)
 
 ## Next session start here
-**⚠ PAUSED behind 02b (2026-07-11).** The first live-latency operator session
-surfaced UX gaps; milestone 02b (behavior contract + autonomous oracle loop,
-`docs/02b-behavior-contract/`) ships first, then H2 operator sessions and S8
-resume on the improved workbench. Everything below is the resume point.
+**▶ RESUMED — 02b shipped 2026-07-13, merged to `measure-run` (unpushed).** The
+improved, contract-verified workbench is now on this branch; S8 is active. **Do
+the deferred 02b GIF re-check FIRST** — README scenes 01/04/07 changed under B4
+and the demo rig needs a scene-01 fix (auto-first-pass broke `seedToTrial1`); see
+`docs/02b-behavior-contract/handoff.md`. Then proceed with S8 below. Everything
+below is the resume point.
 
 S8 pre-work is the resequenced Task 5 (H2 fold): the author accumulates real
 operator sessions in the workbench (`make run`, real dishes, live key —

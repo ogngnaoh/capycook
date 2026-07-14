@@ -137,10 +137,26 @@ export const scenarios = [
       ctx.sampleScreencast('BC-B-2', {
         fromMs: Math.max(0, submitNode - recStart), toMs: readyNode - recStart, maxFrames: 13,
       });
-      await sleep(3200); // let the +3s tail of the ready transition record
+      await sleep(5500); // record a longer post-ready tail: the handoff burst
+      // (gate mount + streaming flush) can make the screencast lag the DOM by a
+      // few seconds, so a short tail froze run-027's BC-B-8 sample on pre-gate
+      // "working" frames. Give the recorder time to catch up to the painted gate.
       ctx.sampleScreencast('BC-B-8', {
-        fromMs: Math.max(0, (readyNode - recStart) - 3000), toMs: (readyNode - recStart) + 3200, maxFrames: 12,
+        // Widen the post-ready window + raise the frame budget so the recovered
+        // handoff frames (working → your-call) are in the sample even with lag.
+        fromMs: Math.max(0, (readyNode - recStart) - 3000), toMs: (readyNode - recStart) + 6000, maxFrames: 18,
       });
+      // The screencast can still WEDGE during the handoff burst (frozen frames
+      // even on an idle machine — froze run-030/034's B-8 on a "working" frame).
+      // Capture the resolved gate via a DIRECT screenshot — scrolled to the TOP
+      // so the "NEEDS YOUR CALL" header + the resolved surface occupy the SAME
+      // viewport as the working frames, making the working→your-call handoff
+      // legible side-by-side (run-034's judge rejected a scrolled-down gate
+      // still). BC-B-8.
+      if (sawGate) {
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await ctx.judgeShot('BC-B-8', 'resolved-gate');
+      }
 
       // Derived, renderer-side.
       const mProposing = inst.moments.find((m) => m.name === 'proposing');
@@ -327,13 +343,27 @@ export const scenarios = [
         for (let i = 0; i < 4; i++) {
           const state = await page.evaluate(() => {
             if (document.querySelector('#cc-intent')) return 'idle';
+            // Alternatives surfaces FIRST (BC-C-20 world): during the partial
+            // window a proposing card is also mounted for the second option —
+            // Stop-cancelling it would strand the flow; drain via the picker.
+            if (document.querySelector('[data-testid="alt-card"]')
+              || document.querySelector('[data-testid="alternatives-waiting"]')) return 'alternatives';
             if (document.querySelector('[data-testid="proposing-card"]')) return 'proposing';
             if (document.querySelector('button[data-verb="accept"]')) return 'gate';
             if (document.querySelector('[data-testid="safety-hold"]')) return 'blocked';
             return 'other';
           });
           if (state === 'idle') return;
-          if (state === 'proposing') {
+          if (state === 'alternatives') {
+            // Wait for both cards, pick A (stages a normal gate), accept it.
+            await page.waitForFunction(
+              () => document.querySelectorAll('[data-testid="alt-card"]').length >= 2,
+              { timeout: 60000 },
+            ).catch(() => {});
+            await page.evaluate(() => { const c = document.querySelectorAll('[data-testid="alt-card"]')[0]; if (c) c.click(); }).catch(() => {});
+            await waitForVerb(page, 'accept', 15000).catch(() => {});
+            await clickVerb(page, 'accept').catch(() => {});
+          } else if (state === 'proposing') {
             await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => /^Stop$/.test(x.textContent.trim())); if (b) b.click(); }).catch(() => {});
           } else if (state === 'gate') {
             await clickVerb(page, 'accept').catch(() => {});
@@ -389,16 +419,23 @@ export const scenarios = [
       }, { name: 'trap-regenerate', deadlineMs: 80000 });
 
       // Trap (2): the first of two alternatives lands while the second still
-      // generates. focusDecision lands on the single-proposal gate's Accept,
-      // not Stop — this moment does NOT trip, but the recipe demands it.
+      // generates. Since BC-C-20's fix (06e4c00) the app WITHHOLDS the
+      // single-proposal gate during the partial window and renders the
+      // alternatives-waiting status (or the first alt-card) instead — the
+      // trap moment is that partial surface's appearance, and focus must
+      // still not be on Stop there.
       await ctx.check('BC-B-4', async (t) => {
         await ensureIdle();
         await reachGate('give it a completely different flavor personality');
         await clickButton(page, /^Try another way/i);
         await waitForVerb(page, 'alternatives', 5000);
         await clickVerb(page, 'alternatives');
-        const sawFirst = await waitForVerb(page, 'accept', altTimeout).then(() => true).catch(() => false);
-        await sleep(200); // focusDecision parks focus on the gate
+        const sawFirst = await page.waitForFunction(
+          () => !!document.querySelector('[data-testid="alternatives-waiting"]')
+            || !!document.querySelector('[data-testid="alt-card"]'),
+          { timeout: altTimeout },
+        ).then(() => true).catch(() => false);
+        await sleep(200); // focusDecision settles wherever it lands
         const focus = await describeActiveElement(page);
         const liveBefore = ((await ctx.readInstrument()) || { liveLog: [] }).liveLog.length;
         await page.keyboard.press('Enter');
@@ -407,7 +444,7 @@ export const scenarios = [
         const cancelled = inst.liveLog.slice(liveBefore).some((l) => /Move cancelled/.test(l.text));
         t.observe('alternatives.focusAtFirstReady', focus);
         t.observe('alternatives.tripped', focus.isStop || cancelled);
-        t.expect(sawFirst, 'alternatives: the first proposal-ready surfaced (single-proposal gate)', { observed: sawFirst });
+        t.expect(sawFirst, 'alternatives: the first proposal-ready surfaced (partial-alternatives surface, BC-C-20)', { observed: sawFirst });
         t.expect(!focus.isStop, 'alternatives: focus is not on Stop at the first proposal-ready', { observed: focus });
         t.expect(!cancelled, 'alternatives: a bare Enter did not cancel the second move', { observed: cancelled });
         await ensureIdle();

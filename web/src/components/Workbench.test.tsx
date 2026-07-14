@@ -2,9 +2,9 @@ import { render, screen, fireEvent, waitFor, within, act } from '@testing-librar
 import Workbench from './Workbench'
 import { MockEventSource, dishDetail, jsonResponse, sampleDraft, sampleProposal } from '../fixtures'
 import {
-  ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED, ANNOUNCE_PROPOSING,
-  BLOCKED_REDIRECT, BLOCKED_REGEN, GATE_ANNOUNCE, GATE_ANOTHER_LABEL,
-  MOVE_LABEL, STATE_LABEL, VERB_LABEL, announceProposalReady,
+  ANNOUNCE_BACK_TO_CURRENT, ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED,
+  ANNOUNCE_PROPOSING, BLOCKED_REDIRECT, BLOCKED_REGEN, GATE_ANNOUNCE,
+  GATE_ANOTHER_LABEL, MOVE_LABEL, STATE_LABEL, VERB_LABEL, announceProposalReady,
 } from '../vocab'
 import type { DishDetail, LLMStatusResponse, VersionsResponse } from '../types'
 
@@ -65,6 +65,52 @@ test('opens one EventSource per dish and renders the dish on the stage', async (
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Seared Chicken Thighs')
 })
 
+// --- load failure + loading states (BC-H-1 / BC-H-7 / BC-H-9) ---------------
+
+test('a failed dish load renders the error card as role="alert" with focus on it', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1') return jsonResponse({ error: 'dish not found' }, 404)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  render(<Workbench dishId="d1" onNavigate={() => {}} />)
+  const card = await screen.findByRole('alert')
+  expect(card).toHaveTextContent(/could not load this dish/i)
+  // Keyboard focus lands on the error region itself; the escape hatch lives
+  // inside it.
+  await waitFor(() => expect(card).toHaveFocus())
+  expect(within(card).getByRole('button', { name: 'Back to dishes' })).toBeInTheDocument()
+})
+
+test('a successful load renders no alert and the error-focus effect stays quiet', async () => {
+  await mount()
+  expect(screen.queryByRole('alert')).toBeNull()
+  // Cold load: focus is untouched (audit #9) — the mount-gated error focus
+  // must never fire on the happy path.
+  expect(document.body).toHaveFocus()
+})
+
+test('the pre-load placeholder is exposed as a role="status" live region', async () => {
+  let release!: (r: Response) => void
+  const gate = new Promise<Response>((r) => { release = r })
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1') return gate
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  render(<Workbench dishId="d1" onNavigate={() => {}} />)
+  const placeholder = screen.getByRole('status')
+  expect(placeholder).toHaveTextContent('Loading the dish…')
+  // Release the dish so the tail setState lands under act.
+  release(jsonResponse(detail))
+  await flush()
+  expect(screen.getByTestId('dish-card')).toBeInTheDocument()
+})
+
 // --- streaming -------------------------------------------------------------
 
 test('tokens stream into the ProposingCard, whose text grows', async () => {
@@ -81,6 +127,67 @@ test('a token for a different move id never appends (expectedMove guard)', async
   const es = await mount()
   act(() => es.emit('token', { moveId: 'mv_OTHER', text: 'ghost text' }))
   expect(screen.getByTestId('proposing-card')).not.toHaveTextContent('ghost text')
+})
+
+// BC-B-10: the live region must say more than a start/end flip during a long
+// generation — successive DISTINCT intermediate values land 2000-12000ms
+// apart, never per-token. Drives a real dispatch (so beginProposingAnnounce-
+// ments seeds its throttle baseline the same way the app does) and controls
+// Date.now() to place tokens precisely inside/outside the throttle window.
+test('BC-B-10: mid-generation progress announcements are throttled and distinct, never per-token', async () => {
+  let now = 1_700_000_000_000
+  const spy = vi.spyOn(Date, 'now').mockImplementation(() => now)
+  try {
+    await mount()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url === '/api/dishes/d1' && method === 'GET') {
+        return jsonResponse(dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' }))
+      }
+      if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+      if (url === '/api/status') return jsonResponse(llmStatus)
+      if (url === '/api/dishes/d1/move' && method === 'POST') return jsonResponse({ moveId: 'mv_9' })
+      return jsonResponse({})
+    })
+    fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'brighten it' } })
+    fireEvent.click(screen.getByRole('button', { name: /^Try it/i }))
+    await flush()
+    const es = MockEventSource.instances[0]
+    const region = screen.getByTestId('gate-live-region')
+    expect(region).toHaveTextContent(ANNOUNCE_PROPOSING)
+    const afterStart = region.textContent
+
+    // Two tokens well inside the 3500ms throttle window — never per-token.
+    act(() => es.emit('token', { moveId: 'mv_9', text: 'Char ' }))
+    now += 500
+    act(() => es.emit('token', { moveId: 'mv_9', text: 'the ' }))
+    expect(region.textContent).toBe(afterStart)
+
+    // Crossing the throttle floor produces exactly one distinct intermediate
+    // value — neither the start nor ready strings.
+    now += 3200
+    act(() => es.emit('token', { moveId: 'mv_9', text: 'leeks ' }))
+    const first = region.textContent
+    expect(first).not.toBe(afterStart)
+    expect(first).not.toMatch(/Proposing a move/)
+    expect(first).not.toMatch(/Proposal ready/)
+
+    // Immediately after: inside the new window, no re-announce.
+    now += 100
+    act(() => es.emit('token', { moveId: 'mv_9', text: 'hard.' }))
+    expect(region.textContent).toBe(first)
+
+    // Crossing the floor again yields a SECOND, DIFFERENT value — successive
+    // distinct updates, not a repeat of the immediately-prior one.
+    now += 3600
+    act(() => es.emit('token', { moveId: 'mv_9', text: 'Then ' }))
+    const second = region.textContent
+    expect(second).not.toBe(first)
+    expect(second).not.toBe(afterStart)
+  } finally {
+    spy.mockRestore()
+  }
 })
 
 // --- proposal ready → gate -------------------------------------------------
@@ -190,6 +297,45 @@ test('two sequential proposal-ready events accumulate into the picker; picking o
     const call = fetchMock.mock.calls.find(([u]) => String(u) === '/api/dishes/d1/gate')
     expect(JSON.parse((call![1] as RequestInit).body as string)).toMatchObject({ proposalId: 'pr_b' })
   })
+})
+
+test('BC-C-20: mid-alternatives with only the first alt-card landed, no committing gate verb is reachable', async () => {
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal({ id: 'pr_0' }), pendingProposals: [sampleProposal({ id: 'pr_0' })] })
+  const proposingDetail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_alt' })
+  let dishGets = 0
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ verb: 'alternatives', proposalId: 'pr_0', newMoveId: 'mv_alt' })
+    // The initial load sees the single pending proposal at the gate; the
+    // alternatives dispatch's own resync (post-POST) sees the fresh move
+    // already kicked off server-side (BC-C-20's respawn clears pending
+    // synchronously, before any SSE token/proposal-ready ever fires).
+    if (url === '/api/dishes/d1') return jsonResponse(dishGets++ === 0 ? detail : proposingDetail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  const es = await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: GATE_ANOTHER_LABEL }))
+  fireEvent.click(within(bar).getByRole('button', { name: VERB_LABEL.alternatives }))
+  await waitFor(() => {
+    expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/dishes/d1/gate')).toBe(true)
+  })
+  await flush() // settle the alternatives dispatch's resync -> state proposing
+  expect(screen.queryByTestId('gate-bar')).not.toBeInTheDocument()
+
+  // Only the first of the two alternatives has arrived.
+  act(() => es.emit('proposal-ready', { moveId: 'mv_alt', proposal: sampleProposal({ id: 'pr_a', move_id: 'mv_alt' }) }))
+  expect(screen.queryByTestId('gate-bar')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /use it/i })).not.toBeInTheDocument()
+  expect(screen.getByTestId('alternatives-waiting')).toHaveTextContent(/1 of 2/i)
+
+  // The second lands: the normal two-card compare view takes over.
+  act(() => es.emit('proposal-ready', { moveId: 'mv_alt', proposal: sampleProposal({ id: 'pr_b', move_id: 'mv_alt' }) }))
+  expect(screen.queryByTestId('alternatives-waiting')).not.toBeInTheDocument()
+  expect(screen.getAllByTestId('alt-card')).toHaveLength(2)
 })
 
 // --- all six verbs wired through the real GateBar --------------------------
@@ -428,6 +574,81 @@ test('the override prompt is a modal alert dialog: named, described, least-destr
   await waitFor(() => expect(bar.contains(document.activeElement)).toBe(true))
 })
 
+// --- move dispatch: focus + lock (BC-A-5) ------------------------------------
+
+test('dispatching a move lands focus on the proposing card’s heading, never Stop', async () => {
+  await mount()
+  // The move's follow-up GET finds the dish proposing.
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
+  fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'brighter' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  await waitFor(() => expect(screen.getByTestId('proposing-heading')).toHaveFocus())
+  expect(screen.getByRole('button', { name: 'Stop' })).not.toHaveFocus()
+})
+
+test('focus is already on the proposing heading at the instant the intent bar unmounts (BC-A-5 dispatch moment)', async () => {
+  await mount()
+  // The move's follow-up GET finds the dish proposing.
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
+  // Mirror the oracle's armed moment: a MutationObserver records
+  // document.activeElement in the microtask right after the DOM batch that
+  // removes #cc-intent — before any setTimeout backstop can run. The gated
+  // layout effect must have focused the heading inside that same commit.
+  const seen: Element[] = []
+  const observer = new MutationObserver(() => {
+    if (seen.length === 0 && !document.getElementById('cc-intent')) {
+      seen.push(document.activeElement as Element)
+    }
+  })
+  observer.observe(document.body, { childList: true, subtree: true })
+  fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'brighter' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  await waitFor(() => expect(seen).toHaveLength(1))
+  observer.disconnect()
+  expect(seen[0]).toBe(screen.getByTestId('proposing-heading'))
+})
+
+test('a cold load into an already-proposing dish never steals focus (deep-link guard)', async () => {
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_5' })
+  await mount()
+  // No local dispatch happened: the gated layout effect must stay quiet.
+  expect(screen.getByTestId('proposing-heading')).toBeInTheDocument()
+  expect(screen.getByTestId('proposing-heading')).not.toHaveFocus()
+  expect(document.activeElement).toBe(document.body)
+})
+
+test('a chip double-click dispatches exactly one move (synchronous lock)', async () => {
+  await mount()
+  const chip = screen.getByRole('button', { name: new RegExp(MOVE_LABEL.unit_convert, 'i') })
+  fireEvent.click(chip)
+  fireEvent.click(chip)
+  await flush()
+  expect(fetchMock.mock.calls.filter(([u]) => String(u) === '/api/dishes/d1/move')).toHaveLength(1)
+})
+
+// --- respawn focus (BC-B-4) --------------------------------------------------
+
+test('a regenerate respawn re-enters proposing with focus on the heading, never Stop', async () => {
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal({ id: 'pr_7' }), pendingProposals: [sampleProposal({ id: 'pr_7' })] })
+  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ verb: 'regenerate', proposalId: 'pr_7', newMoveId: 'mv_10' })
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  // The respawn's re-sync finds the dish proposing the new move.
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_10' })
+  fireEvent.click(within(bar).getByRole('button', { name: GATE_ANOTHER_LABEL }))
+  fireEvent.click(within(bar).getByRole('button', { name: VERB_LABEL.regenerate }))
+  await waitFor(() => expect(screen.getByTestId('proposing-heading')).toHaveFocus())
+  expect(screen.getByRole('button', { name: 'Stop' })).not.toHaveFocus()
+})
+
 // --- cancel ----------------------------------------------------------------
 
 test('while proposing, the Stop control cancels the move (no gate bar)', async () => {
@@ -436,6 +657,15 @@ test('while proposing, the Stop control cancels the move (no gate bar)', async (
   expect(screen.queryByTestId('gate-bar')).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
   await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/dishes/d1/cancel', expect.anything()))
+})
+
+test('cancelling restores focus to the stage heading once Stop unmounts', async () => {
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_5' })
+  await mount()
+  // The cancel's re-sync finds the dish idle again — Stop is gone.
+  detail = dishDetail()
+  fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+  await waitFor(() => expect(document.getElementById('stage-heading')).toHaveFocus())
 })
 
 test('the status region narrates the gate lifecycle, never the token stream', async () => {
@@ -492,6 +722,176 @@ test('move-failed offers Try again, which re-posts the identical move', async ()
   })
 })
 
+test('a failed move lands focus on the stage heading, never document.body (BC-H-4)', async () => {
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
+  const es = await mount()
+  // The failure's implicit resolve finds the dish idle again — no gate bar,
+  // no proposing card survives to hold focus. Unlike Stop (a click that
+  // calls cancelMove() → focusDecision()), a failure is an async SSE event
+  // with no click path of its own — onMoveFailed must redirect focus itself.
+  detail = dishDetail()
+  act(() => es.emit('move-failed', { moveId: 'mv_9', reason: 'llm: parse error' }))
+  await waitFor(() => expect(document.getElementById('stage-heading')).toHaveFocus())
+  expect(document.activeElement).not.toBe(document.body)
+})
+
+// --- typed-input preservation (BC-A-13 / BC-C-21 / BC-C-27 / BC-E-5) --------
+
+test('a failed move POST hands the typed intent back to the field (BC-A-13)', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ error: 'kitchen unreachable' }, 502)
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  const input = screen.getByLabelText(/what do you want to try next/i)
+  fireEvent.change(input, { target: { value: 'a distinctly lemony finish' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  // The dispatch clears the field; the failure banner arrives with the text
+  // restored, never discarded.
+  await screen.findByText(/kitchen unreachable/)
+  await waitFor(() => expect(input).toHaveValue('a distinctly lemony finish'))
+})
+
+test('a failed scale POST reopens the scale form with the typed servings (BC-A-13)', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ error: 'kitchen unreachable' }, 502)
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: /scale servings/i }))
+  fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '12' } })
+  fireEvent.click(screen.getByRole('button', { name: /scale it/i }))
+  await screen.findByText(/kitchen unreachable/)
+  await waitFor(() => expect(screen.getByRole('spinbutton')).toHaveValue(12))
+})
+
+test('a move that fails after dispatch (SSE move-failed) restores the intent text (BC-A-13)', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ moveId: 'mv_9' })
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  const es = await mount()
+  fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'punchier dressing' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/dishes/d1/move')).toBe(true))
+  await flush() // settle propose's GET → the bar is still idle, field cleared
+  expect(screen.getByLabelText(/what do you want to try next/i)).toHaveValue('')
+  act(() => es.emit('move-failed', { moveId: 'mv_9', reason: 'llm: parse error' }))
+  expect(screen.getByTestId('move-failed-banner')).toBeInTheDocument()
+  expect(screen.getByLabelText(/what do you want to try next/i)).toHaveValue('punchier dressing')
+})
+
+test('Stop mid-generation restores the in-flight intent once Ready (BC-A-13 cancel variant)', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ moveId: 'mv_9' })
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  // The move's follow-up GET finds the dish proposing.
+  detail = dishDetail({ state: 'proposing', inFlightMoveId: 'mv_9' })
+  fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'rephrase me later' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument())
+  // The cancel's re-sync finds the dish idle again — Ready.
+  detail = dishDetail()
+  fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+  await waitFor(() => expect(screen.getByLabelText(/what do you want to try next/i)).toHaveValue('rephrase me later'))
+})
+
+test('a failed gate POST keeps the redirect form open with the exact steer text (BC-C-21)', async () => {
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal(), pendingProposals: [sampleProposal()] })
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ error: 'kitchen unreachable' }, 502)
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: GATE_ANOTHER_LABEL }))
+  fireEvent.click(within(bar).getByRole('button', { name: VERB_LABEL.redirect }))
+  const form = await screen.findByTestId('redirect-form')
+  // Trailing spaces on purpose: the dispatch trims, the field must not.
+  fireEvent.change(form.querySelector('input')!, { target: { value: 'keep the salt, add acid  ' } })
+  fireEvent.click(screen.getByRole('button', { name: /send/i }))
+  await screen.findByText(/kitchen unreachable/)
+  await flush()
+  expect(screen.getByTestId('redirect-form')).toBeInTheDocument()
+  expect(form.querySelector('input')).toHaveValue('keep the salt, add acid  ')
+})
+
+test('"Go back — I\'ll change it" returns to take-over with the typed JSON byte-identical (BC-C-27)', async () => {
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: sampleProposal(), pendingProposals: [sampleProposal()] })
+  const reason = 'Room-temperature garlic-in-oil supports Clostridium botulinum growth.'
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/gate') return jsonResponse({ error: `orchestrator: safety warning requires confirm override: ${reason}` }, 409)
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: /try another way/i }))
+  fireEvent.click(within(bar).getByRole('button', { name: new RegExp(VERB_LABEL.take_over, 'i') }))
+  const form = await screen.findByTestId('takeover-form')
+  // Structurally complete (BC-C-28's shape guard must let it through) so
+  // this exercises the BC-C-27 override/back mechanic, not the shape guard.
+  const typed = JSON.stringify({ ...sampleDraft(), title: 'Confit Garlic Oil' }, null, 2)
+  fireEvent.change(form.querySelector('textarea')!, { target: { value: typed } })
+  fireEvent.click(within(bar).getByRole('button', { name: /save draft/i }))
+  const prompt = await screen.findByTestId('override-prompt')
+  fireEvent.click(within(prompt).getByRole('button', { name: /go back/i }))
+  await flush()
+  // Back in take-over mode — never a reset to decide or a fresh dump of the
+  // pre-edit draft — with the cook's own edit byte-identical.
+  expect(screen.queryByTestId('override-prompt')).not.toBeInTheDocument()
+  const textarea = screen.getByTestId('takeover-form').querySelector('textarea')!
+  expect(textarea.value).toBe(typed)
+})
+
+test('a failed rework POST keeps the tasting form open with the exact notes (BC-E-5)', async () => {
+  versionsData = {
+    currentVersionId: 'ver_1',
+    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' }],
+  }
+  detail = dishDetail({ currentVersionId: 'ver_1' })
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === '/api/dishes/d1/move') return jsonResponse({ error: 'kitchen unreachable' }, 502)
+    if (url === '/api/dishes/d1') return jsonResponse(detail)
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    return jsonResponse({})
+  })
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: /i cooked this/i }))
+  fireEvent.change(screen.getByLabelText(/tasting notes/i), { target: { value: 'too salty — cut the feta by half' } })
+  fireEvent.click(screen.getByRole('button', { name: /rework from these notes/i }))
+  await screen.findByText(/kitchen unreachable/)
+  await flush()
+  expect(screen.getByLabelText(/tasting notes/i)).toHaveValue('too salty — cut the feta by half')
+})
+
 // --- reconnect -------------------------------------------------------------
 
 test('a dropped stream shows the reconnecting banner and re-syncs via GET on reopen', async () => {
@@ -510,8 +910,8 @@ test('viewing a past trial shows a read-only banner with a way back; a trial pro
   versionsData = {
     currentVersionId: 'ver_2',
     versions: [
-      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() },
-      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft() },
+      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' },
+      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' },
     ],
   }
   detail = dishDetail({ currentVersionId: 'ver_2' })
@@ -530,12 +930,74 @@ test('viewing a past trial shows a read-only banner with a way back; a trial pro
   })
 })
 
+// BC-D-12: a past trial's accept-time rationale is recoverable in technical
+// view — present as real text on the snapshot, absent when technical is off
+// (so the default, non-technical stage never reads as cluttered).
+test('technical view exposes a past trial\'s accepted rationale; off, it does not', async () => {
+  versionsData = {
+    currentVersionId: 'ver_2',
+    versions: [
+      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: 'kumquat-marmalade-note-7f3', origin: 'accepted' },
+      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft(), rationale: 'second trial rationale', origin: 'accepted' },
+    ],
+  }
+  detail = dishDetail({ currentVersionId: 'ver_2' })
+  await mount()
+  fireEvent.click(screen.getByRole('button', { name: /trial 1/i }))
+  expect(screen.queryByText(/kumquat-marmalade-note-7f3/)).not.toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole('button', { name: /technical view/i }))
+  expect(screen.getByTestId('trial-rationale')).toHaveTextContent('kumquat-marmalade-note-7f3')
+
+  fireEvent.click(screen.getByRole('button', { name: /technical view/i }))
+  expect(screen.queryByTestId('trial-rationale')).not.toBeInTheDocument()
+})
+
+// BC-F-3: an auto-applied trial stays durably attributable on the spine
+// (never only the ~2.6s toast) — text-exposed, distinguishing it from a
+// human-accepted trial beside it.
+test('an auto-applied trial carries a durable text marker a human-accepted one lacks', async () => {
+  versionsData = {
+    currentVersionId: 'ver_2',
+    versions: [
+      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'auto' },
+      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' },
+    ],
+  }
+  detail = dishDetail({ currentVersionId: 'ver_2' })
+  await mount()
+  const autoCard = screen.getByRole('button', { name: /trial 1/i })
+  const humanCard = screen.getByRole('button', { name: /trial 2/i })
+  expect(autoCard).toHaveTextContent('Auto-applied')
+  expect(humanCard).not.toHaveTextContent('Auto-applied')
+})
+
+test('Back to current announces the return and focuses the stage heading', async () => {
+  versionsData = {
+    currentVersionId: 'ver_2',
+    versions: [
+      { id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' },
+      { id: 'ver_2', parentVersionId: 'ver_1', createdAt: '2026-07-06T01:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' },
+    ],
+  }
+  detail = dishDetail({ currentVersionId: 'ver_2' })
+  await mount()
+  const region = screen.getByTestId('gate-live-region')
+  fireEvent.click(screen.getByRole('button', { name: /trial 1/i }))
+  expect(region).toHaveTextContent(/viewing trial 1, read-only/i)
+  fireEvent.click(screen.getByRole('button', { name: /back to current/i }))
+  // The return direction is never a silent swap: a distinct announcement plus
+  // focus on the stage heading, not the removed banner button.
+  expect(region).toHaveTextContent(ANNOUNCE_BACK_TO_CURRENT)
+  expect(document.getElementById('stage-heading')).toHaveFocus()
+})
+
 // --- cook flow -------------------------------------------------------------
 
 test('the cook flow dispatches iterate_feedback against the current version', async () => {
   versionsData = {
     currentVersionId: 'ver_1',
-    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() }],
+    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' }],
   }
   detail = dishDetail({ currentVersionId: 'ver_1' })
   await mount()
@@ -556,7 +1018,7 @@ test('the cook flow dispatches iterate_feedback against the current version', as
 test('a cook-note round-trip renders in the timeline node for that version', async () => {
   versionsData = {
     currentVersionId: 'ver_1',
-    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft() }],
+    versions: [{ id: 'ver_1', parentVersionId: null, createdAt: '2026-07-06T00:00:00Z', draft: sampleDraft(), rationale: '', origin: 'accepted' }],
   }
   detail = dishDetail({ currentVersionId: 'ver_1' })
   await mount()
@@ -676,4 +1138,167 @@ test('every workbench <section> carries an accessible name', async () => {
   for (const s of sections) {
     expect(s.getAttribute('aria-label') || s.getAttribute('aria-labelledby')).toBeTruthy()
   }
+})
+
+// --- auto-fired first pass (BC-A-3) -----------------------------------------
+
+test('autoFirstPass dispatches exactly one bare move through propose() once the dish loads idle', async () => {
+  detail = dishDetail({ state: 'idle', currentVersionId: null })
+  let dishGets = 0
+  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (url === '/api/dishes/d1' && method === 'GET') {
+      dishGets += 1
+      // First GET: the initial resync (idle, no version). Second GET: the
+      // one propose() performs right after the auto-fired POST resolves.
+      return jsonResponse(dishGets === 1
+        ? detail
+        : dishDetail({ state: 'proposing', currentVersionId: null, inFlightMoveId: 'mv_auto' }))
+    }
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    if (url === '/api/dishes/d1/move' && method === 'POST') return jsonResponse({ moveId: 'mv_auto' })
+    return jsonResponse({})
+  })
+  render(<Workbench dishId="d1" onNavigate={() => {}} autoFirstPass />)
+  await screen.findByTestId('proposing-card')
+  expect(screen.getByTestId('gate-live-region')).toHaveTextContent('Proposing a move…')
+  const moveCalls = fetchMock.mock.calls.filter(([u, i]) =>
+    String(u) === '/api/dishes/d1/move' && ((i as RequestInit | undefined)?.method ?? 'GET') === 'POST')
+  expect(moveCalls).toHaveLength(1)
+  expect(JSON.parse((moveCalls[0][1] as RequestInit).body as string)).toEqual({ moveType: '', steer: '' })
+})
+
+test('without autoFirstPass a normal mount on an idle dish never dispatches a move', async () => {
+  await mount()
+  await flush()
+  const moveCalls = fetchMock.mock.calls.filter(([u]) => String(u) === '/api/dishes/d1/move')
+  expect(moveCalls).toHaveLength(0)
+})
+
+test('autoFirstPass never fires against an already-decided dish (the "no version yet" guard)', async () => {
+  // Mirrors the reload/revisit boundary: App only ever passes autoFirstPass
+  // true right after a create, but Workbench's own "no version yet" guard
+  // is a second, independent reason this stays inert against a dish that
+  // already has a decided trial, even if it somehow arrived here true.
+  detail = dishDetail({ state: 'idle', currentVersionId: 'ver_1' })
+  render(<Workbench dishId="d1" onNavigate={() => {}} autoFirstPass />)
+  await screen.findAllByText('Seared Chicken Thighs')
+  await flush()
+  const moveCalls = fetchMock.mock.calls.filter(([u]) => String(u) === '/api/dishes/d1/move')
+  expect(moveCalls).toHaveLength(0)
+})
+
+// --- suggested-next chips populate outside the SSE handler too (BC-A-14) ---
+
+test('a reload/revisit landing on an undecided proposal populates suggested-next from the GET alone', async () => {
+  // No SSE proposal-ready event fires at all in this test — resync() (the
+  // same call a reload/reconnect drives) is the only source.
+  const proposal = sampleProposal({ id: 'pr_5', move_id: 'mv_5', suggested_next: ['technique_step'] })
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: proposal, pendingProposals: [proposal] })
+  let decided = false
+  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (url === '/api/dishes/d1' && method === 'GET') {
+      return jsonResponse(decided ? dishDetail({ state: 'idle', currentVersionId: 'ver_2' }) : detail)
+    }
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    if (url === '/api/dishes/d1/gate' && method === 'POST') {
+      decided = true
+      return jsonResponse({ verb: 'accept', proposalId: 'pr_5' })
+    }
+    return jsonResponse({})
+  })
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: new RegExp(VERB_LABEL.accept, 'i') }))
+  await flush()
+  expect(screen.getByText('Try next —')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: MOVE_LABEL.technique_step })).toBeInTheDocument()
+})
+
+test('a proposal-ready SSE event that races ahead of expectedMove.current still lands suggested-next via propose()\'s own GET', async () => {
+  const es = await mount()
+  const readyProposal = sampleProposal({ id: 'pr_8', move_id: 'mv_8', suggested_next: ['cost_recompute'] })
+  let decided = false
+  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (url === '/api/dishes/d1' && method === 'GET') {
+      return jsonResponse(decided
+        ? dishDetail({ state: 'idle', currentVersionId: 'ver_2' })
+        : dishDetail({ state: 'awaiting_gate', pendingProposal: readyProposal, pendingProposals: [readyProposal] }))
+    }
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    if (url === '/api/dishes/d1/move' && method === 'POST') return jsonResponse({ moveId: 'mv_8' })
+    if (url === '/api/dishes/d1/gate' && method === 'POST') {
+      decided = true
+      return jsonResponse({ verb: 'accept', proposalId: 'pr_8' })
+    }
+    return jsonResponse({})
+  })
+  fireEvent.change(screen.getByLabelText(/what do you want to try next/i), { target: { value: 'go bolder' } })
+  fireEvent.click(screen.getByRole('button', { name: /^Try it/i }))
+  // Same tick as the click: postMove's fetch has not resolved yet, so
+  // expectedMove.current is still null — this proposal-ready is dropped as
+  // a stale replay by the SSE handler's own guard, exactly the race BC-A-14
+  // diagnoses. suggestedNext must still land once propose()'s GET resolves.
+  act(() => es.emit('proposal-ready', { moveId: 'mv_8', proposal: readyProposal }))
+  await flush()
+  const bar = await screen.findByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: new RegExp(VERB_LABEL.accept, 'i') }))
+  await flush()
+  expect(screen.getByText('Try next —')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: MOVE_LABEL.cost_recompute })).toBeInTheDocument()
+})
+
+test('BC-A-14 retry: a chip click mounts the proposing surface synchronously, even when the follow-up GET resolves instantly (no intermediate proposing state)', async () => {
+  // The oracle's scenario for this clause: the fast stub's follow-up GET can
+  // jump straight from idle to awaiting_gate with no intermediate
+  // 'proposing' commit at all — a MutationObserver armed on
+  // [data-testid="proposing-card"] before the click must still see it mount.
+  const first = sampleProposal({ id: 'pr_5', move_id: 'mv_5', suggested_next: ['technique_step'] })
+  detail = dishDetail({ state: 'awaiting_gate', pendingProposal: first, pendingProposals: [first] })
+  let phase: 'initial' | 'accepted' | 'moved' = 'initial'
+  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (url === '/api/dishes/d1' && method === 'GET') {
+      if (phase === 'initial') return jsonResponse(detail)
+      if (phase === 'accepted') return jsonResponse(dishDetail({ state: 'idle', currentVersionId: 'ver_2' }))
+      // phase === 'moved': instant completion under the fast stub — the
+      // chip's own follow-up GET already shows the move resolved straight
+      // to awaiting_gate, never an intermediate 'proposing' state.
+      const second = sampleProposal({ id: 'pr_9', move_id: 'mv_9' })
+      return jsonResponse(dishDetail({ state: 'awaiting_gate', pendingProposal: second, pendingProposals: [second] }))
+    }
+    if (url === '/api/dishes/d1/versions') return jsonResponse(versionsData)
+    if (url === '/api/status') return jsonResponse(llmStatus)
+    if (url === '/api/dishes/d1/gate' && method === 'POST') {
+      phase = 'accepted'
+      return jsonResponse({ verb: 'accept', proposalId: 'pr_5' })
+    }
+    if (url === '/api/dishes/d1/move' && method === 'POST') {
+      phase = 'moved'
+      return jsonResponse({ moveId: 'mv_9' })
+    }
+    return jsonResponse({})
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  await mount()
+  const bar = screen.getByTestId('gate-bar')
+  fireEvent.click(within(bar).getByRole('button', { name: new RegExp(VERB_LABEL.accept, 'i') }))
+  await flush()
+  const chip = screen.getByRole('button', { name: MOVE_LABEL.technique_step })
+  expect(screen.queryByTestId('proposing-card')).not.toBeInTheDocument()
+  fireEvent.click(chip)
+  // Synchronous assertion — no await/waitFor: the proposing surface must
+  // already be in the DOM the instant the click's event handler returns,
+  // before postMove's promise (let alone the follow-up GET) has resolved.
+  expect(screen.getByTestId('proposing-card')).toBeInTheDocument()
+  await flush()
 })

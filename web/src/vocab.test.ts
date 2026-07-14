@@ -1,8 +1,8 @@
 import { MOVE_TYPES } from './types'
 import {
-  BLOCKED_REDIRECT, BLOCKED_REGEN, GATE_ANOTHER_LABEL, GATE_PROMPT,
+  ANNOUNCE_PROPOSING, BLOCKED_REDIRECT, BLOCKED_REGEN, GATE_ANOTHER_LABEL, GATE_PROMPT,
   LEVEL_ONE_VERBS, MORE_VERBS, MOVE_LABEL, STATE_LABEL,
-  VERB_LABEL, shortRef, trialAlias,
+  VERB_LABEL, announceProgress, announceProposalReady, shortRef, trialAlias,
 } from './vocab'
 
 test('every move-type slug has a plain-language label with no slug leakage', () => {
@@ -19,7 +19,11 @@ test('every gate verb has a surface label in the mode-based register', () => {
   for (const v of verbs) expect(VERB_LABEL[v], `missing label for ${v}`).toBeTruthy()
   expect(VERB_LABEL.accept).toBe('Use it')
   expect(VERB_LABEL.edit).toBe('Tweak it')
-  expect(VERB_LABEL.regenerate).toBe('Regenerate')
+  // BC-C-11: "Regenerate" read as API/model jargon, not a cook's word for
+  // redoing the proposal from the same intent — data-verb="regenerate" (the
+  // oracle selector vocabulary) stays put; only the visible label changed.
+  expect(VERB_LABEL.regenerate).toBe('Another take')
+  expect(VERB_LABEL.regenerate).not.toMatch(/regenerate/i)
   expect(VERB_LABEL.alternatives).toBe('Compare two options')
   expect(VERB_LABEL.redirect).toBe('Ask for changes')
   expect(VERB_LABEL.take_over).toBe('Edit it myself')
@@ -47,6 +51,24 @@ test('the GateBar decide-mode prompt and disclosure label are fixed copy', () =>
 test('the safety hold offers only its two verbs, in the hold\'s own register', () => {
   expect(BLOCKED_REGEN).toBe('Try a different way')
   expect(BLOCKED_REDIRECT).toBe('Ask for a safer change')
+})
+
+// BC-B-10: the mid-wait progress cue must never collide with either
+// endpoint string (the harness classifies liveLog entries by these three
+// regexes) and successive ticks must read as genuinely distinct text, not a
+// coincidental re-render of the same string.
+test('announceProgress never collides with the start/ready endpoint strings and varies by tick', () => {
+  const samples = [0, 1, 2, 3, 4, 5].map((tick) => announceProgress(12, tick))
+  for (const s of samples) {
+    expect(s).not.toBe(ANNOUNCE_PROPOSING)
+    expect(s).not.toBe(announceProposalReady(1))
+    expect(s).toMatch(/\bwords? drafted so far\)$/)
+  }
+  // Consecutive ticks (the only adjacency that matters — announce() only
+  // needs to differ from the value immediately before it) are distinct.
+  for (let i = 1; i < samples.length; i++) expect(samples[i]).not.toBe(samples[i - 1])
+  // Word count is legible in the string, not just an internal counter.
+  expect(announceProgress(1, 0)).toMatch(/\b1 word drafted so far\)$/)
 })
 
 test('version ids compact to the 8-char trial form, full ids pass through when short', () => {

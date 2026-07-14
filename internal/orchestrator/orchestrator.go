@@ -57,6 +57,13 @@ const (
 	OutcomeCancelled    = "cancelled"
 	OutcomeFailed       = "failed"
 	OutcomeAutoAdvanced = "auto_advanced"
+	// OutcomeToken is one live rationale chunk revealed DURING generation —
+	// never sent for a move that will end up blocked (generate's OnDraft
+	// hook only arms streaming once the safety screen has already cleared
+	// the proposal it previews; see generate()). Distinct from the
+	// post-completion replay path transport/hub.go still owns for
+	// alternatives' staggered second-card reveal.
+	OutcomeToken = "token"
 )
 
 // Sentinel errors. httpapi maps ErrInFlight to 409; the rest map as it sees
@@ -114,19 +121,27 @@ type Deps struct {
 }
 
 // Outcome is one resolved move, reported after the safety screen: the only
-// payloads that ever reach a client. Blocked outcomes carry reason/rule id
-// plus the held change's ops (the evidence the safety-hold pane grays) — the
-// blocked proposal itself, with its rationale/citations/confidence, is
-// discarded before this point.
+// payloads that ever reach a client (bar OutcomeToken — see below). Blocked
+// outcomes carry reason/rule id plus the held change's ops (the evidence the
+// safety-hold pane grays) — the blocked proposal itself, with its
+// rationale/citations/confidence, is discarded before this point.
 type Outcome struct {
 	DishID       string
 	MoveID       string
-	Kind         string              // ready|blocked|cancelled|failed|auto_advanced
+	Kind         string              // ready|blocked|cancelled|failed|auto_advanced|token
 	Proposals    []proposal.Proposal // ready: 1 (2 for alternatives); auto_advanced: 1
 	NewVersionID string              // auto_advanced
 	Reason       string              // blocked|failed
 	RuleID       string              // blocked
 	Ops          []proposal.Op       // blocked: the held change's ops, ops only
+	Token        string              // token: one live rationale chunk
+	// SkipRationaleReplay (ready only) tells the hub the first proposal's
+	// rationale already reached subscribers live, via OutcomeToken, during
+	// generation — the post-ready replay must not re-stream it (that would
+	// duplicate the proposing card's text). Any further proposals in the
+	// same outcome (alternatives) still replay normally, preserving their
+	// staggered-arrival window.
+	SkipRationaleReplay bool
 }
 
 // Status is the in-memory gate view GET /dishes/{id} needs alongside the
@@ -416,6 +431,19 @@ func (o *Orchestrator) launch(ctx context.Context, ds *dishState, k moveKickoff,
 }
 
 // generate runs the LLM call(s) outside the lock, then commits the result.
+//
+// Single-proposal moves (k.n == 1 — every ordinary move; alternatives asks
+// for 2 and is deliberately left on the old post-completion path below) wire
+// MoveRequest.OnDraft: a streaming-capable LLM gets an early, authoritative
+// safety verdict on its own preview before it reveals anything, so live
+// rationale tokens (OutcomeToken, forwarded to the hub as they arrive) never
+// precede — and can never outrun — the safety screen that decides whether
+// this move is even allowed to reach a client (transport/hub.go's
+// never-a-token-for-a-blocked-move invariant). streamedLive only flips true
+// once the token sink is actually CALLED, so a non-streaming implementation
+// (or a zero-latency one, e.g. every fast-profile/eval run) leaves it false
+// and the hub's own post-ready replay covers the rationale exactly as
+// before.
 func (o *Orchestrator) generate(genCtx context.Context, k moveKickoff, cur draft.Draft, thread []llm.ThreadTurn) {
 	req := llm.MoveRequest{
 		Draft:    cur,
@@ -423,6 +451,19 @@ func (o *Orchestrator) generate(genCtx context.Context, k moveKickoff, cur draft
 		Steer:    k.steer,
 		Thread:   thread,
 		Evidence: llm.BuildEvidence(o.arm, cur, o.grounding),
+	}
+	streamedLive := false
+	if k.n == 1 {
+		req.OnDraft = func(p proposal.Proposal) func(string) {
+			enriched := o.enrichOps(cur, p.Change)
+			if o.safety.Screen(cur, enriched).Status == "blocked" {
+				return nil
+			}
+			return func(word string) {
+				streamedLive = true
+				o.emit(Outcome{DishID: k.dishID, MoveID: k.moveID, Kind: OutcomeToken, Token: word})
+			}
+		}
 	}
 	var props []proposal.Proposal
 	var genErr error
@@ -447,6 +488,9 @@ func (o *Orchestrator) generate(genCtx context.Context, k moveKickoff, cur draft
 	out := o.commitGeneration(k, cur, props, genErr)
 	o.mu.Unlock()
 	if out != nil {
+		if streamedLive && out.Kind == OutcomeReady {
+			out.SkipRationaleReplay = true
+		}
 		o.emit(*out)
 	}
 }
@@ -558,13 +602,13 @@ func (o *Orchestrator) runDeterministic(ctx context.Context, ds *dishState, k mo
 		if err != nil {
 			return nil, fmt.Errorf("orchestrator: apply deterministic move: %w", err)
 		}
-		verID, err := o.commitVersion(ctx, dish, applied, k.baseVersion)
+		verID, err := o.commitVersion(ctx, dish, applied, k.baseVersion, prop.Rationale, store.VersionOriginAuto)
 		if err != nil {
 			return nil, err
 		}
 		if err := o.append(ctx, k.dishID, k.sessionID, eventlog.TypeMoveAutoAdvanced, autoAdvancedPayload{
 			MoveID: k.moveID, MoveType: k.moveType, ProposalID: prop.ID,
-			NewVersionID: verID, AutonomyDial: true,
+			NewVersionID: verID, AutonomyDial: true, Rationale: prop.Rationale,
 		}); err != nil {
 			return nil, err
 		}
@@ -834,8 +878,11 @@ func (o *Orchestrator) enrichOps(cur draft.Draft, ops []proposal.Op) []proposal.
 // in-accept recompute is also what satisfies the "auto-enqueue
 // deterministic recomputes after ingredient-touching accepts" rule in v0:
 // the analysis is already fresh in the snapshot, so no separate
-// move_auto_advanced fires (no double events). Caller holds mu.
-func (o *Orchestrator) commitVersion(ctx context.Context, dish store.Dish, applied draft.Draft, baseVersion string) (string, error) {
+// move_auto_advanced fires (no double events). rationale and origin persist
+// onto the version row (BC-D-12/BC-F-3: the accept-time "why" and how the
+// version was committed, recoverable later from the technical view/spine).
+// Caller holds mu.
+func (o *Orchestrator) commitVersion(ctx context.Context, dish store.Dish, applied draft.Draft, baseVersion, rationale, origin string) (string, error) {
 	parent := dish.CurrentVersionID
 	if baseVersion != "" {
 		parent = &baseVersion
@@ -857,6 +904,7 @@ func (o *Orchestrator) commitVersion(ctx context.Context, dish store.Dish, appli
 	verID := newID("ver")
 	if err := o.store.CreateVersion(ctx, store.Version{
 		ID: verID, DishID: dish.ID, ParentVersionID: parent, DraftJSON: string(raw),
+		Rationale: rationale, Origin: origin,
 	}); err != nil {
 		return "", fmt.Errorf("orchestrator: store version: %w", err)
 	}
@@ -940,6 +988,10 @@ type gatePayload struct {
 	NewMoveID    string `json:"new_move_id,omitempty"`
 	NewVersionID string `json:"new_version_id,omitempty"`
 	AutonomyDial bool   `json:"autonomy_dial"`
+	// Rationale rides accept/edit/take_over gate events only (BC-D-12): the
+	// prose that accompanied the committed version, mirroring the store
+	// column so a full replay recovers it without re-reading the version row.
+	Rationale string `json:"rationale,omitempty"`
 }
 
 type overridePayload struct {
@@ -955,6 +1007,9 @@ type autoAdvancedPayload struct {
 	ProposalID   string `json:"proposal_id"`
 	NewVersionID string `json:"new_version_id"`
 	AutonomyDial bool   `json:"autonomy_dial"`
+	// Rationale mirrors the deterministic proposal's prose onto the event
+	// (BC-D-12), matching the auto-advanced version's stored rationale.
+	Rationale string `json:"rationale"`
 }
 
 // --- small helpers ---

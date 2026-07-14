@@ -136,10 +136,14 @@ func (s *SQLite) DeleteDish(ctx context.Context, id string) error {
 // --- versions ---
 
 func (s *SQLite) CreateVersion(ctx context.Context, v Version) error {
+	origin := v.Origin
+	if origin == "" {
+		origin = VersionOriginAccepted
+	}
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO versions (id, dish_id, parent_version_id, draft_json, created_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		v.ID, v.DishID, nullable(v.ParentVersionID), v.DraftJSON, formatTime(orNow(v.CreatedAt)))
+		`INSERT INTO versions (id, dish_id, parent_version_id, draft_json, rationale, origin, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		v.ID, v.DishID, nullable(v.ParentVersionID), v.DraftJSON, v.Rationale, origin, formatTime(orNow(v.CreatedAt)))
 	if err != nil {
 		return fmt.Errorf("store: create version %s: %w", v.ID, err)
 	}
@@ -153,9 +157,9 @@ func (s *SQLite) GetVersion(ctx context.Context, id string) (Version, error) {
 		created string
 	)
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, dish_id, parent_version_id, draft_json, created_at
+		`SELECT id, dish_id, parent_version_id, draft_json, rationale, origin, created_at
 		 FROM versions WHERE id = ?`, id).
-		Scan(&v.ID, &v.DishID, &parent, &v.DraftJSON, &created)
+		Scan(&v.ID, &v.DishID, &parent, &v.DraftJSON, &v.Rationale, &v.Origin, &created)
 	if err == sql.ErrNoRows {
 		return Version{}, fmt.Errorf("store: version %s: %w", id, ErrNotFound)
 	}
@@ -171,7 +175,7 @@ func (s *SQLite) GetVersion(ctx context.Context, id string) (Version, error) {
 
 func (s *SQLite) ListVersions(ctx context.Context, dishID string) ([]Version, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, dish_id, parent_version_id, draft_json, created_at
+		`SELECT id, dish_id, parent_version_id, draft_json, rationale, origin, created_at
 		 FROM versions WHERE dish_id = ? ORDER BY created_at, id`, dishID)
 	if err != nil {
 		return nil, fmt.Errorf("store: list versions %s: %w", dishID, err)
@@ -184,7 +188,7 @@ func (s *SQLite) ListVersions(ctx context.Context, dishID string) ([]Version, er
 			parent  sql.NullString
 			created string
 		)
-		if err := rows.Scan(&v.ID, &v.DishID, &parent, &v.DraftJSON, &created); err != nil {
+		if err := rows.Scan(&v.ID, &v.DishID, &parent, &v.DraftJSON, &v.Rationale, &v.Origin, &created); err != nil {
 			return nil, fmt.Errorf("store: list versions %s: %w", dishID, err)
 		}
 		v.ParentVersionID = fromNullable(parent)

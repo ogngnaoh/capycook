@@ -222,6 +222,7 @@ function IngredientRow({ row, technical }: { row: Row<Ingredient>; technical: bo
       </span>
       <span className={`text-[14px] flex items-center gap-[8px] flex-wrap ${removed ? 'text-faint line-through' : 'text-ink'}`}>
         {added && <span className="sr-only">{SR_ADDED}</span>}
+        {changed && <span className="sr-only">{SR_NOW}</span>}
         {ingredient.name}
         {changed && row.old && (
           <span className="font-mono text-2xs text-faint line-through">
@@ -250,7 +251,8 @@ function IngredientRow({ row, technical }: { row: Row<Ingredient>; technical: bo
 function StepRow({ row, n }: { row: Row<Step>; n: number }) {
   const removed = row.kind === 'removed'
   const added = row.kind === 'added'
-  const rowClass = added ? 'row-add' : row.kind === 'changed' ? 'row-change' : ''
+  const changed = row.kind === 'changed'
+  const rowClass = added ? 'row-add' : changed ? 'row-change' : ''
   const step = row.value
   const meta = extractStepMeta(step.text)
   return (
@@ -261,6 +263,7 @@ function StepRow({ row, n }: { row: Row<Step>; n: number }) {
         <div className={`text-[14px] leading-normal flex items-baseline gap-[8px] flex-wrap ${removed ? 'text-faint line-through' : 'text-ink'}`}>
           {removed && <span className="sr-only">{SR_REMOVED}</span>}
           {added && <span className="sr-only">{SR_ADDED}</span>}
+          {changed && <span className="sr-only">{SR_NOW}</span>}
           {step.text}
           <span className="text-[10px] uppercase tracking-[0.05em] border border-hairline-strong text-faint px-[5px]">{step.technique}</span>
           {step.internal_temp_c !== null && (
@@ -273,6 +276,12 @@ function StepRow({ row, n }: { row: Row<Step>; n: number }) {
             <span className="text-[10px] uppercase tracking-[0.06em] px-[5px] border border-success text-success">New</span>
           )}
         </div>
+        {changed && row.old && (
+          <div className="font-mono text-2xs text-faint line-through mt-[3px]">
+            <span className="sr-only">{SR_WAS}</span>
+            {row.old.text}
+          </div>
+        )}
         {step.why && <div className="text-2xs text-muted mt-[3px]">{step.why}</div>}
       </div>
     </div>
@@ -282,7 +291,8 @@ function StepRow({ row, n }: { row: Row<Step>; n: number }) {
 function FlavorRow({ row }: { row: Row<FlavorClaim> }) {
   const removed = row.kind === 'removed'
   const added = row.kind === 'added'
-  const rowClass = added ? 'row-add' : row.kind === 'changed' ? 'row-change' : ''
+  const changed = row.kind === 'changed'
+  const rowClass = added ? 'row-add' : changed ? 'row-change' : ''
   const claim = row.value
   return (
     <div data-testid="flavor-row"
@@ -290,7 +300,14 @@ function FlavorRow({ row }: { row: Row<FlavorClaim> }) {
       <span className={`text-[14px] leading-normal ${removed ? 'text-faint line-through' : 'text-ink'}`}>
         {removed && <span className="sr-only">{SR_REMOVED}</span>}
         {added && <span className="sr-only">{SR_ADDED}</span>}
+        {changed && <span className="sr-only">{SR_NOW}</span>}
         {claim.claim}
+        {changed && row.old && (
+          <span className="font-mono text-2xs text-faint line-through ml-[8px]">
+            <span className="sr-only">{SR_WAS}</span>
+            {row.old.claim}
+          </span>
+        )}
       </span>
       {claim.provenance ? (
         <span className="text-2xs text-success whitespace-nowrap">✓ {claim.provenance}</span>

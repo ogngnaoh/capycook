@@ -24,6 +24,14 @@ type Stub struct {
 	// state stays on screen long enough for demo capture
 	// (CAPYCOOK_STUB_LATENCY_MS, server-only). The wait is context-aware:
 	// a cancel mid-wait returns at once, so the Stop button really stops.
+	//
+	// The full proposal is always computed first (fast, deterministic), so
+	// when the caller wires MoveRequest.OnDraft the wait is spent revealing
+	// its rationale live — one word per pace step, spread across the window
+	// with a trailing silent buffer — instead of blocking silently and
+	// handing everything over in one post-completion burst (the founding
+	// 02b finding: nothing streamed during a 15-40s wait). OnDraft decides
+	// whether streaming happens at all; the stub never second-guesses that.
 	Latency time.Duration
 }
 
@@ -36,15 +44,6 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 	if err := ctx.Err(); err != nil {
 		return proposal.Proposal{}, err
 	}
-	if s.Latency > 0 {
-		t := time.NewTimer(s.Latency)
-		defer t.Stop()
-		select {
-		case <-ctx.Done():
-			return proposal.Proposal{}, ctx.Err()
-		case <-t.C:
-		}
-	}
 	tmpl, ok := templates[req.MoveType]
 	if !ok {
 		return proposal.Proposal{}, fmt.Errorf("llm: unknown move type %q", req.MoveType)
@@ -52,6 +51,17 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 	proposed := clone(req.Draft)
 	before := len(proposed.FlavorRationale)
 	tmpl.mutate(&proposed)
+	// BC-E-3: iterate_feedback's mutate is the only template that touches no
+	// flavor_rationale claim at all, so the "why it works" panel renders
+	// byte-identical before and after a rework — no visible sign the cook's
+	// own tasting note drove anything. A feedback-echoing claim closes that
+	// gap: it appends (never replaces, so earlier claims + their provenance
+	// survive untouched) whenever real feedback text rode the steer.
+	if req.MoveType == MoveTypeIterateFeedback {
+		if note := strings.TrimSpace(req.Steer); note != "" {
+			addFeedbackClaim(&proposed, note)
+		}
+	}
 	// Seeded steer fixtures (case-insensitive contains on req.Steer, any LLM
 	// move type): each drives one deterministic contract rule so the behavior
 	// oracle (B2) can exercise it end-to-end. garlic oil is the original
@@ -88,10 +98,17 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 	}
 	change := proposal.ComputeDiff(req.Draft, proposed)
 	rationale := tmpl.rationale
-	if req.Steer != "" {
+	switch note := strings.TrimSpace(req.Steer); {
+	// BC-E-3: the cook → taste → rework loop must read as closing the loop —
+	// the rationale explicitly echoes the tasting note's own words (not just
+	// a mechanical "steer applied" restatement) so a screenshot of the
+	// tasting form next to this proposal's rationale shows the connection.
+	case req.MoveType == MoveTypeIterateFeedback && note != "":
+		rationale += fmt.Sprintf(" Responding to your tasting note: %q.", note)
+	case req.Steer != "":
 		rationale += fmt.Sprintf(" Steer applied: %q.", req.Steer)
 	}
-	return proposal.Proposal{
+	result := proposal.Proposal{
 		MoveType:      req.MoveType,
 		TargetFields:  proposal.TargetFields(change),
 		Change:        change,
@@ -100,7 +117,81 @@ func (s Stub) GenerateMove(ctx context.Context, req MoveRequest) (proposal.Propo
 		Confidence:    confidence,
 		Unverified:    []string{"templated stub output — flavor claims unchecked"},
 		SuggestedNext: tmpl.next,
-	}, nil
+	}
+	// The proposal is fully known now (deterministic, no real "thinking"
+	// required) — offer the early preview before spending the demo-visible
+	// latency, so a streaming-aware caller can decide, before anything is
+	// revealed, whether this generation is safe to show live.
+	var onToken func(string)
+	if req.OnDraft != nil {
+		onToken = req.OnDraft(result)
+	}
+	if err := s.pace(ctx, result.Rationale, onToken); err != nil {
+		return proposal.Proposal{}, err
+	}
+	return result, nil
+}
+
+// pace spends s.Latency (when set) before GenerateMove returns — the
+// demo-capture knob that keeps the proposing state on screen long enough to
+// observe. With a token sink, the wait is spent revealing rationale's words
+// live, evenly paced across the window minus a trailing silent buffer (so a
+// downstream progress summary and the eventual completion land comfortably
+// apart — BC-B-10); with none, the wait is silent, exactly as before.
+// Cancel-aware throughout: ctx cancellation (Stop) returns at once.
+func (s Stub) pace(ctx context.Context, rationale string, onToken func(string)) error {
+	if s.Latency <= 0 {
+		return nil
+	}
+	if onToken == nil {
+		return sleepCtx(ctx, s.Latency)
+	}
+	words := strings.Fields(rationale)
+	if len(words) == 0 {
+		return sleepCtx(ctx, s.Latency)
+	}
+	tail := s.Latency / 6
+	switch {
+	case tail < 500*time.Millisecond:
+		tail = 500 * time.Millisecond
+	case tail > 3*time.Second:
+		tail = 3 * time.Second
+	}
+	if tail >= s.Latency {
+		tail = s.Latency / 2
+	}
+	window := s.Latency - tail
+	perWord := window / time.Duration(len(words))
+	if perWord <= 0 {
+		perWord = time.Millisecond
+	}
+	for i, w := range words {
+		text := w
+		if i < len(words)-1 {
+			text += " "
+		}
+		onToken(text)
+		if err := sleepCtx(ctx, perWord); err != nil {
+			return err
+		}
+	}
+	return sleepCtx(ctx, tail)
+}
+
+// sleepCtx waits out d, or returns ctx's error at once if ctx is cancelled
+// first. d<=0 returns immediately.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 // moveTemplate is one canned move: an in-place mutation of a cloned draft,
@@ -231,6 +322,19 @@ var templates = map[string]moveTemplate{
 		rationale: "Refreshed the nutrition panel with placeholder stub numbers.",
 		next:      []string{MoveTypeCostRecompute, MoveTypeIterateFeedback},
 	},
+}
+
+// addFeedbackClaim appends a flavor-rationale claim that names the cook's
+// own tasting note (BC-E-3): the one deterministic hook that makes the
+// "why it works" panel visibly change after a rework, echoing the note's own
+// words rather than restating the template's fixed lemon-and-acid prose.
+// Provenance stays nil ([unverified]) — this is a link to the cook's
+// feedback, not a grounded flavor-pairing claim.
+func addFeedbackClaim(d *draft.Draft, note string) {
+	d.FlavorRationale = append(d.FlavorRationale, draft.FlavorClaim{
+		Claim:          fmt.Sprintf("responds to your tasting note — %q", note),
+		CuisineContext: d.Constraints.Cuisine,
+	})
 }
 
 // addGarlicOil injects the seeded unsafe case: raw garlic left in oil at

@@ -222,10 +222,13 @@ func TestRunnerThreeArmDryRun(t *testing.T) {
 
 	// Per-dish stub claim arithmetic (hand-computed from llm.Stub templates):
 	// seed_expand and flavor_direction each add one flavor_rationale claim;
-	// every proposal carries the same one-line unverified[] entry, deduplicated
-	// within the dish. 2 flavor claims + 1 unverified = 3 claims per seed,
-	// 2 seeds => 6 claims per arm.
-	const wantClaimsPerArm = 3 * 2
+	// iterate_feedback (BC-D-12/BC-E-3 cluster: the "why it works" panel must
+	// visibly respond to the cook's feedback, not sit byte-identical
+	// pre/post rework) adds a third, echoing the pinned move script's own
+	// iterate_feedback steer text; every proposal carries the same one-line
+	// unverified[] entry, deduplicated within the dish. 3 flavor claims + 1
+	// unverified = 4 claims per seed, 2 seeds => 8 claims per arm.
+	const wantClaimsPerArm = 4 * 2
 
 	allRates := map[string]ArmRates{}
 	for _, arm := range Arms {
@@ -322,7 +325,7 @@ func TestRunnerThreeArmDryRun(t *testing.T) {
 	// the explicit Ns.
 	table := RatesTable(allRates)
 	for _, arm := range Arms {
-		wantRow := "| " + arm + " | 6 | 0 | 6 | 0 | 1.000 | 0.000 | 0.000 |"
+		wantRow := "| " + arm + " | 8 | 0 | 8 | 0 | 1.000 | 0.000 | 0.000 |"
 		if !strings.Contains(table, wantRow) {
 			t.Errorf("results table missing row %q:\n%s", wantRow, table)
 		}

@@ -24,6 +24,15 @@
     outline-offset: 1px;
   }
 
+  /* BC-G-14 (WCAG 2.4.11): the default browser focus-scroll must clear the
+     sticky page header rather than land a Tab stop underneath it. This is
+     the document-level scroller — what actually scrolls on the mobile
+     stacked .wb-grid (<1024px, single column, both panes at natural
+     content height, no internal overflow to speak of). */
+  html {
+    scroll-padding-top: var(--header-height);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -53,7 +62,11 @@
     position: absolute;
     top: 0.5rem;
     left: -9999px;
-    z-index: 50;
+    /* BC-G-14: was z-index 50, painting BEHIND the sticky header's
+       z-sticky (100, Workbench.tsx) — a focused skip link at the top of
+       the page was rendered under the header, invisible despite being
+       "focused". z-dropdown (200) clears every sticky chrome layer. */
+    z-index: var(--z-dropdown);
   }
   .skip-link:focus {
     left: 0.5rem;
@@ -63,6 +76,19 @@
   .row-add    { background: var(--color-success-surface); box-shadow: inset 3px 0 var(--color-success); }
   .row-change { background: var(--color-success-surface); box-shadow: inset 3px 0 var(--color-accent); }
   .cc-rise { animation: cc-rise .18s ease both; }
+
+  /* BC-G-14: the stage's own internal scrollport (>=1024px two-column
+     .wb-grid, where the column is stretched to a bounded height and
+     GateBar's `sticky bottom-0` is a real floating overlay within it, not
+     just in normal flow). Page-level scroll-padding on `html` above does
+     not reach into this nested scroller, so it needs the same top offset
+     restated, plus a bottom one sized to the gate bar's shortest ("decide"
+     mode) rendered height so a focused control scrolled toward the bottom
+     still clears it. */
+  .cc-scroll {
+    scroll-padding-top: var(--header-height);
+    scroll-padding-bottom: 100px;
+  }
 
   /* The workbench body (design 142-144): the 308px timeline spine beside the
      1fr stage. Below --bp-md it stacks to a single column with the stage

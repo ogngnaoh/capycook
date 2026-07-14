@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type {
   DishDetail, DishState, GateRequestBody, GateVerb, LLMStatusResponse,
   MoveType, Proposal, VersionItem, VersionsResponse,
@@ -17,18 +17,26 @@ import SafetyHold from './SafetyHold'
 import ProposalHeader from './ProposalHeader'
 import AlternativesPicker from './AlternativesPicker'
 import { Toast } from './Toast'
-import IntentBar from './IntentBar'
+import IntentBar, { type IntentRestore } from './IntentBar'
 import CookFlow from './CookFlow'
 import DialToggle from './DialToggle'
 import ThemeToggle from './ThemeToggle'
 import { buildTimeline } from '../lib/trials'
 import { mergeDiff } from '../lib/mergeDiff'
 import {
-  ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED, ANNOUNCE_PROPOSING,
-  GATE_ANNOUNCE, MOVE_LABEL, STATE_LABEL, VERB_LABEL,
-  announceAlternatives, announceProposalReady, promotedToService, shortRef,
+  ANNOUNCE_BACK_TO_CURRENT, ANNOUNCE_MOVE_CANCELLED, ANNOUNCE_MOVE_FAILED,
+  ANNOUNCE_PROPOSING, GATE_ANNOUNCE, MOVE_LABEL, STATE_LABEL, VERB_LABEL,
+  announceAlternatives, announceProgress, announceProposalReady, promotedToService, shortRef,
   trialAlias,
 } from '../vocab'
+
+// BC-B-10: the live region needs more than a start/end flip during a long
+// generation. Progress announcements are throttled off live TOKEN arrival
+// (never a fixed timer) so they naturally stop once tokens stop — which the
+// Go side already arranges to happen a few seconds before proposal-ready —
+// landing comfortably inside the contract's 2000-12000ms band without either
+// side needing to know the other's exact timing.
+const PROGRESS_ANNOUNCE_MIN_GAP_MS = 3500
 
 // The persisted Technical-view preference: once a power user flips it on,
 // raw ops/confidence/provenance return at full density on every proposal.
@@ -50,12 +58,18 @@ interface LastMove {
 // loads the dish, holds the one persistent EventSource, and drives moves and
 // all six gate verbs against the real API. All gate state is server-owned;
 // SSE events update the local view and every reconnect re-syncs via GET.
-export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
+export default function Workbench({ dishId, onNavigate, routeNonce = 0, autoFirstPass = false }: {
   dishId: string
   onNavigate: (to: string) => void
   // Bumped by App on every route change so the dish title takes focus when
   // the cook navigated here, never on a cold load (audit #9).
   routeNonce?: number
+  // True only on the SPA navigation immediately following a successful dish
+  // create (BC-A-3) — App's in-memory signal a hard reload can never
+  // resurrect. Read once, at this mount, via autoFirstPassArmed below; never
+  // re-read on a later prop change (this Workbench instance never outlives
+  // the dish it auto-fired for — App remounts on every dishId change).
+  autoFirstPass?: boolean
 }) {
   const [detail, setDetail] = useState<DishDetail | null>(null)
   // The page h1 (dish title): the route-change focus target and, once loaded,
@@ -88,6 +102,24 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   const [snapshot, setSnapshot] = useState<VersionItem | null>(null)
   const [status, setStatus] = useState<LLMStatusResponse | null>(null)
   const lastMove = useRef<LastMove | null>(null)
+  // The in-flight intent-bar submission (free-text intent or scale value),
+  // stashed at dispatch: the bar clears its fields the moment it dispatches
+  // (and unmounts while proposing), so a failed or cancelled move restores
+  // the typed input from here instead of discarding it (BC-A-13). moveId is
+  // filled once the 202 answers; every success path (proposal-ready,
+  // auto-advance, blocked) drops the stash so a later move's failure can
+  // never resurrect stale text.
+  const inFlightIntent = useRef<{ moveId: string | null; restore: IntentRestore } | null>(null)
+  const [intentRestore, setIntentRestore] = useState<IntentRestore | null>(null)
+  // restoreIntent hands the stashed submission back to the intent bar once
+  // the move it rode out on actually failed or was cancelled — keyed off the
+  // resolved moveId, never a timer (BC-A-13).
+  const restoreIntent = useCallback((moveId: string | null) => {
+    const stash = inFlightIntent.current
+    if (!stash || stash.moveId === null || stash.moveId !== moveId) return
+    inFlightIntent.current = null
+    setIntentRestore(stash.restore)
+  }, [])
   // expectedMove is the move id this view is waiting a proposal for: set on
   // POST /move, on gate verbs that spawn a move, and from inFlightMoveId on
   // re-sync; cleared when the gate resolves. The SSE hub replays rationale
@@ -96,15 +128,40 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   // stale theater that must not re-open a gate the server already resolved.
   const expectedMove = useRef<string | null>(null)
 
+  // alternativesExpectedMoveId names the in-flight "Compare two options" move
+  // whose second alt-card has not landed yet (BC-C-20): set the instant the
+  // alternatives verb's gate POST resolves with its new move id — strictly
+  // before any SSE event for that move can arrive, since the server only
+  // starts the token/proposal-ready replay after the HTTP handler that
+  // spawned it returns. Cleared once a second proposal for that same move
+  // lands, or the move fails/cancels before ever producing one. While it
+  // names the sole pending proposal's move, a single-proposal gate bar must
+  // never render for it — the cook could commit option A and silently drop
+  // B, which is the exact defect this guards.
+  const alternativesExpectedMoveId = useRef<string | null>(null)
+
   // The permanent status region (P1): one sentence per gate-lifecycle
-  // transition, pushed here and rendered in an sr-only role="status" element.
-  // Never the token stream. The nudge toggle makes repeated identical
-  // messages re-announce (live regions only speak on DOM change).
+  // transition, plus BC-B-10's throttled mid-wait progress cue below, pushed
+  // here and rendered in an sr-only role="status" element. Never the raw
+  // per-token stream itself (that would be per-token noise, exactly what
+  // BC-B-10 forbids) — only occasional, human-readable summaries. The nudge
+  // toggle makes repeated identical messages re-announce (live regions only
+  // speak on DOM change).
   const [liveMessage, setLiveMessage] = useState('')
   const announceNudge = useRef(false)
   const announce = useCallback((msg: string) => {
     announceNudge.current = !announceNudge.current
     setLiveMessage(msg + (announceNudge.current ? '' : ' '))
+  }, [])
+  // BC-B-10's mid-wait progress cue: lastAt is seeded to the dispatch moment
+  // (never 0) so the FIRST intermediate announcement also respects the
+  // min-gap floor relative to "Proposing a move…"/the gate-verb start
+  // announcement, not just relative to other intermediates. words is an
+  // approximate running count (one token ≈ one word, per the server's
+  // whitespace-delimited chunks) — precise enough for an aural progress cue.
+  const progressAnnounce = useRef({ lastAt: 0, tick: 0, words: 0 })
+  const beginProposingAnnouncements = useCallback(() => {
+    progressAnnounce.current = { lastAt: Date.now(), tick: 0, words: 0 }
   }, [])
   // pendingCountRef lets SSE handlers distinguish a first proposal from an
   // arriving alternative without re-subscribing on every detail change.
@@ -129,6 +186,12 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     try {
       const d = await getDish(dishId)
       if (d.inFlightMoveId) expectedMove.current = d.inFlightMoveId
+      // GET is a second, GUARANTEED source for the "Try next —" chips
+      // (BC-A-14): a reload/revisit that lands on an undecided proposal
+      // recovers its suggested_next here, never solely from the SSE
+      // proposal-ready handler below (which a reload never replays).
+      const suggested = pendingSuggestedNext(d)
+      if (suggested) setSuggestedNext(suggested)
       setDetail(d)
       setLoadError(null)
     } catch (err) {
@@ -143,32 +206,59 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     const stream = openDishStream(dishId, {
       onToken: (e) => {
         // Only the awaited move's tokens grow the ProposingCard.
-        if (e.moveId === expectedMove.current) setStreamText((t) => t + e.text)
+        if (e.moveId !== expectedMove.current) return
+        setStreamText((t) => t + e.text)
+        // BC-B-10: a throttled, DISTINCT progress cue for the permanent
+        // status region — never per-token (announce() is called at most
+        // once per PROGRESS_ANNOUNCE_MIN_GAP_MS here), never a repeat of
+        // the immediately-prior value (the phrase rotates).
+        const p = progressAnnounce.current
+        p.words += 1
+        const now = Date.now()
+        if (now - p.lastAt >= PROGRESS_ANNOUNCE_MIN_GAP_MS) {
+          p.lastAt = now
+          p.tick += 1
+          announce(announceProgress(p.words, p.tick))
+        }
       },
       onProposalReady: (e) => {
         if (e.moveId !== expectedMove.current) return // stale replay tail
+        inFlightIntent.current = null // the move succeeded — nothing to restore
         setStreamText('')
         setSuggestedNext(list(e.proposal.suggested_next))
         setSelectedProposalId((cur) => cur ?? e.proposal.id)
         setDetail((d) => (d ? addPending(d, e.proposal) : d))
         // Announce the arrival and land focus on the decision surface (P1).
         const arriving = pendingCountRef.current + 1
+        // The second (or a mixed-alternatives-screen's only) alt-card just
+        // landed for the move this ref was watching — BC-C-20's withholding
+        // window is over (BC-C-20).
+        if (arriving >= 2 && alternativesExpectedMoveId.current === e.moveId) {
+          alternativesExpectedMoveId.current = null
+        }
         announce(arriving > 1
           ? announceAlternatives(arriving)
           : announceProposalReady(list(e.proposal.change).length))
         focusDecision()
       },
       onProposalBlocked: (e) => {
+        // Blocked is a resolution, not a failure: the hold's own verbs carry
+        // the flow forward, so the stash must not linger (BC-A-13 scope).
+        inFlightIntent.current = null
         setStreamText('')
+        if (alternativesExpectedMoveId.current === e.moveId) alternativesExpectedMoveId.current = null
         setDetail((d) => (d ? {
           ...d, state: 'blocked', blocked: e,
           pendingProposal: undefined, pendingProposals: undefined,
           inFlightMoveId: undefined,
         } : d))
       },
-      onMoveCancelled: () => {
+      onMoveCancelled: (e) => {
         setStreamText('')
         announce(ANNOUNCE_MOVE_CANCELLED)
+        if (alternativesExpectedMoveId.current === e.moveId) alternativesExpectedMoveId.current = null
+        restoreIntent(e.moveId) // a Stop is often precisely to rephrase (BC-A-13)
+        setOptimisticProposing(false) // defensive: reconcile if still armed (BC-A-14)
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
           : d))
@@ -177,6 +267,17 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         setStreamText('')
         announce(ANNOUNCE_MOVE_FAILED)
         setMoveFailed(e)
+        if (alternativesExpectedMoveId.current === e.moveId) alternativesExpectedMoveId.current = null
+        restoreIntent(e.moveId) // a failed move never discards typed input (BC-A-13)
+        setOptimisticProposing(false) // defensive: reconcile if still armed (BC-A-14)
+        // A failure is an async SSE event, not a click — there is no
+        // cancelMove()-style call path to land focus the way Stop's click
+        // does (BC-B-5). Re-arm the same dispatch-focus mechanism used at
+        // move start (BC-A-5): the proposing card is gone and no gate bar
+        // exists on this failure path, so the layout effect below falls
+        // through to the stage heading rather than leaving
+        // document.activeElement on the unmounted card (BC-H-4).
+        dispatchFocusPending.current = true
         setDetail((d) => (d && d.state === 'proposing'
           ? { ...d, state: 'idle', inFlightMoveId: undefined }
           : d))
@@ -188,7 +289,8 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       },
     })
     return () => stream.close()
-    // focusDecision/announce are stable callbacks; resync is the only real dep.
+    // focusDecision/announce/restoreIntent are stable callbacks; resync is
+    // the only real dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dishId, resync])
 
@@ -227,50 +329,219 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     }
   }, [routeNonce, detail])
 
+  // The could-not-load card early-returns before the loaded screen, so the
+  // route-focus effect above can never fire on that path. When the card
+  // mounts, keyboard focus lands on the error region itself (BC-H-1/BC-H-7)
+  // — and only then: on a successful load showLoadError stays false, so this
+  // never fights the routeNonce focus management above (audit #9).
+  const loadErrorRef = useRef<HTMLDivElement>(null)
+  const showLoadError = Boolean(loadError) && !detail
+  useEffect(() => {
+    if (showLoadError) loadErrorRef.current?.focus()
+  }, [showLoadError])
+
   // focusDecision lands focus on whatever decision surface survives a
-  // transition (P1): the gate bar's first verb when awaiting, the Stop control
-  // while proposing, the stage heading otherwise. The blocked hold focuses
-  // itself on mount, so it needs nothing here.
-  const focusDecision = useCallback(() => {
-    setTimeout(() => {
-      const gateBtn = document.querySelector<HTMLElement>('[data-testid="gate-bar"] button[data-verb]')
-      if (gateBtn) { gateBtn.focus(); return }
-      const stop = document.querySelector<HTMLElement>('[data-testid="proposing-card"] button')
-      if (stop) { stop.focus(); return }
-      document.getElementById('stage-heading')?.focus()
-    }, 0)
+  // transition (P1): the gate bar's first verb when awaiting, the proposing
+  // card's heading while proposing (never Stop — BC-B-4's prohibition), the
+  // stage heading otherwise. The blocked hold focuses itself on mount, so it
+  // needs nothing here.
+  const focusDecisionNow = useCallback(() => {
+    const gateBtn = document.querySelector<HTMLElement>('[data-testid="gate-bar"] button[data-verb]')
+    if (gateBtn) { gateBtn.focus(); return }
+    // A gate form held open across a failed submit or a safety-override
+    // "Go back" (BC-C-21/BC-C-27) is the live decision surface: land in its
+    // field rather than skipping past it to the stage heading.
+    const gateField = document.querySelector<HTMLElement>(
+      '[data-testid="gate-bar"] input, [data-testid="gate-bar"] textarea')
+    if (gateField) { gateField.focus(); return }
+    const heading = document.querySelector<HTMLElement>('[data-testid="proposing-heading"]')
+    if (heading) {
+      heading.focus()
+      // The card can mount above the fold; bring the whole of it into view
+      // (BC-B-1). jsdom has no scrollIntoView — guard as OverridePrompt
+      // guards showModal.
+      const card = heading.closest<HTMLElement>('[data-testid="proposing-card"]')
+      if (card && typeof card.scrollIntoView === 'function') card.scrollIntoView({ block: 'nearest' })
+      return
+    }
+    document.getElementById('stage-heading')?.focus()
   }, [])
+  const focusDecision = useCallback(() => {
+    setTimeout(focusDecisionNow, 0)
+  }, [focusDecisionNow])
+
+  // optimisticProposing mounts the proposing surface the INSTANT a move is
+  // dispatched (BC-A-14): under the fast stub the follow-up GET in propose()
+  // below can resolve straight to awaiting_gate before React ever paints an
+  // intermediate 'proposing' commit, so detail.state alone is not a reliable
+  // mount signal for the oracle's MutationObserver (or a real cook). This
+  // flag renders the same ProposingCard surface synchronously with dispatch;
+  // propose()'s own continuation reconciles it moments later against the
+  // GET/SSE truth — a brief proposing beat under instant completion is
+  // correct UX, a live-sim move's real 25s wait is unchanged (detail.state
+  // itself carries 'proposing' by then).
+  const [optimisticProposing, setOptimisticProposing] = useState(false)
+
+  // dispatchFocusPending marks a local move dispatch whose next commit
+  // unmounts the intent affordances. The layout effect consumes it inside
+  // that same commit — synchronously, before any MutationObserver microtask
+  // can catch focus resting on document.body — so focus is already on the
+  // proposing card's heading the instant the intent bar leaves the DOM
+  // (BC-A-5). Ref-gated to local dispatch only: a deep-link or reload into an
+  // already-proposing dish must never have focus stolen (audit #9).
+  const dispatchFocusPending = useRef(false)
+  useLayoutEffect(() => {
+    if (!dispatchFocusPending.current) return
+    dispatchFocusPending.current = false
+    focusDecisionNow()
+  }, [detail, optimisticProposing, focusDecisionNow])
+
+  // moveInFlight is the synchronous dispatch lock: a double activation (a
+  // chip double-click, Enter twice on the intent field) reaches this ref
+  // before any await, so the second activation can never fire a second
+  // POST /move while the first is on the wire (BC-A-5).
+  const moveInFlight = useRef(false)
 
   // propose starts a move; with baseVersion it is the post-cook flow — the
   // feedback rides as steer and the move runs against the cooked version.
-  const propose = useCallback(async (moveType: string, steer: string, baseVersion?: string) => {
+  // Resolves true when the move dispatched (gate pending or auto-advanced),
+  // false when it never got off the ground — a caller preserving typed input
+  // (CookFlow, BC-E-5) keys its close off this outcome.
+  const propose = useCallback(async (moveType: string, steer: string, baseVersion?: string): Promise<boolean> => {
+    if (moveInFlight.current) return false
+    moveInFlight.current = true
+    // Enter proposing OPTIMISTICALLY, synchronously with dispatch (BC-A-14):
+    // mounts the surface in the SAME commit as this call, before any await —
+    // see optimisticProposing's declaration above for why detail.state alone
+    // cannot be trusted here. Scoped to the intent-bar-originated paths
+    // (free text, chips, the auto-fired first pass — every caller with no
+    // baseVersion) only: the post-cook rework flow (CookFlow, baseVersion
+    // set) keeps its OWN local form state alive across a failed submission
+    // by never unmounting today (BC-E-5) — an optimistic mount here would
+    // tear that down for no BC-A-14 benefit (the criterion never touches
+    // CookFlow's dispatch).
+    if (baseVersion === undefined) {
+      setOptimisticProposing(true)
+      // Arm the same-commit dispatch focus in lockstep: the layout effect
+      // above fires inside the very commit that unmounts the intent
+      // affordances, which now happens on this same optimistic entry, not
+      // on the later GET (BC-A-5).
+      dispatchFocusPending.current = true
+    }
     announce(ANNOUNCE_PROPOSING)
+    beginProposingAnnouncements()
     setMoveFailed(null)
     setActionError(null)
     setStreamText('')
     lastMove.current = { moveType, steer, baseVersion }
+    // Stash what the cook typed into the intent bar before it clears
+    // (BC-A-13); a fresh dispatch also retires any restore still showing.
+    const restore = intentBarInput(moveType, steer, baseVersion)
+    inFlightIntent.current = restore ? { moveId: null, restore } : null
+    setIntentRestore(null)
     const beforeVersion = detail?.currentVersionId ?? null
     try {
       const mv = await postMove(dishId, moveType, steer, baseVersion)
       expectedMove.current = mv.moveId ?? null
+      if (inFlightIntent.current) inFlightIntent.current.moveId = mv.moveId ?? null
       const d = await getDish(dishId)
+      // Same GET-derived rescue as resync() above (BC-A-14): a fast-resolving
+      // move can have its proposal-ready SSE event race ahead of the
+      // expectedMove.current assignment two lines up and get dropped as a
+      // stale replay — this GET, which every dispatch already performs,
+      // lands suggested_next regardless of whether that SSE event survives.
+      const suggested = pendingSuggestedNext(d)
+      if (suggested) setSuggestedNext(suggested)
       setDetail(d)
+      // Reconcile the optimistic proposing beat armed at dispatch above with
+      // the truth this GET just landed: a still-'proposing' outcome (a slow,
+      // live-sim move) keeps the surface up via detail.state itself; any
+      // other outcome — awaiting_gate, blocked, or an auto-advanced idle —
+      // drops the flag in this same commit (BC-A-14).
+      setOptimisticProposing(false)
       // A deterministic move with the dial ON resolved before the 202 returned
       // (move_auto_advanced has no SSE event): confirm it with a toast and
       // refresh the timeline — no gate.
       if (d.state === 'idle' && d.currentVersionId && d.currentVersionId !== beforeVersion) {
+        inFlightIntent.current = null // resolved successfully — nothing to restore
         const label = MOVE_LABEL[moveType as MoveType] ?? (moveType || 'move')
         flash(`${label} — applied automatically (safe step)`)
         announce(`${label} — applied automatically`)
         void refreshVersions()
+        // The optimistic proposing beat above (intent-bar-originated
+        // dispatches only, baseVersion undefined) already unmounted the
+        // intent affordances; without a defined refocus here they would
+        // remount focus-less, dropped to document.body once the auto-advance
+        // resolves back to idle (BC-A-5's prohibition, same spirit). A
+        // CookFlow-originated rework never entered that beat and manages its
+        // own focus on close (BC-E-4) — this backstop must stay scoped to
+        // baseVersion-less dispatches or it would fight that mechanism.
+        if (baseVersion === undefined) focusDecision()
+      } else if (d.state !== 'idle') {
+        // Backstop for the layout-effect dispatch focus above: one macrotask
+        // later, re-land focus on the surviving decision surface in case a
+        // competing commit moved it (BC-A-5).
+        focusDecision()
       }
+      return true
     } catch (err) {
       setActionError(errMessage(err))
+      // The move never got off the ground: drop the optimistic proposing
+      // beat and its focus arm right away — nothing else will ever reconcile
+      // them, since no GET/SSE truth is coming for this dispatch (BC-A-14).
+      // Both are already no-ops for a CookFlow rework (baseVersion set),
+      // which never armed them in the first place.
+      setOptimisticProposing(false)
+      dispatchFocusPending.current = false
+      // The POST itself failed: hand the typed input straight back to the
+      // still-idle intent bar (BC-A-13).
+      if (inFlightIntent.current) {
+        setIntentRestore(inFlightIntent.current.restore)
+        inFlightIntent.current = null
+      }
+      // An intent-bar-originated dispatch just had its affordances remount
+      // (the optimistic proposing beat above unmounted them momentarily) —
+      // land focus on a defined target rather than letting it drop to
+      // document.body (BC-A-5's own prohibition, same spirit here). A
+      // CookFlow rework never unmounted, so it needs no such backstop and
+      // keeps managing its own focus/state (BC-E-4/BC-E-5).
+      if (baseVersion === undefined) focusDecision()
+      return false
+    } finally {
+      moveInFlight.current = false
     }
-  }, [announce, detail?.currentVersionId, dishId, flash, refreshVersions])
+  }, [announce, beginProposingAnnouncements, detail?.currentVersionId, dishId, flash, focusDecision, refreshVersions])
 
-  const runGate = useCallback(async (body: GateRequestBody) => {
+  // Auto-fired first pass (BC-A-3): the one SPA navigation immediately after
+  // a successful create arrives here with autoFirstPass true. Consumed at
+  // most once per mount (autoFirstPassArmed flips before the dispatch even
+  // starts, so a StrictMode double-invoke or a later detail update can never
+  // re-fire it) and only once the dish has actually loaded idle with no
+  // version yet — a revisit/reload never carries autoFirstPass true in the
+  // first place (App owns that signal), but "no version yet" is also
+  // load-bearing here: it is what "a first pass" means, and it keeps this
+  // inert as a second, independent guard against ever auto-firing on a dish
+  // that already has a decided trial. Dispatches through the SAME propose()
+  // path as a manual "Try it" — same lock, focus and stash mechanics —
+  // never a parallel dispatch.
+  const autoFirstPassArmed = useRef(autoFirstPass)
+  useEffect(() => {
+    if (!autoFirstPassArmed.current) return
+    if (!detail || detail.state !== 'idle' || detail.currentVersionId) return
+    autoFirstPassArmed.current = false
+    void propose('', '')
+  }, [detail, propose])
+
+  // runGate resolves true on success and false on a failed or held (409
+  // safety-override) submission — the GateBar keeps its open form mode, and
+  // the typed steer text / take-over JSON / tweak values, on a false settle
+  // (BC-C-21/BC-C-27).
+  const runGate = useCallback(async (body: GateRequestBody): Promise<boolean> => {
     announce(GATE_ANNOUNCE[body.verb])
+    // Verbs that respawn a move (regenerate/redirect/alternatives) open a
+    // fresh proposing window a token stream will flow into; a harmless reset
+    // for the resolving verbs (accept/edit/take_over), which never see one.
+    beginProposingAnnouncements()
     setActionError(null)
     setMoveFailed(null)
     try {
@@ -278,6 +549,13 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       // Verbs that spawn a move (regenerate/redirect/alternatives) hand over
       // the wait to the new move id; resolving verbs clear it.
       expectedMove.current = res.newMoveId ?? null
+      // Arm BC-C-20's withholding window the instant the alternatives verb's
+      // own POST resolves — strictly before the server's SSE replay for this
+      // move can start (it only begins once this very HTTP handler
+      // returns) — and disarm it for every other verb: an accept/edit/
+      // regenerate/redirect/take_over dispatched from here can never be the
+      // "second alt-card still generating" case.
+      alternativesExpectedMoveId.current = body.verb === 'alternatives' ? (res.newMoveId ?? null) : null
       setSelectedProposalId(null)
       setPicked(false)
       setStreamText('')
@@ -285,6 +563,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       await resync()
       void refreshVersions()
       focusDecision()
+      return true
     } catch (err) {
       // Human writes (edit/take_over) warn-and-confirm on a safety hit: the
       // orchestrator answers 409 confirm-required until the cook explicitly
@@ -294,11 +573,12 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
         // Show the cook the safety reasons only — the wire prefix is plumbing.
         const message = err.message.replace(/^.*?confirm override:\s*/i, '')
         setOverride({ message, resend: { ...body, confirmOverride: true } })
-        return
+        return false
       }
       setActionError(errMessage(err))
+      return false
     }
-  }, [announce, dishId, flash, focusDecision, refreshVersions, resync])
+  }, [announce, beginProposingAnnouncements, dishId, flash, focusDecision, refreshVersions, resync])
 
   // gateTarget resolves the gate's idempotency key for the current state: a
   // pending proposal id at the gate, the blocked move id while blocked.
@@ -311,7 +591,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   // onVerb dispatches the three verbs that resolve or respawn straight from a
   // decision surface (accept/regenerate/alternatives); the form verbs
   // (edit/redirect/take_over) submit from inside the GateBar/SafetyHold forms.
-  function onVerb(v: Extract<GateVerb, 'accept' | 'regenerate' | 'alternatives'>): Promise<void> | void {
+  function onVerb(v: Extract<GateVerb, 'accept' | 'regenerate' | 'alternatives'>): Promise<boolean> | void {
     const target = gateTarget()
     if (!target) return
     return runGate({ proposalId: target, verb: v })
@@ -321,9 +601,19 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     setActionError(null)
     setStreamText('')
     try {
+      const cancelled = expectedMove.current
       await postCancel(dishId)
       expectedMove.current = null
       await resync()
+      // Once the cancel has resolved to Ready, hand the in-flight intent
+      // back to the bar — a Stop is often precisely to rephrase (BC-A-13).
+      // The SSE move-cancelled event restores too; the stash is consumed
+      // exactly once, so whichever lands first wins.
+      restoreIntent(cancelled)
+      // Stop unmounts with the proposing card: land focus on whatever
+      // decision surface the cancel resolved to — post-cancel that is the
+      // stage heading — never dropped to document.body (BC-B-5).
+      focusDecision()
     } catch (err) {
       setActionError(errMessage(err))
     }
@@ -365,6 +655,15 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
     announce(`Viewing ${trialAlias(i + 1)}, read-only.`)
   }
 
+  // backToCurrent leaves the read-only snapshot for the live view: announced
+  // — the return direction is never a silent swap (BC-D-2) — with focus landing
+  // on the stage heading, never left on the removed banner button (BC-C-17).
+  function backToCurrent() {
+    setSnapshot(null)
+    announce(ANNOUNCE_BACK_TO_CURRENT)
+    document.getElementById('stage-heading')?.focus()
+  }
+
   // Skip links (audit #10): jump the keyboard straight past the header to the
   // dish or to whichever decision surface is live.
   function skipToDish(e: React.MouseEvent) {
@@ -384,7 +683,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
 
   if (loadError && !detail) {
     return (
-      <div className="p-4 space-y-2">
+      <div role="alert" tabIndex={-1} ref={loadErrorRef} className="p-4 space-y-2 focus:outline-none">
         <p className="text-ink">Could not load this dish: {loadError}. Check the address or pick a dish from the list.</p>
         <button onClick={() => onNavigate('/')}
           className="px-2 py-1 uppercase border border-hairline bg-transparent text-ink transition hover:bg-ink hover:text-page">
@@ -393,7 +692,7 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       </div>
     )
   }
-  if (!detail) return <div className="p-4 text-muted">Loading the dish…</div>
+  if (!detail) return <div role="status" className="p-4 text-muted">Loading the dish…</div>
 
   const displayDraft = snapshot ? snapshot.draft : detail.draft
   const singlePending = pending.length === 1 ? pending[0] : null
@@ -419,15 +718,25 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
   // Which surface owns the stage. Snapshot (read-only) wins; then the
   // lifecycle state; alternatives yield to the picked proposal's diff view.
   const isBlocked = !snapshot && detail.state === 'blocked' && !!detail.blocked
-  const isProposing = !snapshot && detail.state === 'proposing'
+  // optimisticProposing (BC-A-14) mounts this surface synchronously with
+  // dispatch even before detail.state itself has left idle; see its
+  // declaration above.
+  const isProposing = !snapshot && (detail.state === 'proposing' || optimisticProposing)
   const showAlternatives = !snapshot && detail.state === 'awaiting_gate' && pending.length >= 2 && !picked
-  const showSingleProposal = !snapshot && detail.state === 'awaiting_gate' && !!selected && (pending.length === 1 || picked)
+  // BC-C-20: the lone alt-card of an in-flight "Compare two options" move,
+  // still short its second option — never a stage the cook can gate-decide
+  // (accepting it would silently drop the option still generating).
+  const awaitingSecondAlternative = !snapshot && detail.state === 'awaiting_gate' && pending.length === 1
+    && alternativesExpectedMoveId.current !== null && pending[0].move_id === alternativesExpectedMoveId.current
+  const showSingleProposal = !snapshot && detail.state === 'awaiting_gate' && !!selected
+    && (pending.length === 1 || picked) && !awaitingSecondAlternative
   const isIdle = !snapshot && detail.state === 'idle'
 
   return (
     <div className="min-h-screen bg-page text-ink">
       {/* Pre-existing at first render — live regions added later miss
-          announcements. Gate lifecycle only; never the token stream. */}
+          announcements. Gate lifecycle plus BC-B-10's throttled mid-wait
+          progress cue; never the raw per-token stream itself. */}
       <div data-testid="gate-live-region" role="status" aria-live="polite" className="sr-only">
         {liveMessage}
       </div>
@@ -486,7 +795,12 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
       {moveFailed && (
         <div data-testid="move-failed-banner" role="alert"
           className="px-4 py-2 bg-warning-surface text-ink border-b border-hairline flex items-center gap-2">
-          <span className="uppercase font-medium text-warning shrink-0">Move failed</span>
+          {/* BC-G-10: text-warning on bg-warning-surface is only ~3.9:1 at
+              this 12px/medium size (tokens.css documents the caveat —
+              text-warning needs >=~18.66px bold to read as "large" text);
+              text-ink keeps the AA floor while the tinted surface + label
+              wording still carry the warning register. */}
+          <span className="uppercase font-medium text-ink shrink-0">Move failed</span>
           <span className="truncate">{moveFailed.reason} — try again.</span>
           <span className="ml-auto shrink-0 flex gap-1">
             {lastMove.current && (
@@ -532,18 +846,30 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
                   <span className="text-muted">
                     Viewing a past trial — <strong className="text-ink font-medium">{trialAlias(snapshotIndex + 1)}</strong>, read-only.
                   </span>
-                  <button onClick={() => setSnapshot(null)}
+                  <button onClick={backToCurrent}
                     className="inline-flex items-center min-h-[32px] px-3 uppercase font-medium text-[11px] tracking-[0.06em] border border-hairline-strong bg-panel text-ink transition hover:bg-ink hover:text-page">
                     Back to current
                   </button>
                 </div>
+                {technical && snapshot.rationale && (
+                  // BC-D-12: the accept-time prose recovered on this trial's
+                  // snapshot — present only in technical view (an expander of
+                  // one, always open: the text just needs to be in the
+                  // accessibility tree, not collapsed away by default).
+                  <div data-testid="trial-rationale" className="cc-rise mb-4 px-[14px] py-[11px] border border-hairline bg-surface">
+                    <span className="block text-2xs uppercase tracking-[0.08em] text-faint mb-[4px]">Why this trial — the accepted rationale</span>
+                    <p className="text-[14px] leading-[1.6] text-ink max-w-[64ch] m-0">{snapshot.rationale}</p>
+                  </div>
+                )}
                 <DishCard draft={snapshot.draft} technical={technical} showDetail />
                 {detail.state === 'idle' && (
                   <CookFlow versionLabel={trialAlias(snapshotIndex + 1)}
                     onSubmit={(notes) => {
                       const fb = notes.trim() === '' ? 'Cooked it.' : notes
                       setCookNotes((prev) => ({ ...prev, [snapshot.id]: fb }))
-                      void propose('iterate_feedback', fb, snapshot.id)
+                      // The outcome drives the form's close: a failed rework
+                      // keeps the notes on screen (BC-E-5).
+                      return propose('iterate_feedback', fb, snapshot.id)
                     }} />
                 )}
               </>
@@ -563,6 +889,20 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
             ) : showAlternatives ? (
               <AlternativesPicker proposals={pending} base={detail.draft}
                 onPick={(id) => { setSelectedProposalId(id); setPicked(true) }} />
+            ) : awaitingSecondAlternative ? (
+              <>
+                {/* BC-C-20: option A is in view, but no committing gate verb
+                    is reachable — the GateBar mounts nowhere in this branch
+                    (no button[data-verb] exists at all) until the second
+                    alt-card lands and showAlternatives takes over. */}
+                <div data-testid="alternatives-waiting" role="status"
+                  className="cc-rise mb-[18px] px-[14px] py-[11px] border border-hairline-strong bg-surface text-muted">
+                  1 of 2 — second option still generating…
+                </div>
+                <DishCard draft={detail.draft}
+                  diff={mergeDiff(detail.draft, list(selected!.change))}
+                  ops={list(selected!.change)} technical={technical} showDetail={false} />
+              </>
             ) : showSingleProposal ? (
               <>
                 <ProposalHeader proposal={selected!} streaming={false} technical={technical} />
@@ -581,11 +921,13 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
                         if (!cur) return
                         const fb = notes.trim() === '' ? 'Cooked it.' : notes
                         setCookNotes((prev) => ({ ...prev, [cur]: fb }))
-                        void propose('iterate_feedback', fb, cur)
+                        // The outcome drives the form's close: a failed rework
+                        // keeps the notes on screen (BC-E-5).
+                        return propose('iterate_feedback', fb, cur)
                       }} />
                     <IntentBar canPropose={detail.state === 'idle'} autonomyOn={detail.autonomyDial}
                       servings={detail.draft.constraints.servings} suggestedNext={suggestedNext}
-                      onMove={(mt, steer) => void propose(mt, steer)} />
+                      onMove={(mt, steer) => void propose(mt, steer)} restore={intentRestore} />
                   </>
                 )}
               </>
@@ -603,6 +945,15 @@ export default function Workbench({ dishId, onNavigate, routeNonce = 0 }: {
           )}
         </section>
       </main>
+
+      {/* BC-C-26 (⚖ in force): the safety gate's limits, surfaced in the app
+          rather than only in the repo (DESIGN §8.7 P0). A persistent,
+          quiet-register footer — present across every workbench state
+          (idle, proposing, awaiting_gate, blocked) so it satisfies "on the
+          idle workbench and on a safety hold" as one element, not two. */}
+      <footer className="px-4 py-3 border-t border-hairline text-2xs text-muted">
+        This safety gate is a backstop, not a guarantee — always use your own judgment.
+      </footer>
 
       <Toast message={toast} />
       {override && (
@@ -650,8 +1001,29 @@ function addPending(d: DishDetail, p: Proposal): DishDetail {
   }
 }
 
+// pendingSuggestedNext reads the "Try next —" slugs off whichever proposal a
+// GET currently shows at the gate (BC-A-14) — null when there is none, so
+// callers can leave a chip set already captured from an earlier moment
+// untouched rather than clearing it out from under an idle render.
+function pendingSuggestedNext(d: DishDetail): string[] | null {
+  const p = d.pendingProposal ?? (d.pendingProposals ?? [])[0]
+  return p ? list(p.suggested_next) : null
+}
+
 function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'request failed'
+}
+
+// intentBarInput extracts the typed input a move carried out of the intent
+// bar (BC-A-13): the free-text intent (empty moveType — server-side
+// classification) or the scale form's servings value. Chips carry no typed
+// input, and post-cook reworks (baseVersion set) are CookFlow's to preserve
+// (BC-E-5), so both stash nothing.
+function intentBarInput(moveType: string, steer: string, baseVersion?: string): IntentRestore | null {
+  if (baseVersion !== undefined) return null
+  if (moveType === '' && steer !== '') return { intent: steer }
+  if (moveType === 'scale_servings') return { scale: steer }
+  return null
 }
 
 // OverridePrompt is the warn-and-confirm step for human writes that hit the
@@ -676,12 +1048,12 @@ function OverridePrompt({ message, onConfirm, onCancel }: {
       else dialog.setAttribute('open', '')
     }
     backRef.current?.focus()
-    // The gate bar that spawned this write resets to its decide mode when the
-    // (409-swallowing) gate promise resolves, and that reset synchronously
-    // re-focuses one of its own buttons in a later commit. A real browser's
-    // showModal() traps focus so it can't; jsdom's fallback can't, so re-claim
-    // focus one macrotask later — after that reset — so the least-destructive
-    // action reliably holds it.
+    // The gate bar that spawned this write now keeps its form mode open
+    // across the 409 (BC-C-27) rather than resetting to decide, so nothing
+    // re-focuses its own buttons anymore — but jsdom's fallback still can't
+    // trap focus the way a real showModal() does, so keep the one-macrotask
+    // re-claim as a backstop so the least-destructive action reliably holds
+    // focus against any late commit.
     const t = setTimeout(() => backRef.current?.focus(), 0)
     return () => clearTimeout(t)
   }, [])

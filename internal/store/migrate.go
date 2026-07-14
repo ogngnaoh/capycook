@@ -37,6 +37,15 @@ var migrations = []string{
 		created_at   TEXT NOT NULL
 	);
 	CREATE UNIQUE INDEX events_dish_seq ON events(dish_id, seq);`,
+	// BC-D-12/BC-F-3 (additive, per DESIGN §7 principle 5 — schema changes
+	// are append-only migrations, never in-place edits): the prose rationale
+	// that accompanied a version's accept, and how the version was
+	// committed. Defaults keep this migration a no-op for the operator's
+	// real data/capycook.db — every pre-existing version reads back as
+	// rationale-less and human-"accepted" (the only origin any version
+	// could have had before BC-F-3 introduced auto-advance attribution).
+	`ALTER TABLE versions ADD COLUMN rationale TEXT NOT NULL DEFAULT '';
+	ALTER TABLE versions ADD COLUMN origin TEXT NOT NULL DEFAULT 'accepted';`,
 }
 
 func migrate(db *sql.DB) error {

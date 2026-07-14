@@ -8,6 +8,8 @@ function version(over: Partial<VersionItem>): VersionItem {
     parentVersionId: null,
     createdAt: '2026-07-06T00:00:00Z',
     draft: sampleDraft(),
+    rationale: '',
+    origin: 'accepted',
     ...over,
   }
 }
@@ -123,6 +125,23 @@ test('a pending proposal with a null change list reads as no changes', () => {
     pendingProposal: { move_type: 'scale_servings', change: null },
   })
   expect(nodes[0].note).toBe('Scale servings — no changes')
+})
+
+test('origin "auto" maps to the auto flag; other origins do not (BC-F-3)', () => {
+  const v1 = version({ id: 'ver_1', origin: 'auto' })
+  const v2 = version({ id: 'ver_2', parentVersionId: 'ver_1', origin: 'accepted' })
+  const data: VersionsResponse = { currentVersionId: 'ver_2', versions: [v1, v2] }
+  const nodes = buildTimeline(data, baseOpts)
+  expect(nodes.map((n) => n.auto)).toEqual([true, false])
+})
+
+test('a pending decision node is never flagged auto', () => {
+  const data: VersionsResponse = { currentVersionId: null, versions: [] }
+  const nodes = buildTimeline(data, {
+    ...baseOpts,
+    pendingProposal: { move_type: 'seed_expand', change: [] },
+  })
+  expect(nodes[0].auto).toBe(false)
 })
 
 test('formatWhen renders a short weekday + time', () => {

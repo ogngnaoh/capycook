@@ -150,7 +150,29 @@ export async function runScenario(def, opts) {
             await new Promise((r) => setTimeout(r, 60));
           }
         }
-        const buf = recorder && recorder.running ? recorder.latestFrame() : await pageBundle.page.screenshot();
+        let buf = recorder && recorder.running ? recorder.latestFrame() : await pageBundle.page.screenshot();
+        // A running recorder can still have no frame (a screencast that wedged
+        // or hasn't pushed its first frame at t≈0 — BC-A-8's seed still went
+        // missing this way). Fall back to a direct screenshot so a judge still
+        // is never silently absent from the evidence.
+        if (!buf) buf = await pageBundle.page.screenshot();
+        if (!buf) return null;
+        const list = judgeStills.get(id) || [];
+        const name = `${String(list.length + 1).padStart(2, '0')}-${label}.png`;
+        const path = evidence.writeJudgeStill(id, name, buf);
+        list.push({ path, caption: label });
+        judgeStills.set(id, list);
+        return path;
+      },
+      // Direct screenshot judge still — composites the LIVE DOM synchronously
+      // via page.screenshot(), bypassing the screencast recorder entirely. A
+      // wedged/lagging screencast (which freezes on a stale frame during the
+      // handoff burst) can therefore never rob the evidence of a required state
+      // (BC-B-8's post-handoff gate). Appends to the same judge evidence list.
+      judgeShot: async (id, label) => {
+        if (parityMode) return null;
+        if (!byId.has(id) || byId.get(id).tag !== 'judge') throw new Error(`oracle: judgeShot for non-judge ${id}`);
+        const buf = await pageBundle.page.screenshot();
         if (!buf) return null;
         const list = judgeStills.get(id) || [];
         const name = `${String(list.length + 1).padStart(2, '0')}-${label}.png`;
@@ -188,10 +210,13 @@ export async function runScenario(def, opts) {
   const rows = checks.finalize();
   if (checks.scenarioError) {
     for (const r of rows) {
+      // Overwrite only the generic "declared but never evaluated" rows —
+      // rows that failed with a specific error keep it.
+      if (r.failureKind === 'harness-error' && !r.error?.includes('declared but never')) continue;
       if (r.failureKind === 'harness-error') r.error = `scenario crashed: ${checks.scenarioError.slice(0, 500)}`;
     }
   }
-  return { rows, judgeStills };
+  return { rows, judgeStills, scenarioError: checks.scenarioError || null };
 }
 
 // Convenience for the self-test: run one scenario by registry/scenario id

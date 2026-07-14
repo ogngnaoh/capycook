@@ -1,50 +1,58 @@
-# Handoff — milestone 02b (behavior-contract)
+# Handoff — milestone 02b (behavior-contract) — SHIPPED 2026-07-13
 
 ## Next session start here
-**Craft and run B4 as a Workflow** — the USER explicitly opted in
-(2026-07-11: "craft a workflow there") to running the autonomous fix→judge
-loop via the Workflow tool, one invocation per iteration (not one mega-script),
-with the session lead between invocations. Author the per-iteration script:
-(1) builder agent, worktree-isolated (`isolation: 'worktree'`, branch
-`02b-behavior-contract` off measure-run), fixes ONE failing cluster;
-(2) guardrail gate (freeze diff vs 32afe54 on the 7 frozen paths, contract
-pin, PREREGISTRATION, `make test`/`vet`/`tsc`/`vitest`) — abort on violation;
-(3) targeted oracle re-run (`node tools/oracle/oracle.mjs run --only <ids>
---port 8098`, run from web/); (4) fresh-context judge panel via
-`agent(judgeBrief, {schema: {verdict, reason}})` per affected judge criterion
-— schema-validated returns, no mailbox collection (B2's judge phase wasted
-many turns on that). Between invocations the LEAD does: cluster selection,
-deviation adjudication, oracle updates when a fix legitimately changes
-selectors (same-iteration, then re-run `oracle.mjs self-test --report <full
-run>` — B4 must refuse runs without an ok:true artifact for the current
-harness commit), attempt/parking ledger (3 strikes parks; hard cap 12
-iterations), and rewriting THIS file every iteration. Full runs (no --only)
-only for the ×2 all-green exit. First clusters, highest leverage per census:
-(a) attention-at-dispatch trio — BC-A-5 focus, BC-B-1 off-viewport mount,
-BC-B-5 cancel focus (likely one fix); (b) Workbench.tsx:535 pair — BC-C-17 +
-BC-D-2; (c) role/live-region quartet — BC-H-1/7/8/9.
+**02b is COMPLETE and merged to `measure-run` (local, UNPUSHED — D7 holds).
+Resume milestone 02 → S8 publish** (`docs/02-measure-run/`). Two things gate S8,
+in order:
+1. **GIF re-check (deferred from B5, do FIRST at S8).** B4 changed 3 README
+   scenes: **01-develop-loop** (auto-first-pass + streaming rationale),
+   **04-post-cook-rework** (BC-E-3 feedback echo now shows in the rework
+   rationale), **07-midstream-cancel** (streaming working state). The demo rig
+   `web/tools/demo.mjs` was NOT updated during B4 — **scene 01's `seedToTrial1`
+   manually types an intent and dispatches after "Develop this dish", but
+   BC-A-3 auto-first-pass now auto-proposes on create, so that flow breaks**
+   (the intent bar isn't present at the gate). Fix scene 01's create flow
+   (create → accept the auto-proposal → Trial 1; drop the manual dispatch),
+   verify 04/07 still run, re-encode to spec (≤15s · 800px · 15fps · <5MB),
+   and eyeball framing for the D-7 stub "(brightened per feedback)" clutter and
+   the 0-kcal first-proposal flash. `09-eval-run` (separate `eval-run.tape`)
+   stays untouched. Scenes 02/05/06/08 are only subtle color-token/badge shifts;
+   03 unchanged — re-capture only if you want pixel-current.
+2. **S8 proper** (per `docs/02-measure-run/handoff.md`): optional H2 operator
+   sessions to the ~8 floor (USER calls it), then `go run ./cmd/eval replay` →
+   README H2 table, then the exit-criteria audit → **USER gate**: merge
+   `measure-run` → master (no-ff) + **push** (D7's one public debut) → tag
+   `v0.2-measure-run` → `gh repo edit` + settings + portfolio linkage.
 
 ## Current state
-- B2 + B3 SHIPPED on measure-run (through `f074e83`). Oracle:
-  `web/tools/oracle/` — 109 criteria, ~44 scenarios, self-test 27/27 with
-  10/10 mutation flips; `oracle.mjs list` verifies registry↔contract +
-  parity=snapshot. bin/capycook current (make build-all).
-- Census run-073 (full, guardrails + suites green, judges merged): **79 pass /
-  43 fail / 1 parked** over 123 rows; every fail explained — 27
-  contract-marked + 10 unmarked genuine defects (file:line root causes in
-  `b2-oracle-plan.md` "Pre-census findings") + G-4-via-B-3, I-1 meta, 4
-  parity twins. Judges 7 PASS / 2 FAIL (I-2 founding finding, E-3 new).
-- Contract pin `965c8eb` byte-intact; PREREGISTRATION untouched (baseline =
-  02b pin, NOT 32afe54); operator DB exactly 6 events; all oracle ports swept.
+- **02b merged into `measure-run`** (no-ff merge commit; branch ref
+  `02b-behavior-contract` @ its B5-ship commit; worktree `../CapyCook-02b`
+  still exists). `measure-run` is **unpushed**.
+- B1–B5 all shipped. B4: all 43 census reds + 5 exit-run regressions fixed;
+  113/0 asserts across four clean full runs (run-027/030/034/036). B5: USER
+  accepted the evidence after an independent fresh-session runtime verification
+  (PASS), waiving the 3 judge-evidence artifacts (BC-B-8/I-2 capture variance,
+  D-7 stub clutter — none a product defect). Full loop record: `b4-ledger.md`;
+  narrative: `log.md`.
+- Guardrails at merge: freeze diff vs `32afe54` empty · contract pin `965c8eb`
+  byte-intact · PREREGISTRATION untouched since `cb43431` · **operator DB still
+  6/1307** · go vet/test green · tsc clean · vitest 273/273.
 
 ## Open concerns
-- Evidence dirs gitignored — run-073 + `evidence/selftest-report.json` must
-  survive to B5 (final all-green run gets un-ignored then). Don't clean.
-- oracle.mjs duplicates lib/run.mjs's runScenario — safe first-iteration
-  housekeeping, never mid-run.
-- B5 review-flagged: cmd/server/main_test.go LLMBudgetUSD:10 fixture edit;
-  harness tests written by the harness's own author-effort.
-- ⚖-in-force loop work: BC-C-26 in-app disclaimer; BC-D-12 persisted move
-  rationale (schema/wire change allowed, frozen paths never).
-- Stall valve: criteria conflicts or 3-strike parks → stop, evidence report +
-  proposed ruling to USER in log.md; loop resumes after ruling.
+- **Worktree-drift / evidence preservation.** The raw B5 evidence
+  (`evidence/run-027|030|034|036/`, `selftest-report.json`) is **gitignored** and
+  lives ONLY in the `../CapyCook-02b` worktree — it did NOT travel with the merge.
+  Do not remove the worktree until you've decided whether to preserve that
+  evidence (commit un-ignored, or copy out). The committed `b4-ledger.md` +
+  `log.md` already carry the decisive summary.
+- **GIF rig fix is real work**, not a re-record — see start-here item 1. Budget
+  for a `demo.mjs` patch + per-scene verification before S8.
+- **02b folder not archived.** Convention archives shipped-milestone folders to
+  `docs/archive/`; deferred here because S8 + the GIF work still reference this
+  handoff and the in-place evidence. Archive at the milestone-02 ship (and move
+  the gitignored evidence deliberately — `git mv` won't).
+- The B4 tests/harness were written by the B4 sessions' own author-effort
+  (review-flagged, e.g. `cmd/server/main_test.go` LLMBudgetUSD fixture,
+  `hub_test.go`, `orchestrator_test.go`). Green suites are merge hygiene; the
+  real verification of record is the independent runtime drive (see `log.md`
+  2026-07-13) + the USER's B5 approval — not the self-written tests.

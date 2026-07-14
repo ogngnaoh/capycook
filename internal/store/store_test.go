@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -272,6 +273,95 @@ func TestAppendEventMonotonicSeqPerDish(t *testing.T) {
 		}
 	}
 }
+
+// TestVersionMigrationIsAdditive is the operator-DB invariant check for
+// BC-D-12/BC-F-3's schema change: a database frozen at the original schema
+// (migrations[0] only, the shape any pre-existing data/capycook.db is in)
+// with a real version row already in it must still Open cleanly, applying
+// the additive rationale/origin migration on top without touching that
+// row's existing columns — and the new columns read back with the DEFAULTs
+// the migration declared, never an error, never a dropped row.
+func TestVersionMigrationIsAdditive(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy.db")
+	ctx := context.Background()
+
+	raw, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	if _, err := raw.Exec(migrations[0]); err != nil {
+		t.Fatalf("apply original schema: %v", err)
+	}
+	if _, err := raw.Exec("PRAGMA user_version = 1"); err != nil {
+		t.Fatalf("set user_version: %v", err)
+	}
+	if _, err := raw.Exec(
+		`INSERT INTO dishes (id, seed, constraints_json, current_version_id, autonomy_dial, created_at)
+		 VALUES ('dish-legacy', 'legacy seed', '{}', 'ver-legacy', 1, '2026-01-01T00:00:00Z')`); err != nil {
+		t.Fatalf("insert legacy dish: %v", err)
+	}
+	if _, err := raw.Exec(
+		`INSERT INTO versions (id, dish_id, parent_version_id, draft_json, created_at)
+		 VALUES ('ver-legacy', 'dish-legacy', NULL, '{"title":"legacy draft"}', '2026-01-01T00:00:00Z')`); err != nil {
+		t.Fatalf("insert legacy version (pre-rationale/origin schema): %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw handle: %v", err)
+	}
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open on a legacy (pre-migration) database: %v", err)
+	}
+	defer s.Close()
+
+	var version int
+	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatalf("PRAGMA user_version: %v", err)
+	}
+	if version != len(migrations) {
+		t.Fatalf("user_version = %d after Open, want %d (the additive migration ran)", version, len(migrations))
+	}
+
+	d, err := s.GetDish(ctx, "dish-legacy")
+	if err != nil {
+		t.Fatalf("GetDish(dish-legacy) after migration: %v", err)
+	}
+	if d.Seed != "legacy seed" {
+		t.Fatalf("legacy dish seed = %q, want unchanged 'legacy seed'", d.Seed)
+	}
+
+	v, err := s.GetVersion(ctx, "ver-legacy")
+	if err != nil {
+		t.Fatalf("GetVersion(ver-legacy) after migration: %v", err)
+	}
+	if v.DraftJSON != `{"title":"legacy draft"}` {
+		t.Fatalf("legacy version draft_json = %q, want unchanged", v.DraftJSON)
+	}
+	if v.Rationale != "" {
+		t.Fatalf("legacy version rationale = %q, want '' (the migration's DEFAULT)", v.Rationale)
+	}
+	if v.Origin != VersionOriginAccepted {
+		t.Fatalf("legacy version origin = %q, want %q (the migration's DEFAULT)", v.Origin, VersionOriginAccepted)
+	}
+
+	// A fresh version created post-migration round-trips both new fields.
+	if err := s.CreateVersion(ctx, Version{
+		ID: "ver-new", DishID: "dish-legacy", ParentVersionID: strPtr("ver-legacy"),
+		DraftJSON: `{"title":"new draft"}`, Rationale: "a distinctive rationale", Origin: VersionOriginAuto,
+	}); err != nil {
+		t.Fatalf("CreateVersion after migration: %v", err)
+	}
+	got, err := s.GetVersion(ctx, "ver-new")
+	if err != nil {
+		t.Fatalf("GetVersion(ver-new): %v", err)
+	}
+	if got.Rationale != "a distinctive rationale" || got.Origin != VersionOriginAuto {
+		t.Fatalf("new version rationale/origin = %q/%q, want 'a distinctive rationale'/%q", got.Rationale, got.Origin, VersionOriginAuto)
+	}
+}
+
+func strPtr(s string) *string { return &s }
 
 func TestReopenKeepsData(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")

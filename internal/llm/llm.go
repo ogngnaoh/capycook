@@ -49,6 +49,20 @@ type MoveRequest struct {
 	Steer    string
 	Thread   []ThreadTurn // last 50, replayed from eventlog
 	Evidence Evidence
+	// OnDraft, when set, lets a streaming-capable implementation report its
+	// fully-formed proposal early — before GenerateMove itself returns (an
+	// implementation may still be spending its own "thinking" time, e.g. the
+	// stub's demo-visible latency). The caller uses this preview to decide,
+	// authoritatively and BEFORE any content is revealed, whether the
+	// generation is safe to stream: OnDraft's return value is the token
+	// sink — nil means "do not stream" (the caller judged this proposal
+	// unsafe to reveal progressively; see transport/hub.go's
+	// never-a-token-for-a-blocked-move invariant), a non-nil func is called
+	// once per rationale chunk as the implementation reveals it live.
+	// GenerateMove's own return value still carries the complete proposal —
+	// OnDraft is a live preview, never a replacement, and an implementation
+	// ignorant of streaming (or a caller uninterested in it) costs nothing.
+	OnDraft func(proposal.Proposal) (onToken func(text string))
 }
 
 // LLM is the swappable model edge (spec §4 single-call design): one call

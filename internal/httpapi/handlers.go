@@ -119,11 +119,16 @@ type gateResponse struct {
 	Overridden   bool   `json:"overridden,omitempty"`
 }
 
+// versionItem carries the accept-time rationale and origin (BC-D-12,
+// BC-F-3): the prose that accompanied the proposal, and whether the version
+// landed via a human gate decision or an auto-applied deterministic move.
 type versionItem struct {
 	ID              string      `json:"id"`
 	ParentVersionID *string     `json:"parentVersionId"`
 	CreatedAt       time.Time   `json:"createdAt"`
 	Draft           draft.Draft `json:"draft"`
+	Rationale       string      `json:"rationale"`
+	Origin          string      `json:"origin"`
 }
 
 type versionsResponse struct {
@@ -389,7 +394,10 @@ func (a *API) handleVersions(w http.ResponseWriter, r *http.Request) {
 			internalError(w, "parse version draft", err)
 			return
 		}
-		items = append(items, versionItem{ID: v.ID, ParentVersionID: v.ParentVersionID, CreatedAt: v.CreatedAt, Draft: d})
+		items = append(items, versionItem{
+			ID: v.ID, ParentVersionID: v.ParentVersionID, CreatedAt: v.CreatedAt, Draft: d,
+			Rationale: v.Rationale, Origin: v.Origin,
+		})
 	}
 	writeJSON(w, http.StatusOK, versionsResponse{CurrentVersionID: dish.CurrentVersionID, Versions: items})
 }

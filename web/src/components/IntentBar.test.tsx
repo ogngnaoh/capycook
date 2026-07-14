@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import IntentBar from './IntentBar'
-import { MOVE_LABEL } from '../vocab'
+import { INTENT_EMPTY_ERROR, MOVE_LABEL, SCALE_INVALID_ERROR } from '../vocab'
 
 type Props = React.ComponentProps<typeof IntentBar>
 
@@ -65,6 +65,63 @@ test('blank (or whitespace-only) input does not fire, on Enter or on click', () 
   expect(onMove).not.toHaveBeenCalled()
 })
 
+// ---- empty-guard validation (BC-A-4 / BC-A-9) ----
+
+test('an empty "Try it" shows a field-linked alert, focuses the intent field, and does not fire', () => {
+  const onMove = vi.fn()
+  renderBar({ onMove })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  const error = screen.getByRole('alert')
+  expect(error).toHaveTextContent(INTENT_EMPTY_ERROR)
+  const input = screen.getByLabelText(/what do you want to try next/i)
+  expect(input).toHaveFocus()
+  expect(input).toHaveAttribute('aria-invalid', 'true')
+  expect(input).toHaveAttribute('aria-describedby', error.id)
+  expect(onMove).not.toHaveBeenCalled()
+})
+
+test('the intent error clears on the next valid submit', () => {
+  const onMove = vi.fn()
+  renderBar({ onMove })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  expect(screen.getByRole('alert')).toBeInTheDocument()
+  const input = screen.getByLabelText(/what do you want to try next/i)
+  fireEvent.change(input, { target: { value: 'make it cheaper' } })
+  fireEvent.click(screen.getByRole('button', { name: /try it/i }))
+  expect(onMove).toHaveBeenCalledWith('', 'make it cheaper')
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(input).not.toHaveAttribute('aria-invalid')
+})
+
+test.each(['', '0', '-1'])('scale value %j shows a field-linked alert, keeps focus, and does not fire', (bad) => {
+  const onMove = vi.fn()
+  renderBar({ onMove })
+  fireEvent.click(screen.getByRole('button', { name: /scale servings/i }))
+  const numberInput = screen.getByRole('spinbutton')
+  fireEvent.change(numberInput, { target: { value: bad } })
+  fireEvent.click(screen.getByRole('button', { name: /scale it/i }))
+  const error = screen.getByRole('alert')
+  expect(error).toHaveTextContent(SCALE_INVALID_ERROR)
+  expect(numberInput).toHaveFocus()
+  expect(numberInput).toHaveAttribute('aria-invalid', 'true')
+  expect(numberInput).toHaveAttribute('aria-describedby', error.id)
+  expect(onMove).not.toHaveBeenCalled()
+})
+
+test('reopening the scale form starts clean — no stale error from the last attempt', () => {
+  renderBar()
+  fireEvent.click(screen.getByRole('button', { name: /scale servings/i }))
+  fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '0' } })
+  fireEvent.click(screen.getByRole('button', { name: /scale it/i }))
+  expect(screen.getByRole('alert')).toBeInTheDocument()
+  // Close by submitting a valid value, then reopen.
+  fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '4' } })
+  fireEvent.click(screen.getByRole('button', { name: /scale it/i }))
+  fireEvent.click(screen.getByRole('button', { name: /scale servings/i }))
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(screen.getByRole('spinbutton')).not.toHaveAttribute('aria-invalid')
+})
+
 test('the intent input carries the design placeholder', () => {
   renderBar()
   expect(screen.getByPlaceholderText('make it cheaper · add a crunchy element · what pairs with miso?'))
@@ -81,15 +138,21 @@ test('suggested-next chips render above the input under a "Try next" eyebrow and
   expect(onMove).toHaveBeenCalledWith('technique_step', '')
 })
 
-test('suggested-next chips speak the plain vocab label, falling back to the raw slug', () => {
+test('suggested-next chips speak the plain vocab label; a slug with no real label never renders (BC-A-14)', () => {
   renderBar({ suggestedNext: ['scale_servings', 'some_unknown_slug'] })
   expect(screen.getByRole('button', { name: MOVE_LABEL.scale_servings })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'some_unknown_slug' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'some_unknown_slug' })).not.toBeInTheDocument()
 })
 
 test('no suggested-next chips render when the list is empty', () => {
   renderBar({ suggestedNext: [] })
   expect(screen.queryByText('Try next —')).not.toBeInTheDocument()
+})
+
+test('no suggested-next chips (nor the eyebrow) render when every slug is unrecognized (BC-A-14)', () => {
+  renderBar({ suggestedNext: ['totally_unknown_slug'] })
+  expect(screen.queryByText('Try next —')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'totally_unknown_slug' })).not.toBeInTheDocument()
 })
 
 // ---- "Just the math —" deterministic row ----
@@ -140,6 +203,37 @@ test('a non-positive scale value does not submit', () => {
   fireEvent.change(numberInput, { target: { value: '0' } })
   fireEvent.keyDown(numberInput, { key: 'Enter' })
   expect(onMove).not.toHaveBeenCalled()
+})
+
+// ---- typed-input preservation (BC-A-13) ----
+
+test('a restore hands a failed move intent text back to the field', () => {
+  const { rerender } = render(
+    <IntentBar canPropose autonomyOn={false} servings={2} suggestedNext={[]} onMove={vi.fn()} />,
+  )
+  // Workbench stashes the submission at dispatch and hands it back once the
+  // failure is known — while the bar is still mounted (a failed POST).
+  rerender(
+    <IntentBar canPropose autonomyOn={false} servings={2} suggestedNext={[]} onMove={vi.fn()}
+      restore={{ intent: 'make it cheaper' }} />,
+  )
+  expect(screen.getByLabelText(/what do you want to try next/i)).toHaveValue('make it cheaper')
+})
+
+test('mounting with a restore applies it — the post-cancel remount path', () => {
+  render(
+    <IntentBar canPropose autonomyOn={false} servings={2} suggestedNext={[]} onMove={vi.fn()}
+      restore={{ intent: 'punchier dressing' }} />,
+  )
+  expect(screen.getByLabelText(/what do you want to try next/i)).toHaveValue('punchier dressing')
+})
+
+test('a scale restore reopens the scale form pre-filled with the failed value', () => {
+  render(
+    <IntentBar canPropose autonomyOn={false} servings={2} suggestedNext={[]} onMove={vi.fn()}
+      restore={{ scale: '12' }} />,
+  )
+  expect(screen.getByRole('spinbutton')).toHaveValue(12)
 })
 
 // ---- autonomy "auto" tag ----

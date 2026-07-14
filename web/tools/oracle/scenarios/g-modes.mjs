@@ -430,16 +430,25 @@ export const scenarios = [
       const { page, base } = ctx;
       await page.evaluateOnNewDocument(CONTRAST_SRC);
       await page.evaluateOnNewDocument(G_BUNDLE);
-      // Zero CSS transitions so a theme flip settles instantly — otherwise a
-      // contrast/boundary walk taken mid-transition reads an interpolated
-      // background (e.g. ivory fading into dark panel), a measurement
-      // artifact, not the settled truth. Transitions are cosmetic 120–150ms
-      // fades; no G check depends on their timing.
+      // Zero CSS transitions AND keyframe animations so a theme flip and any
+      // entrance fade settle instantly. A contrast/boundary walk taken
+      // mid-transition reads an interpolated background (e.g. ivory fading
+      // into a dark panel); one taken during the `.cc-rise` entrance fade
+      // (opacity 0→1, .18s, index.css) reads a partially-transparent
+      // foreground composited toward the background. Both are measurement
+      // artifacts, not the settled truth a user reads — the cc-rise case was
+      // the BC-G-10 root cause (25 light-theme pairs flagged at opacity
+      // 0.45–0.72, every one clearing AA at its final opacity 1). cc-rise uses
+      // `animation-fill-mode: both`, so `animation-duration:0s` snaps it to its
+      // `to` state (opacity 1). Transitions/animations are cosmetic ≤180ms; no
+      // G check depends on their timing. Scoped to this scenario only —
+      // g/reduced-motion never injects this (its motion clause must read the
+      // app's own reduced-motion CSS).
       await page.evaluateOnNewDocument(() => {
         const add = () => {
           const s = document.createElement('style');
-          s.id = 'oracle-no-transition';
-          s.textContent = '*,*::before,*::after{transition-duration:0s !important;transition-delay:0s !important;}';
+          s.id = 'oracle-no-motion';
+          s.textContent = '*,*::before,*::after{transition-duration:0s !important;transition-delay:0s !important;animation-duration:0s !important;animation-delay:0s !important;}';
           (document.head || document.documentElement).appendChild(s);
         };
         if (document.head) add(); else document.addEventListener('DOMContentLoaded', add);
@@ -779,7 +788,8 @@ export const scenarios = [
     theme: 'light',
     reducedMotion: true,
     criteria: ['BC-G-4', 'BC-G-3', 'BC-G-8', 'BC-G-9', 'BC-G-11'],
-    run: async (ctx) => {
+    setup: seedTrials(0),
+    run: async (ctx, dishId) => {
       const { page, base, net } = ctx;
       await page.evaluateOnNewDocument(CONTRAST_SRC);
       await page.evaluateOnNewDocument(G_BUNDLE);
@@ -799,11 +809,10 @@ export const scenarios = [
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
       });
 
-      await gotoHome(page, base);
-      await fillSeed(page);
-      await clickButton(page, /^Develop this dish/i);
-      await page.waitForFunction(() => location.pathname.startsWith('/dishes/'), { timeout: 8000 });
-      // A-3 fails today (opens idle) — drive the first pass manually.
+      // API-created dish (setup) + direct navigation: BC-A-3's auto-fire only
+      // triggers on the in-app create journey, so the manual dispatch below —
+      // which arms the __g4 timing baseline at click — keeps its semantics.
+      await gotoDish(page, base, dishId);
       const idle = await page.waitForSelector('#cc-intent', { timeout: 8000 }).then(() => true).catch(() => false);
 
       // Dispatch the first pass ONCE; the proposing state (and its Stop control)
@@ -837,7 +846,12 @@ export const scenarios = [
               caret: dur(document.querySelector('[data-testid="proposing-caret"]')),
             };
           });
-          await ctx.judgeStill('BC-G-3', 'proposing-light');
+          // Direct screenshot, not judgeStill: the screencast recorder lags the
+          // proposing paint and captured an IDLE frame here in run-034. A direct
+          // shot composites the live DOM (the proposing surface is confirmed
+          // present) — deterministic. BC-G-3.
+          await page.evaluate(() => window.scrollTo(0, 0));
+          await ctx.judgeShot('BC-G-3', 'proposing-light');
         }
       }
 
@@ -912,10 +926,17 @@ export const scenarios = [
         // dispatch); if the proposal already landed, the still just shows the
         // gate — legibility-judged either way. Direct pin (no click) keeps the
         // proposing surface undisturbed.
-        await pinTheme('dark');
-        await sleep(80);
-        await ctx.judgeStill('BC-G-3', 'proposing-dark');
-        await pinTheme('light');
+        // Use the real toggle (setTheme), not pinTheme: a direct [data-theme]
+        // pin is state-driven-reverted to light by the app on the next streaming
+        // re-render, so run-027's "dark" proposing still was actually a light
+        // frame. setTheme flips React theme state, which sticks through
+        // re-renders; the longer settle lets the dark repaint reach a fresh
+        // screencast frame before the still.
+        await setTheme(page, 'dark');
+        await sleep(260);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await ctx.judgeShot('BC-G-3', 'proposing-dark');
+        await setTheme(page, 'light');
         await sleep(60);
 
         // Alive-signal clause: rationale text appears at t ≤ 20s (renderer

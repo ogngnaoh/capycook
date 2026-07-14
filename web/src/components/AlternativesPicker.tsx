@@ -47,13 +47,19 @@ export default function AlternativesPicker({ proposals, base, onPick }: {
       <div className="grid grid-cols-2 gap-[14px]">
         {proposals.map((p, i) => {
           const ops = list(p.change)
+          const letter = String.fromCharCode(65 + i)
           return (
             <button key={p.id} type="button" data-testid="alt-card" onClick={() => onPick(p.id)}
               className="text-left border border-hairline-strong bg-panel p-[16px] transition hover:bg-surface">
+              {/* The badge glyph below is decorative (aria-hidden) — this
+                  sr-only text is what actually names the card to assistive
+                  tech, so "Option A"/"Option B" rides the card's accessible
+                  name alongside the content blurb, not only its pixels. */}
+              <span className="sr-only">Option {letter}: </span>
               <div className="flex items-center gap-2">
                 <span aria-hidden="true"
                   className="w-[22px] h-[22px] border border-ink inline-flex items-center justify-center font-bold text-[12px]">
-                  {String.fromCharCode(65 + i)}
+                  {letter}
                 </span>
                 <span className="font-medium text-ink">{deltaSummary(ops, base)}</span>
               </div>

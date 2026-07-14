@@ -60,8 +60,11 @@ export default function SafetyHold({
             className="border border-ink bg-ink text-page uppercase font-medium text-[12px] tracking-[0.06em] px-[18px] min-h-[40px]">
             {BLOCKED_REGEN}
           </button>
+          {/* BC-G-13: border-hairline-strong (~1.6-1.7:1) fails the hold's
+              own >=3:1 boundary requirement — border-muted clears it (>=5:1
+              both themes), same swap as DialToggle's OFF state. */}
           <button type="button" data-verb="redirect" onClick={() => setRedirecting(true)}
-            className="border border-hairline-strong bg-panel text-ink uppercase font-medium text-[12px] tracking-[0.06em] px-[18px] min-h-[40px]">
+            className="border border-muted bg-panel text-ink uppercase font-medium text-[12px] tracking-[0.06em] px-[18px] min-h-[40px]">
             {BLOCKED_REDIRECT}
           </button>
         </div>
@@ -73,7 +76,7 @@ export default function SafetyHold({
           <div className="flex gap-[10px] flex-wrap">
             <input id="safety-hold-steer" value={steer} onChange={(e) => setSteer(e.target.value)}
               placeholder="e.g. skip the raw garlic-in-oil step"
-              className="flex-1 border border-hairline-strong bg-page text-ink text-[13px] p-[11px] min-h-[40px]" />
+              className="flex-1 border border-muted bg-page text-ink text-[13px] p-[11px] min-h-[40px]" />
             <button type="submit" disabled={steer.trim() === ''}
               className="border border-ink enabled:bg-ink enabled:text-page disabled:bg-surface disabled:text-muted uppercase font-medium text-[12px] tracking-[0.06em] px-[18px] min-h-[40px]">
               Send

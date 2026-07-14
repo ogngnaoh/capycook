@@ -140,6 +140,37 @@ test('tweak mode lists one input per op (removals excluded) and submits the edit
   expect(submitted[2]).toEqual({ op: 'remove', path: '/steps/1' })
 })
 
+test('clearing every tweak field disables Save and blocks a content-free dispatch (BC-C-13 empty-guard)', async () => {
+  const onEditSubmit = vi.fn()
+  renderBar({ onEditSubmit })
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.edit }))
+  const form = await screen.findByTestId('tweak-form')
+  const input = form.querySelector('input')!
+  expect(input).toHaveValue('New Title') // pre-seeded from the proposal
+  const save = screen.getByRole('button', { name: /keep with edit/i })
+  expect(save).not.toBeDisabled()
+  fireEvent.change(input, { target: { value: '   ' } }) // whitespace counts as cleared
+  expect(save).toBeDisabled()
+  fireEvent.submit(form) // even a forced submit is backstopped
+  expect(onEditSubmit).not.toHaveBeenCalled()
+  fireEvent.change(input, { target: { value: 'Restored Title' } })
+  expect(save).not.toBeDisabled()
+  fireEvent.click(save)
+  expect(onEditSubmit).toHaveBeenCalledTimes(1)
+})
+
+test('a removal-only tweak still submits — a remove op is real content, not an empty edit', async () => {
+  const ops: Op[] = [{ op: 'remove', path: '/steps/1' }]
+  const onEditSubmit = vi.fn()
+  renderBar({ proposal: sampleProposal({ change: ops }), onEditSubmit })
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.edit }))
+  await screen.findByTestId('tweak-form')
+  const save = screen.getByRole('button', { name: /keep with edit/i })
+  expect(save).not.toBeDisabled()
+  fireEvent.click(save)
+  expect(onEditSubmit).toHaveBeenCalledWith(ops)
+})
+
 test('tweak Cancel discards the edit and returns focus to Tweak it', async () => {
   renderBar()
   const tweakIt = screen.getByRole('button', { name: VERB_LABEL.edit })
@@ -182,6 +213,128 @@ test('takeover invalid JSON shows a focused error and does not submit', async ()
   expect(onTakeoverSubmit).not.toHaveBeenCalled()
   expect(textarea).toHaveAttribute('aria-invalid', 'true')
   expect(textarea).toHaveAttribute('aria-describedby', error.id)
+})
+
+// ---- takeover structural validation (BC-C-28) ----
+
+test('takeover blocks a draft missing a required top-level key (steps deleted) with a visible alert, no commit', async () => {
+  const onTakeoverSubmit = vi.fn()
+  renderBar({ onTakeoverSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.take_over }))
+  const form = await screen.findByTestId('takeover-form')
+  const textarea = form.querySelector('textarea') as HTMLTextAreaElement
+  const draft: Record<string, unknown> = { ...sampleDraft() }
+  delete draft.steps // valid JSON, wrong shape — the whole section is gone
+  fireEvent.change(textarea, { target: { value: JSON.stringify(draft) } })
+  fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
+  const error = await screen.findByRole('alert')
+  expect(error).toHaveFocus()
+  expect(error).toHaveTextContent(/steps/i)
+  expect(onTakeoverSubmit).not.toHaveBeenCalled()
+})
+
+test('takeover blocks a draft whose ingredients is the wrong JSON type (a string, not a list)', async () => {
+  const onTakeoverSubmit = vi.fn()
+  renderBar({ onTakeoverSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.take_over }))
+  const form = await screen.findByTestId('takeover-form')
+  const textarea = form.querySelector('textarea') as HTMLTextAreaElement
+  const draft = { ...sampleDraft(), ingredients: 'chicken, thyme' }
+  fireEvent.change(textarea, { target: { value: JSON.stringify(draft) } })
+  fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
+  const error = await screen.findByRole('alert')
+  expect(error).toHaveFocus()
+  expect(error).toHaveTextContent(/ingredients/i)
+  expect(onTakeoverSubmit).not.toHaveBeenCalled()
+})
+
+test('takeover still submits a structurally-complete draft', async () => {
+  const onTakeoverSubmit = vi.fn()
+  renderBar({ onTakeoverSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.take_over }))
+  const form = await screen.findByTestId('takeover-form')
+  const textarea = form.querySelector('textarea') as HTMLTextAreaElement
+  const draft = sampleDraft()
+  fireEvent.change(textarea, { target: { value: JSON.stringify(draft) } })
+  fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
+  expect(onTakeoverSubmit).toHaveBeenCalledWith(draft)
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+// ---- disclosure toggle (BC-C-22) ----
+
+test('"Try another way" carries aria-expanded: false closed, true once the four verbs show', async () => {
+  renderBar()
+  const toggle = screen.getByRole('button', { name: GATE_ANOTHER_LABEL })
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(toggle)
+  for (const v of ['regenerate', 'alternatives', 'redirect', 'take_over'] as const) {
+    expect(screen.getByRole('button', { name: VERB_LABEL[v] })).toBeInTheDocument()
+  }
+  expect(screen.getByRole('button', { name: GATE_ANOTHER_LABEL })).toHaveAttribute('aria-expanded', 'true')
+})
+
+// ---- typed-input preservation on failure (BC-C-21 / BC-C-27) ----
+
+test('a redirect resolving false keeps the form open with the exact steer text (BC-C-21)', async () => {
+  const onRedirectSubmit = vi.fn(() => Promise.resolve(false))
+  renderBar({ onRedirectSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.redirect }))
+  const form = await screen.findByTestId('redirect-form')
+  const input = form.querySelector('input')!
+  fireEvent.change(input, { target: { value: 'keep the salt, add acid' } })
+  fireEvent.click(screen.getByRole('button', { name: /send/i }))
+  // The dispatch settles as a failure: the bar unlocks without leaving the
+  // mode, and the cook's text is still there.
+  await waitFor(() => expect(screen.getByRole('button', { name: /send/i })).toHaveAttribute('aria-disabled', 'false'))
+  expect(screen.getByTestId('redirect-form')).toBeInTheDocument()
+  expect(input).toHaveValue('keep the salt, add acid')
+})
+
+test('a tweak resolving false keeps the edited values in the open form (BC-C-21)', async () => {
+  const onEditSubmit = vi.fn(() => Promise.resolve(false))
+  renderBar({ onEditSubmit })
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.edit }))
+  const form = await screen.findByTestId('tweak-form')
+  const input = form.querySelector('input')!
+  fireEvent.change(input, { target: { value: 'My Tweaked Title' } })
+  fireEvent.click(screen.getByRole('button', { name: /keep with edit/i }))
+  await waitFor(() => expect(screen.getByRole('button', { name: /keep with edit/i })).toHaveAttribute('aria-disabled', 'false'))
+  expect(screen.getByTestId('tweak-form')).toBeInTheDocument()
+  expect(input).toHaveValue('My Tweaked Title')
+})
+
+test('a take-over resolving false keeps the typed JSON byte-identical (BC-C-27 mechanics)', async () => {
+  const onTakeoverSubmit = vi.fn(() => Promise.resolve(false))
+  renderBar({ onTakeoverSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.take_over }))
+  const form = await screen.findByTestId('takeover-form')
+  const textarea = form.querySelector('textarea')!
+  // Structurally complete (BC-C-28 shape validation must let it through) so
+  // this exercises the BC-C-27 preservation mechanic, not the shape guard.
+  const typed = JSON.stringify({ ...sampleDraft(), title: 'My Own Edit' }, null, 2)
+  fireEvent.change(textarea, { target: { value: typed } })
+  fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
+  await waitFor(() => expect(screen.getByRole('button', { name: /save draft/i })).toHaveAttribute('aria-disabled', 'false'))
+  expect(screen.getByTestId('takeover-form')).toBeInTheDocument()
+  expect(textarea.value).toBe(typed)
+})
+
+test('a redirect resolving true still returns the bar to decide', async () => {
+  const onRedirectSubmit = vi.fn(() => Promise.resolve(true))
+  renderBar({ onRedirectSubmit })
+  openAnother()
+  fireEvent.click(screen.getByRole('button', { name: VERB_LABEL.redirect }))
+  const form = await screen.findByTestId('redirect-form')
+  fireEvent.change(form.querySelector('input')!, { target: { value: 'add brightness' } })
+  fireEvent.click(screen.getByRole('button', { name: /send/i }))
+  await waitFor(() => expect(screen.queryByTestId('redirect-form')).not.toBeInTheDocument())
+  expect(screen.getByRole('button', { name: VERB_LABEL.accept })).toBeInTheDocument()
 })
 
 // ---- APG toolbar: roving tabindex ----

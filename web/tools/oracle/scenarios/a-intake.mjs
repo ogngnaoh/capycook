@@ -24,6 +24,38 @@ import { installFaultInjector } from '../lib/net.mjs';
 const MOVE_RE = /^\/api\/dishes\/[^/]+\/move$/;
 const CREATE_RE = /^\/api\/dishes$/;
 
+// BC-A-12 in-flight watch. SeedSetup commits the visible disabled state
+// (aria-disabled + "Developing…" via setSubmitting(true)) only after the submit
+// handler yields, and under the stub create+navigate resolves within a few ms —
+// so a post-click 5ms poll took its first (often only) sample BEFORE the commit,
+// then slept past the route change (sawDisabled:false, samples:1) even though the
+// button really did disable. Arm this MutationObserver BEFORE dispatch: it fires
+// on the aria-disabled mutation itself (no sampling granularity to lose) and
+// stops the instant the route resolves, so the focus-drop clause only sees the
+// in-flight window — the button unmounting at nav would otherwise flash focus to
+// body. Still falsifiable: a button that never disables never fires the flag, so
+// the clause FAILs. (Latency is the wrong lever — create is a fast 201; the 25s
+// live-sim latency lands on the post-navigation first-pass move, not the create.)
+const armInflightWatch = (page) => page.evaluate(() => {
+  const find = () => [...document.querySelectorAll('button')].find((b) => /^Develop this dish|^Developing/.test(b.textContent.trim()));
+  const w = { sawDisabled: false, focusDroppedToBody: false };
+  let stopped = false;
+  const check = () => {
+    if (stopped) return;
+    if (location.pathname.startsWith('/dishes/')) { stopped = true; mo.disconnect(); document.removeEventListener('focusout', onBlur, true); return; }
+    const b = find();
+    if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true')) w.sawDisabled = true;
+    if (document.activeElement === document.body) w.focusDroppedToBody = true;
+  };
+  const onBlur = () => setTimeout(check, 0);
+  const mo = new MutationObserver(check);
+  mo.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['disabled', 'aria-disabled'] });
+  document.addEventListener('focusout', onBlur, true);
+  check();
+  window.__a12watch = () => { stopped = true; mo.disconnect(); document.removeEventListener('focusout', onBlur, true); return w; };
+});
+const readInflightWatch = (page) => page.evaluate(() => window.__a12watch());
+
 // House label strings (web/src/vocab.ts MOVE_LABEL) — chips render these.
 const MOVE_LABEL = {
   seed_expand: 'First draft', flavor_direction: 'Flavor direction',
@@ -129,28 +161,25 @@ export const scenarios = [
       // BC-A-12 double-click half — the form is valid at this point.
       await ctx.check('BC-A-12', async (t) => {
         const mark = net.mark();
-        // Synchronous double-click, then an IN-PAGE 5ms sampling loop until
-        // the route resolves: both clicks land before React can commit the
-        // disabled state (the race under test), and the tight renderer-side
-        // poll observes the in-flight window even when the local stub
-        // round-trips in tens of milliseconds.
-        const during = await page.evaluate(async () => {
-          const find = () => [...document.querySelectorAll('button')].find((b) => /^Develop this dish|^Developing/.test(b.textContent.trim()));
-          const btn = find();
-          btn.click(); btn.click();
-          const out = { sawDisabled: false, focusDroppedToBody: false, samples: 0 };
-          const t0 = performance.now();
-          while (performance.now() - t0 < 4000 && !location.pathname.startsWith('/dishes/')) {
-            const b = find();
-            if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true')) out.sawDisabled = true;
-            if (document.activeElement === document.body) out.focusDroppedToBody = true;
-            out.samples += 1;
-            await new Promise((r) => setTimeout(r, 5));
-          }
-          return out;
+        // Focus the submit affordance first — a real mouse click focuses it, and
+        // this scopes the focus clause to the button's aria-disabled retention
+        // rather than BC-A-2's error summary (a focused <div role="alert">)
+        // tearing down as setErrors([]) fires on this now-valid submit.
+        await page.evaluate(() => {
+          const btn = [...document.querySelectorAll('button')].find((b) => /^Develop this dish|^Developing/.test(b.textContent.trim()));
+          btn.focus();
         });
-        t.observe('duringFlight', during);
+        // Arm the in-flight watch, then double-click synchronously in one
+        // evaluate (both land before React commits the disabled state — the
+        // dedup race under test).
+        await armInflightWatch(page);
+        await page.evaluate(() => {
+          const btn = [...document.querySelectorAll('button')].find((b) => /^Develop this dish|^Developing/.test(b.textContent.trim()));
+          btn.click(); btn.click();
+        });
         await page.waitForFunction(() => location.pathname.startsWith('/dishes/'), { timeout: 8000 });
+        const during = await readInflightWatch(page);
+        t.observe('duringFlight', during);
         await sleep(200);
         t.expectEq(net.count({ method: 'POST', pathRe: CREATE_RE, since: mark }), 1, 'double-click → exactly one POST /api/dishes');
         t.expect(during.sawDisabled, 'submit affordance visibly disabled in flight', { observed: during });
@@ -168,37 +197,28 @@ export const scenarios = [
         t.expectEq(title2, title, 'cold load of the same URL renders the same dish');
       });
 
-      // BC-A-12 Enter half — no synchronous lock exists on the Enter path.
+      // BC-A-12 Enter half — the double-Enter path through the raw input pipeline.
       await ctx.check('BC-A-12', async (t) => {
         await page.goto(`${ctx.base}/`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('#field-seed', { timeout: 8000 });
         await fillSeed(page);
         await setValue(page, '#field-servings', '2');
-        await page.focus('#field-seed');
-        // Start the in-page in-flight sampler BEFORE the Enters (same
-        // assertions as the double-click half, per the recipe).
-        await page.evaluate(() => {
-          window.__a12enter = (async () => {
-            const out = { sawDisabled: false, focusDroppedToBody: false, samples: 0 };
-            const t0 = performance.now();
-            while (performance.now() - t0 < 6000 && !location.pathname.startsWith('/dishes/')) {
-              const b = [...document.querySelectorAll('button')].find((x) => /^Develop this dish|^Developing/.test(x.textContent.trim()));
-              if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true')) out.sawDisabled = true;
-              if (document.activeElement === document.body) out.focusDroppedToBody = true;
-              out.samples += 1;
-              await new Promise((r) => setTimeout(r, 5));
-            }
-            return out;
-          })();
-        });
+        // Focus a single-line input, not the #field-seed <textarea> where Enter
+        // inserts a newline instead of submitting (the double-Enter never fired a
+        // POST from the textarea — this half timed out at the nav wait). Enter in
+        // the servings <input> submits the form, exercising the keyboard
+        // double-submit the clause is about.
+        await page.focus('#field-servings');
+        // Arm the same in-flight watch BEFORE the Enters (same assertions as
+        // the double-click half, per the recipe).
+        await armInflightWatch(page);
         const mark = ctx.net.mark();
         // Two rapid Enters through the raw input pipeline; no awaited
         // evaluates in between.
         await page.keyboard.press('Enter');
         await page.keyboard.press('Enter');
         await page.waitForFunction(() => location.pathname.startsWith('/dishes/'), { timeout: 8000 });
-        await sleep(300);
-        const during = await page.evaluate(() => window.__a12enter);
+        const during = await readInflightWatch(page);
         t.observe('duringFlight', during);
         t.expectEq(ctx.net.count({ method: 'POST', pathRe: CREATE_RE, since: mark }), 1, 'double-Enter → exactly one POST /api/dishes');
         t.expect(await page.evaluate(() => location.pathname.startsWith('/dishes/')), 'landed on exactly one /dishes/:id');
@@ -220,6 +240,12 @@ export const scenarios = [
       const { page, base, net } = ctx;
       await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('#field-seed', { timeout: 8000 });
+      // Let the first real paint reach the screencast before the still —
+      // run-006 fed the judge a pre-paint black frame for this moment, and
+      // run-011 showed 600ms is not enough: when the screencast wedges on the
+      // initial blank frame, only the recorder's 1.5s freshness watchdog
+      // forces a re-push. Wait past it (plus margin) so the still is real.
+      await sleep(2400);
       await ctx.judgeStill('BC-A-8', 'seed-screen');
       await fillSeed(page);
 
@@ -257,6 +283,11 @@ export const scenarios = [
         t.expectEq(net.count({ method: 'POST', pathRe: MOVE_RE }), 1, 'still exactly one lifetime POST …/move for the dish');
       }, { name: 'mid-flight' });
 
+      // Capture mid-proposing DEEPER into the window than post-create so the
+      // two journey frames are genuinely distinct moments (run-006/007 judges
+      // saw near-identical banners; once BC-B-3 streams rationale during
+      // generation, this frame will visibly differ).
+      await sleep(4000);
       await ctx.judgeStill('BC-A-8', 'mid-proposing');
 
       // Land the pass at the gate for the judge's fourth frame. If the auto

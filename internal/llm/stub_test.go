@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -186,6 +187,119 @@ func TestStubLatencyCancelled(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > 5*time.Second {
 		t.Errorf("GenerateMove took %v after cancel, want a prompt return", elapsed)
+	}
+}
+
+// TestStubOnDraftStreamsRationaleAcrossTheLatencyWindow: with OnDraft wired
+// and a non-nil token sink, the rationale's words arrive live — spread out
+// (not a single post-completion burst) and the FIRST word lands well before
+// GenerateMove itself returns, matching BC-B-3's "during generation, not
+// only after" contract.
+func TestStubOnDraftStreamsRationaleAcrossTheLatencyWindow(t *testing.T) {
+	var (
+		mu        sync.Mutex
+		tokens    []string
+		firstAt   time.Duration
+		draftSeen proposal.Proposal
+	)
+	start := time.Now()
+	req := MoveRequest{Draft: baseDraft(), MoveType: MoveTypeSeedExpand}
+	req.OnDraft = func(p proposal.Proposal) func(string) {
+		draftSeen = p
+		return func(text string) {
+			mu.Lock()
+			defer mu.Unlock()
+			if len(tokens) == 0 {
+				firstAt = time.Since(start)
+			}
+			tokens = append(tokens, text)
+		}
+	}
+	got, err := Stub{Latency: 150 * time.Millisecond}.GenerateMove(context.Background(), req)
+	if err != nil {
+		t.Fatalf("GenerateMove error: %v", err)
+	}
+	elapsed := time.Since(start)
+	if elapsed < 150*time.Millisecond {
+		t.Errorf("GenerateMove returned after %v, want at least the 150ms latency", elapsed)
+	}
+	if draftSeen.Rationale != got.Rationale {
+		t.Errorf("OnDraft preview rationale = %q, want the returned proposal's %q", draftSeen.Rationale, got.Rationale)
+	}
+	words := strings.Fields(got.Rationale)
+	mu.Lock()
+	replayed := strings.Join(tokens, "")
+	gotFirstAt := firstAt
+	mu.Unlock()
+	if replayed != strings.Join(words, " ") {
+		t.Errorf("streamed tokens joined = %q, want %q", replayed, strings.Join(words, " "))
+	}
+	// The first token must land comfortably before the call returns — proof
+	// tokens flow DURING generation, not merely replayed at the end.
+	if gotFirstAt >= elapsed/2 {
+		t.Errorf("first token at %v, GenerateMove returned at %v — tokens did not start early", gotFirstAt, elapsed)
+	}
+}
+
+// TestStubOnDraftNilSinkStaysSilent: OnDraft may decide NOT to stream (e.g.
+// the caller judged the proposal unsafe to reveal) by returning a nil sink —
+// the stub then waits out the same latency without calling anything, exactly
+// as if OnDraft had never been set.
+func TestStubOnDraftNilSinkStaysSilent(t *testing.T) {
+	called := false
+	req := MoveRequest{Draft: baseDraft(), MoveType: MoveTypeSeedExpand}
+	req.OnDraft = func(proposal.Proposal) func(string) {
+		called = true
+		return nil
+	}
+	start := time.Now()
+	_, err := Stub{Latency: 60 * time.Millisecond}.GenerateMove(context.Background(), req)
+	if err != nil {
+		t.Fatalf("GenerateMove error: %v", err)
+	}
+	if !called {
+		t.Error("OnDraft was never called")
+	}
+	if elapsed := time.Since(start); elapsed < 60*time.Millisecond {
+		t.Errorf("GenerateMove returned after %v, want at least the 60ms latency", elapsed)
+	}
+}
+
+// TestStubOnDraftStreamCancelledMidWait: cancelling while tokens are
+// streaming stops the sink being called further and returns promptly — the
+// same Stop guarantee TestStubLatencyCancelled proves for the silent path.
+func TestStubOnDraftStreamCancelledMidWait(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var mu sync.Mutex
+	var count int
+	req := MoveRequest{Draft: baseDraft(), MoveType: MoveTypeSeedExpand}
+	req.OnDraft = func(proposal.Proposal) func(string) {
+		return func(string) {
+			mu.Lock()
+			count++
+			n := count
+			mu.Unlock()
+			if n == 1 {
+				cancel() // cancel right after the first token is revealed
+			}
+		}
+	}
+	start := time.Now()
+	_, err := Stub{Latency: 30 * time.Second}.GenerateMove(ctx, req)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("GenerateMove error = %v, want context.Canceled", err)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("GenerateMove took %v after cancel, want a prompt return", elapsed)
+	}
+	mu.Lock()
+	got := count
+	mu.Unlock()
+	// Not every word was revealed — the cancel genuinely cut the stream
+	// short rather than draining it first.
+	rationale := templates[MoveTypeSeedExpand].rationale
+	if want := len(strings.Fields(rationale)); got >= want {
+		t.Errorf("token sink called %d times, want fewer than the full %d words (cancel should cut it short)", got, want)
 	}
 }
 

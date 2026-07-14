@@ -12,7 +12,7 @@
 //      evidence files exist on disk for sampled failures.
 // Exit contract: ok:true only when every layer holds. B4 refuses to trust
 // any oracle run without an ok:true artifact for the current harness commit.
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -181,7 +181,11 @@ export async function runSelfTest({ reportPath, port = 8125, skipMutations = fal
     summary: { probes: all.length, failed: failures.length },
     layers,
   };
-  if (outPath) writeFileSync(outPath, JSON.stringify(artifact, null, 2));
+  if (outPath) {
+    // A fresh worktree has no evidence/ dir (gitignored) — create it.
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, JSON.stringify(artifact, null, 2));
+  }
   for (const p of all) log(`${p.ok ? 'ok  ' : 'FAIL'} ${p.name}${p.detail ? ' — ' + String(p.detail).slice(0, 160) : ''}`);
   log(`self-test ${artifact.ok ? 'PASSED' : 'FAILED'} (${all.length - failures.length}/${all.length})`);
   return artifact;

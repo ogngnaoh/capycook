@@ -24,7 +24,10 @@ export const STATE_LABEL: Record<string, string> = {
 export const VERB_LABEL: Record<GateVerb, string> = {
   accept: 'Use it',
   edit: 'Tweak it',
-  regenerate: 'Regenerate',
+  // "Regenerate" reads as API/model vocabulary, not a cook's word for redoing
+  // the proposal from the same intent (BC-C-11) — the wire verb/data-verb
+  // value is untouched, only this display label changed.
+  regenerate: 'Another take',
   alternatives: 'Compare two options',
   redirect: 'Ask for changes',
   take_over: 'Edit it myself',
@@ -55,6 +58,12 @@ export const MOVE_LABEL: Record<MoveType, string> = {
   nutrition_recompute: 'Recompute nutrition',
 }
 
+// Intent-bar empty-guard validation (BC-A-4 / BC-A-9): a submit with nothing
+// to act on is never a silent no-op — the message names what to fix, in the
+// same register as the seed form's errors.
+export const INTENT_EMPTY_ERROR = 'Enter an intent — say what you want to try next.'
+export const SCALE_INVALID_ERROR = 'Enter servings as a whole number, at least 1.'
+
 // Fixed copy, naming map §6. Failure is rigor: an intentional kill is never
 // "something went wrong".
 export const SAFETY_HOLD_TITLE = 'Safety hold — this change was stopped'
@@ -79,8 +88,33 @@ export const ANNOUNCE_PROPOSING = 'Proposing a move…'
 export const ANNOUNCE_MOVE_FAILED = 'Move failed'
 export const ANNOUNCE_MOVE_CANCELLED = 'Move cancelled'
 
+// Snapshot navigation speaks both directions (BC-D-2): entering the read-only
+// trial announces "Viewing Trial N, read-only."; leaving it announces this —
+// never a silent swap back to the live, decidable state.
+export const ANNOUNCE_BACK_TO_CURRENT = 'Back to the current version.'
+
 export function announceProposalReady(changes: number): string {
   return `Proposal ready — ${changes} ${changes === 1 ? 'change' : 'changes'} to review`
+}
+
+// Coarse mid-wait progress announcements (BC-B-10): the live region must say
+// SOMETHING between "Proposing a move…" and "Proposal ready…" during a long
+// generation, or a screen-reader user gets up to 40s of silence. Rotating
+// through PROGRESS_PHRASES (rather than a single fixed string) guarantees
+// each call differs from the one immediately before it even if the word
+// count happens to repeat — announce() only speaks on an actual DOM text
+// change, so an identical repeat would be silently swallowed.
+const PROGRESS_PHRASES = [
+  'Still working on it…',
+  'Weighing the direction…',
+  'Drafting the rationale…',
+  'Refining the details…',
+]
+
+export function announceProgress(wordsSoFar: number, tick: number): string {
+  const phrase = PROGRESS_PHRASES[tick % PROGRESS_PHRASES.length]
+  const words = wordsSoFar === 1 ? '1 word' : `${wordsSoFar} words`
+  return `${phrase} (${words} drafted so far)`
 }
 
 export function announceAlternatives(count: number): string {
