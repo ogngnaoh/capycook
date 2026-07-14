@@ -341,8 +341,8 @@ export function resolveIntegrityEvent({
     if (peeledTarget !== checkedCommit.oid) {
       return failed(`annotated tag ${ref} peels to ${peeledTarget}, not checked-out target ${checkedCommit.oid}`);
     }
-    if (after.oid !== tagObject && after.oid !== peeledTarget) {
-      return failed(`tag event after ${after.oid} matches neither exact tag object ${tagObject} nor peeled target ${peeledTarget}`);
+    if (after.oid !== peeledTarget) {
+      return failed(`tag event after ${after.oid} does not equal new peeled target ${peeledTarget}`);
     }
     const created = event.created;
     if (created && event.before !== ZERO_OID) return failed(`new annotated tag ${ref} must have zero before SHA`);
@@ -350,19 +350,19 @@ export function resolveIntegrityEvent({
       if (event.before === ZERO_OID) return failed(`replacement tag ${ref} has zero before object but created is false`);
       const before = exactEventOid(event.before, 'tag replacement before SHA');
       if (!before.pass) return before;
-      const beforeType = gitCommand(['cat-file', '-t', before.oid], { repo, spawn });
-      if (!beforeType.ok) return failed(`unable to inspect prior tag object ${before.oid}: ${beforeType.diagnostics}`);
-      if (outputText(beforeType.stdout).trim() !== 'tag') {
-        return failed(`tag replacement before ${before.oid} must identify the prior annotated tag object`);
+      const beforeCommit = resolveCommit(before.oid, 'tag replacement before SHA', { repo, spawn });
+      if (!beforeCommit.pass) return beforeCommit;
+      if (beforeCommit.oid !== before.oid) {
+        return failed(`tag replacement before ${before.oid} must identify the exact old peeled commit target ${beforeCommit.oid}`);
       }
       return {
         pass: true,
         kind: 'annotated-tag-replace',
         ref,
         target: peeledTarget,
-        beforeTagObject: before.oid,
+        before: before.oid,
         tagObject,
-        detail: `annotated tag replacement ${ref}; old tag object ${before.oid}; new tag object ${tagObject}; peeled target ${peeledTarget}`,
+        detail: `annotated tag replacement ${ref}; old peeled target ${before.oid}; new tag object ${tagObject}; new peeled target ${peeledTarget}`,
       };
     }
     return {

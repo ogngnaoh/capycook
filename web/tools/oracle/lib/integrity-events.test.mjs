@@ -115,8 +115,6 @@ describe('immutable CI event target selection', () => {
 
   test('an annotated tag replacement records the payload old target and new tag object', () => {
     const { repo, before, after } = makeRepo();
-    git(repo, 'tag', '-a', 'old-tag-object', '-m', 'old tag', before);
-    const beforeTagObject = git(repo, 'rev-parse', 'refs/tags/old-tag-object');
     git(repo, 'tag', '-a', 'v-test', '-m', 'replacement tag', after);
     const tagObject = git(repo, 'rev-parse', 'refs/tags/v-test');
 
@@ -124,16 +122,52 @@ describe('immutable CI event target selection', () => {
       repo,
       eventName: 'push',
       checkedOutSha: after,
-      event: { ref: 'refs/tags/v-test', before: beforeTagObject, after: tagObject, created: false, deleted: false },
+      event: { ref: 'refs/tags/v-test', before, after, created: false, deleted: false },
     });
 
+    expect(result.detail).toContain(`old peeled target ${before}`);
+    expect(result.detail).toContain(`new tag object ${tagObject}`);
+    expect(result.detail).toContain(`new peeled target ${after}`);
     expect(result).toMatchObject({
       pass: true,
       kind: 'annotated-tag-replace',
       target: after,
-      beforeTagObject,
+      before,
       tagObject,
     });
+  });
+
+  test('an annotated tag replacement rejects an old tag object in payload before', () => {
+    const { repo, before, after } = makeRepo();
+    git(repo, 'tag', '-a', 'old-tag-object', '-m', 'old tag', before);
+    const beforeTagObject = git(repo, 'rev-parse', 'refs/tags/old-tag-object');
+    git(repo, 'tag', '-a', 'v-test', '-m', 'replacement tag', after);
+
+    const result = resolve({
+      repo,
+      eventName: 'push',
+      checkedOutSha: after,
+      event: { ref: 'refs/tags/v-test', before: beforeTagObject, after, created: false, deleted: false },
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.detail).toContain('exact old peeled commit target');
+  });
+
+  test('an annotated tag event rejects a tag object in payload after', () => {
+    const { repo, before, after } = makeRepo();
+    git(repo, 'tag', '-a', 'v-test', '-m', 'replacement tag', after);
+    const tagObject = git(repo, 'rev-parse', 'refs/tags/v-test');
+
+    const result = resolve({
+      repo,
+      eventName: 'push',
+      checkedOutSha: after,
+      event: { ref: 'refs/tags/v-test', before, after: tagObject, created: false, deleted: false },
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.detail).toContain(`after ${tagObject} does not equal new peeled target ${after}`);
   });
 
   test.each([
