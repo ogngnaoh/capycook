@@ -1,20 +1,22 @@
 ## Start here next session
 
-- Task 1 reporting reconciliation is complete and pending review; Gate A has not passed.
-- Next refresh the current release media and preserve the private 02b evidence before any worktree cleanup.
-- Then run the integrated release-candidate audits and prepare the USER-only §9 paste.
+- Finish the independent whole-branch re-review of the Gate A documentation fixes.
+- If the re-review is clear, present the complete Gate A evidence and concerns to the USER for explicit approval.
+- Do not begin Gate B: every merge, push, tag, GitHub setting/visibility change, or worktree removal remains forbidden until USER approval.
 
 ## Current state
 
-- Branch `measure-run` remains the active milestone-02 S8 branch.
-- H2 is final at N=2 decisions across one single-operator session: two native cancels, rolled up as two frozen-five rejects. The USER approved collecting no more sessions.
-- The release target is a polished, current, reviewer-ready public GitHub repository with packaged current media; there is no external portfolio-site dependency.
-- Nine showcase GIFs exist: eight product captures and one eval capture.
-- Milestone 03 is parked optional future work requiring a fresh USER go/no-go; it never becomes active automatically.
+- S8 release-preparation Tasks 1–4 are complete: reporting, current media, private-evidence preservation, and integrated audits.
+- The §9 supporting-outcome deferral row landed unchanged through explicit USER delegation at commit `f160a74`.
+- Nine GIFs, the current hero/social preview and MP4s, preserved private evidence, and the build/integrity results are approved.
+- The final whole-branch review's documentation-state findings are being fixed and re-reviewed.
+- Milestone 02 remains active at S8; Gate A awaits explicit USER approval.
+- H2 is final at N=2 decisions across one single-operator session; no additional sessions are planned.
+- Milestone 03 remains parked optional and requires a fresh USER go/no-go.
 
 ## Open concerns
 
-- Gate A is USER approval of the fully implemented, independently reviewed local release candidate after the USER-only §9 paste, media refresh, private-evidence preservation, and integrated audits.
-- Gate B is USER authorization for a private-first master merge/push and the eventual public visibility switch after private CI and render verification.
-- Preserve the gitignored 02b B5 evidence before removing its worktree; those artifacts did not travel with the merge.
-- Do not edit `docs/PREREGISTRATION.md`; the USER alone pastes the prepared §9 row.
+- Gate B is private-first and remains forbidden until Gate A is explicitly approved.
+- Never push `measure-run`; after approval, merge locally and push `master` only while the repository is still private.
+- Reconfirm preserved private 02b evidence before removing its worktree; retain branches for rollback.
+- Public visibility requires separate USER authorization after final private CI, tag, settings, and render evidence.

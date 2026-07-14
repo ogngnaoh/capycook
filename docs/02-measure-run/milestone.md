@@ -24,7 +24,7 @@
 | S5 | Live 3-arm run + Langfuse traces | shipped | (session plan 2026-07-09; evidence in log.md) |
 | S6 | Results + findings + eval-pipeline diagram + blind-check control (H2 fold resequenced pre-publish; R1/κ/adjudication vacuous — note (h)) | shipped | `docs/superpowers/plans/2026-07-10-milestone-02-s6-s8.md` |
 | S7 | Media wave: 4 new GIFs, eval terminal capture, hero banner, social preview, SVG exports, packaged MP4s | shipped | `docs/superpowers/plans/2026-07-10-milestone-02-s6-s8.md` |
-| S8 | Release: reviewer-ready GitHub repository + packaged current media | active — Gate A pending | `docs/superpowers/plans/2026-07-10-milestone-02-s6-s8.md` |
+| S8 | Release: reviewer-ready GitHub repository + packaged current media | active — Gate A pending | `docs/superpowers/plans/2026-07-14-milestone-02-s8-showcase-release.md` |
 
 ## Integration notes
 
