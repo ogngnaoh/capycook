@@ -1,21 +1,21 @@
 ## Start here next session
 
-- Run a fresh independent whole-range re-review after Gate A integration fix 5.
-- This fix is not accepted until that reviewer reports no Critical or Important findings.
-- If the re-review is clear, present the complete Gate A evidence and concerns to the USER for explicit approval.
-- Do not begin Gate B until that explicit approval.
+- Present the complete Gate A evidence to the USER for explicit approval.
+- Do not run another review that is already complete: the candidate through `0ffa0fc` received fresh whole-branch approval with no Critical or Important findings.
+- Do not begin Gate B until the USER explicitly approves Gate A.
+- After Gate A approval, obtain separate explicit USER authorization for the exact proposed administrative PREREGISTRATION relocation row before any archival ship commit or public debut.
 
 ## Current state
 
-- S8 release-preparation Tasks 1–4 are complete, including reporting, current media, private-evidence preservation, and integrated audits.
-- Gate A fixes 1–4 and the independently approved oracle repair are landed.
-- Fix 5 makes the Gate B archival plan decision-complete, retires the reachable July 8 authority, and corrects the replay grammar at its generator.
+- S8 release preparation and all five Gate A fix rounds are complete through `0ffa0fc`.
+- Final build, integrity, media, provenance, and lifecycle audits passed, and fresh whole-branch review 5 approved the complete candidate with no Critical or Important findings.
 - Milestone 02 remains active at S8; Gate A awaits explicit USER approval.
+- Private evidence remains ignored/untracked and must never be moved or staged.
 
 ## Open concerns
 
-- Gate B is private-first and remains forbidden until Gate A is explicitly approved.
-- The exact administrative PREREGISTRATION relocation row requires separate USER authorization; without it there is no archival ship commit or public debut.
-- Never push `measure-run`; push `master` only while private and only after the authorized checks in the S8 plan.
-- Keep ignored/untracked `docs/private-evidence/` in place and never move or stage it.
-- Public visibility requires another explicit USER authorization after final private evidence.
+- Gate B remains forbidden until explicit Gate A approval.
+- The exact proposed administrative PREREGISTRATION relocation row requires separate explicit USER authorization; without it there is no archival ship commit or public debut.
+- Retained Minor diagnostic concern: BC-J-4 fails closed but omits the underlying `spawnSync().error` on exceptional spawn/setup failures.
+- Never push `measure-run`; only push private-first `master` after authorization and the required checks.
+- Public visibility has its own later, separate USER authorization gate.
