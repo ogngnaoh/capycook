@@ -53,7 +53,7 @@ const (
 	defaultCallTimeout = 60 * time.Second
 	// maxRetries implements the spec-§7 "retry up to a fixed bound" failure
 	// policy. Raised 2→4 at the S5 live campaign (2026-07-09, logged in
-	// docs/02-measure-run/log.md): the strict path stochastically emits
+	// docs/archive/02-measure-run/log.md): the strict path stochastically emits
 	// syntactically invalid tool arguments on long-content moves (live-API
 	// behavior contradicting the /beta strict-mode docs), and with
 	// strict/fallback alternation more attempts sharply cut exhaustion

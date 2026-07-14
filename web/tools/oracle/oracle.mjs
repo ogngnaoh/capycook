@@ -29,7 +29,7 @@ import { runFastGuardrails, checkSuites } from './lib/guardrails.mjs';
 import { contractText, contractIds } from './lib/contract.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_REPORT_ROOT = join(REPO, 'docs', '02b-behavior-contract', 'evidence');
+const DEFAULT_REPORT_ROOT = join(REPO, 'docs', 'archive', '02b-behavior-contract', 'evidence');
 
 const log = (...a) => console.error('[oracle]', ...a);
 

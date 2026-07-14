@@ -3,7 +3,7 @@
 // 'never', never a hang), sub-checks of one criterion sharing the id with a
 // distinct name (the report ANDs them), NetLog-free geometric measurement, and
 // judgeStill for the judge id. The contract
-// (docs/02b-behavior-contract/contract.md) is the only normative text; each
+// (docs/archive/02b-behavior-contract/contract.md) is the only normative text; each
 // ctx.check() transcribes one criterion's recipe.
 //
 // Scenarios here (registry.mjs ids):

@@ -17,6 +17,7 @@ web/dist/*
 !web/dist/.gitkeep
 web/*.tsbuildinfo
 
-# 02b oracle evidence runs (bulky screenshots/screencasts; the FINAL run is
-# un-ignored at B5 exit per the milestone's exit criteria)
+# 02b oracle evidence runs (bulky screenshots/screencasts). Retain the old
+# live-path rule during cleanup; the archived path is the oracle's live default.
 docs/02b-behavior-contract/evidence/
+docs/archive/02b-behavior-contract/evidence/

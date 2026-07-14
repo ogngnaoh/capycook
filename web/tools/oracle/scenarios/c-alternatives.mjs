@@ -3,7 +3,7 @@
 // (proposal honesty + confidence). Follows the a-intake.mjs pattern-setter:
 // bounded waits, renderer-side timing via armMoment/readInstrument, NetLog
 // counts, sub-check names, no ctx.check for judge ids. The contract
-// (docs/02b-behavior-contract/contract.md) is the only normative text; each
+// (docs/archive/02b-behavior-contract/contract.md) is the only normative text; each
 // ctx.check() transcribes one criterion's recipe.
 //
 // Alternatives timing (verified against internal/orchestrator/orchestrator.go

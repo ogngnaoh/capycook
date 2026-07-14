@@ -3,7 +3,7 @@
 // pends them at the gate. Shapes copied from a-intake.mjs: bounded waits,
 // NetLog POST/PATCH counts, atomically-captured toast (it evaporates in
 // ~2.6s), sub-check names. Every ctx.check() transcribes one contract recipe
-// (docs/02b-behavior-contract/contract.md §F).
+// (docs/archive/02b-behavior-contract/contract.md §F).
 import {
   sleep, clickButton, clickVerb, waitForVerb, timelineTrialCount,
 } from '../lib/page.mjs';

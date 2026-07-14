@@ -1,6 +1,6 @@
 # Milestone 02 — measure-run
 
-**Goal:** Fill the Results table solo at ~195-claim scale via tiered verification (Tier-1 deterministic verifier · blinded author R1 · DeepSeek judge R2), and make the repo the reviewer surface. Historical design source: `docs/superpowers/specs/2026-07-08-milestone-02-reframe-and-showcase-design.md`; the S8 row's `docs/superpowers/plans/2026-07-14-milestone-02-s8-showcase-release.md` is the current release authority.
+**Goal:** Fill the Results table solo at ~195-claim scale via tiered verification (Tier-1 deterministic verifier · blinded author R1 · DeepSeek judge R2), and ship the GitHub repository as the complete reviewer surface. Historical design source: `docs/superpowers/specs/2026-07-08-milestone-02-reframe-and-showcase-design.md`; the S8 row's `docs/superpowers/plans/2026-07-14-milestone-02-s8-showcase-release.md` is the shipped release record and preserves the separate Task 7 public gate.
 
 ## Scope / Non-goals
 
@@ -9,7 +9,7 @@
 - Solo tiered verification: Tier-1 deterministic verifier + Tier-2 blinded author R1 + DeepSeek judge R2, 100% Tier-2 coverage.
 - Live 3-arm campaign run (13 ratified seeds, ~195 claims) + honest H2 operator telemetry: final N=2 decisions across one session; the USER approved collecting no more sessions.
 - Repo-showcase kit: README surgery, diagrams, GIFs, hero banner, social preview.
-- Release gate: a polished, current, reviewer-ready public GitHub repository plus packaged current media.
+- Release gate: a polished, current, reviewer-ready GitHub repository plus packaged current media; GitHub itself is the complete showcase surface, with no external portfolio-site work.
 
 **Non-goals** (spec's Out of scope): hosted demo of any kind · Codespaces/devcontainer · second human labeler · P1 live-retrieval arm (own registration later) · milestone 03 (depth).
 
@@ -24,7 +24,7 @@
 | S5 | Live 3-arm run + Langfuse traces | shipped | (session plan 2026-07-09; evidence in log.md) |
 | S6 | Results + findings + eval-pipeline diagram + blind-check control (H2 fold resequenced pre-publish; R1/κ/adjudication vacuous — note (h)) | shipped | `docs/superpowers/plans/2026-07-10-milestone-02-s6-s8.md` |
 | S7 | Media wave: 4 new GIFs, eval terminal capture, hero banner, social preview, SVG exports, packaged MP4s | shipped | `docs/superpowers/plans/2026-07-10-milestone-02-s6-s8.md` |
-| S8 | Release: reviewer-ready GitHub repository + packaged current media | active — Gate A pending | `docs/superpowers/plans/2026-07-14-milestone-02-s8-showcase-release.md` |
+| S8 | Release: reviewer-ready GitHub repository + packaged current media | shipped (2026-07-14; local ship commit pending independent Task 7 review) | `docs/superpowers/plans/2026-07-14-milestone-02-s8-showcase-release.md` |
 
 ## Integration notes
 
@@ -39,6 +39,7 @@
 - (j) **§9 Amendment 3 (2026-07-10, S6):** the blind-check control's rater is an author-delegated LLM (fresh-context Claude agent), labels adopted by the author; agreement 15/18 (83%) is model-validates-machine, never human validation — every future mention of the figure names the rater.
 - (k) **S7 media deviations (2026-07-10, user-ratified at session start):** GIFs 01–04 re-recorded (the Jul-7 originals predate the 02a redesign; the rig's selectors no longer existed); GIF 05 reframed to "branch + promote" (`05-branch-promote.gif`) — branch-vs-branch compare stays milestone-03 scope; `CAPYCOOK_STUB_LATENCY_MS` added (context-aware, off by default, server-only — `cmd/eval` constructs `Stub{}` bare) to make the cancel scene filmable. Diagram SVGs are packaged-media/social exports, deliberately NOT referenced by README (GitHub renders the live Mermaid blocks). Media constraints held: 9 GIFs, 800px, 5.7–11.9s, ≤0.36 MB.
 - (l) **H2 collection is final at N=2 (2026-07-14).** Replay found two `seed_expand` decisions across one single-operator session, both native cancels and therefore two rejects in the frozen-five roll-up. The USER approved collecting no more sessions; this remains descriptive autobiographical-design telemetry, not user research.
+- (m) **S8 shipped locally (2026-07-14).** The final handoffs, milestone archives, live oracle consumer paths, and exact USER-authorized administrative PREREGISTRATION relocation row landed as one local atomic ship commit on private `master`. The commit remains unpushed pending independent Task 7 review. Public visibility remains a separate USER-authorized gate; milestone 03 is parked and no milestone is active.
 - (g) **Historical pre-S5 expectation — superseded in full by landed-result note (h); none of these forecasts is current work.** Before S5, Tier-1 coverage was unknown. The stub dry-run over the ratified seeds labeled 100% at Tier-1 (0 fall-through) because the stub emitted only `pairing:`/empty-source claims — all Tier-1-decidable — and heavy (text,source) dedup yielded 39 claims/arm (117 total) vs the ~195 move-slot estimate. The forecast was that live DeepSeek would emit `fdc:`/`foodon:`/free-text claims that fell to Tier 2 and produce less-deduped, more numerous claims, with the live Tier-1 coverage number setting the author's R1 labeling load at S5 (spec Open item 3). Note (h) records the actual landed outcome.
 
 ## Exit criteria
@@ -47,5 +48,5 @@
 - `go test ./...` green including the new verifier; judge writes only `label_r2`; blinding verified by test; verifier↔LLM-delegate blind-check agreement (15/18, 83%) reported at S6 as model-validates-machine, never human validation.
 - Results table filled per §7a with explicit denominators; pre-adjudication κ + confusion matrix reported (any adjudicated author-final set clearly labeled as such, not as the reliability figure); findings paragraph present; H3b null (if it lands) framed as confirmed prediction.
 - README: surgery items done, 9 total showcase GIFs (eight product + one eval) + 3 diagrams render on GitHub, hero + badges live, no stale claims.
-- A polished, current, reviewer-ready public GitHub repository passes settings and render checks; current media is packaged with the release.
+- A polished, current, reviewer-ready GitHub repository and its packaged current media form the complete showcase surface; the later public-visibility transition remains separately USER-gated under Task 7.
 - Zero recurring hosting cost; no API key in any public artifact.

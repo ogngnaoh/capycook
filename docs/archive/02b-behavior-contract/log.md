@@ -1,5 +1,11 @@
 # Log — milestone 02b (behavior-contract)
 
+> **ARCHIVED HISTORICAL LOG — 2026-07-14.** Milestone 02b and milestone 02 are
+> shipped. Chronological references below to resuming H2, S8, GIF work, publishing,
+> or worktree removal record past decisions and are not current instructions. H2 is
+> final, all nine GIFs are current, GitHub is the complete showcase surface, and the
+> Task 7 private/public release gates remain in force.
+
 - **2026-07-11 — 02b opened.** Motivated by the first live-latency operator session:
   four root-caused UX gaps (IntentBar silent empty no-op, no auto first pass,
   post-completion-only rationale replay, focus-on-Stop Enter trap), none visible in

@@ -1,4 +1,4 @@
-// Read-only parser over the ratified contract (docs/02b-behavior-contract/
+// Read-only parser over the ratified contract (docs/archive/02b-behavior-contract/
 // contract.md). Two consumers: the judge manifest embeds each judge
 // criterion's VERBATIM text (judges get zero repo context), and `oracle.mjs
 // list` cross-checks the registry against the document in both directions —
@@ -11,7 +11,7 @@ let cache = null;
 
 export function parseContract() {
   if (cache) return cache;
-  const src = readFileSync(join(REPO, 'docs/02b-behavior-contract/contract.md'), 'utf8');
+  const src = readFileSync(join(REPO, 'docs/archive/02b-behavior-contract/contract.md'), 'utf8');
   // Criterion blocks: "**BC-<area>-<n>** · assert|judge · <statement...>" up to
   // the next criterion header or section break. The appendix references ids
   // in prose; only bold headers start a block.

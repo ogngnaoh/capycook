@@ -3,7 +3,7 @@
 // is an assert FAIL with observed 'never', never a hang), NetLog POST counts
 // via ctx.net, SIGKILL/restart for SSE-drop criteria, sub-check names for
 // criteria split across scenarios (BC-H-6 = stub-half ∧ live-half). The
-// contract (docs/02b-behavior-contract/contract.md) is the only normative text.
+// contract (docs/archive/02b-behavior-contract/contract.md) is the only normative text.
 //
 // Liveness assertions ("role=alert/status in the accessibility tree") read the
 // DOM's explicit role / aria-live: the app expresses every live region that

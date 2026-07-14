@@ -1,6 +1,6 @@
 // Area A — intake & first pass. THE PATTERN-SETTER: every other area's
 // scenario file copies the shapes here. The contract
-// (docs/02b-behavior-contract/contract.md) is the only normative text; each
+// (docs/archive/02b-behavior-contract/contract.md) is the only normative text; each
 // ctx.check() transcribes one criterion's recipe.
 //
 // Conventions established here:

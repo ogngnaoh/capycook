@@ -1,5 +1,6 @@
-// Evidence directory management: docs/02b-behavior-contract/evidence/run-NNN/
-// (gitignored except the final run, un-ignored at B5). Layout:
+// Evidence directory management: docs/archive/02b-behavior-contract/evidence/run-NNN/
+// (gitignored; the approved B5 runs are preserved separately as local private
+// evidence). Layout:
 //   run-NNN/oracle-report.json
 //   run-NNN/judge-manifest.json
 //   run-NNN/<scenario-id>/<BC-id>/<subcheck>-{pass|fail}.png|-detail.json

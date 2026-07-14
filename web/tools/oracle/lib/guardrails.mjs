@@ -39,7 +39,7 @@ export function checkContractPin() {
     { cwd: REPO, encoding: 'buffer', timeout: 30000 });
   let head;
   try {
-    head = readFileSync(join(REPO, 'docs/02b-behavior-contract/contract.md'));
+    head = readFileSync(join(REPO, 'docs/archive/02b-behavior-contract/contract.md'));
   } catch (e) {
     return { id: 'BC-J-3', pass: false, detail: `contract.md unreadable: ${e}` };
   }

@@ -1,5 +1,13 @@
 # Milestone 02 — S8 Showcase Release Implementation Plan
 
+> **SHIPPED / HISTORICAL — 2026-07-14.** Gate A and the private staging steps
+> through the local atomic milestone-02 ship ritual are complete. The body below is
+> retained as the release record, not as authority to repeat completed actions.
+> Task 7 still requires independent approval of the local ship commit before a
+> private `master` push, and public visibility remains forbidden without separate
+> explicit USER authorization. GitHub itself is the complete showcase surface;
+> there is no external portfolio-site work, and milestone 03 remains parked.
+
 > **For agentic workers:** Execute this plan in order. Gate A uses the
 > implementer/reviewer fix→re-review protocol below; Gate B requires explicit USER
 > approval before any release mutation.

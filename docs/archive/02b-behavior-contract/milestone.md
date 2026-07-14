@@ -1,6 +1,12 @@
 # Milestone 02b — Behavior Contract + Autonomous Oracle Loop
 
-**Goal** — Ratify a comprehensive, frozen UX behavior contract for the workbench, then run a fully autonomous build→judge loop against that contract until every criterion passes, so H2 operator sessions and the S8 publish happen on a workbench that survives live latency.
+> **ARCHIVED SHIPPED RECORD — 2026-07-14.** Milestone 02b shipped, its deferred
+> GIF re-check completed, H2 closed at N=2 with no further collection, and milestone
+> 02/S8 shipped locally. GitHub itself is the complete showcase surface; there is no
+> external portfolio-site work. Present-tense implementation language below records
+> the completed historical workflow and is not an instruction to resume it.
+
+**Goal** — Ratify a comprehensive, frozen UX behavior contract for the workbench, then run a fully autonomous build→judge loop against that contract so the final H2 session and S8 release candidate use a workbench that survives live latency.
 
 **Why now** — The first live-latency operator session (2026-07-11) surfaced UX gaps
 nobody hit in stub-instant demos: silent empty-intent no-op, no auto first pass,

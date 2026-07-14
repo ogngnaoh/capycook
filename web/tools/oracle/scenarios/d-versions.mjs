@@ -1,6 +1,6 @@
 // Area D — versions & timeline. Copies a-intake.mjs's shapes: bounded waits,
 // renderer-side focus/announce reads, sub-check names, judge stills. The
-// contract (docs/02b-behavior-contract/contract.md) is the only normative
+// contract (docs/archive/02b-behavior-contract/contract.md) is the only normative
 // text; each ctx.check() transcribes one criterion's recipe.
 //
 // The big journey (d/timeline) builds a real line of development entirely

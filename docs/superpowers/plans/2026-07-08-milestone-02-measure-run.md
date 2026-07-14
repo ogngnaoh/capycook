@@ -1,6 +1,8 @@
 > **HISTORICAL / SUPERSEDED (2026-07-14):** Slices S1–S4 are complete; the body below
 > is retained as their historical record and is no longer operational authority.
-> Current work is governed by the [July 14 S8 release plan](2026-07-14-milestone-02-s8-showcase-release.md).
+> Milestone 02 and S8 are now shipped locally; the
+> [July 14 S8 release plan](2026-07-14-milestone-02-s8-showcase-release.md) is the
+> historical release record and preserves the still-pending Task 7 public gate.
 
 # Milestone 02 (measure-run) S1–S4 Implementation Plan
 

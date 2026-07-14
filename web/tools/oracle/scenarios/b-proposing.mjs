@@ -1,7 +1,7 @@
 // Area B — the proposing state (runs NATIVELY in live-sim). Copies the shapes
 // a-intake.mjs set: bounded waits, renderer-side timing via armMoment/
 // readInstrument, NetLog counts, sub-check names, judgeStill/sampleScreencast.
-// The contract (docs/02b-behavior-contract/contract.md) is the only normative
+// The contract (docs/archive/02b-behavior-contract/contract.md) is the only normative
 // text; each ctx.check() transcribes one criterion's recipe.
 //
 // Every fixed threshold here is decided by RENDERER-side stamps — the in-page

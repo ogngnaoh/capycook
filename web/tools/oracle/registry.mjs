@@ -1,5 +1,5 @@
 // The completeness spine: every criterion of the ratified contract
-// (docs/02b-behavior-contract/contract.md, pin 965c8eb), one entry each.
+// (docs/archive/02b-behavior-contract/contract.md, pin 965c8eb), one entry each.
 // Grep any BC id here to find its scenario file. BC-J-7 is enforced against
 // this list: a report is refused unless every id below appears in it.
 //

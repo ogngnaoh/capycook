@@ -3,7 +3,7 @@
 // cooked version. Shapes copied from a-intake.mjs (the pattern-setter):
 // bounded waits, NetLog POST-body reads for the base-version proof, sub-check
 // names ANDed per criterion, judge stills for BC-E-3. Every ctx.check()
-// transcribes one criterion's contract recipe (docs/02b-behavior-contract/
+// transcribes one criterion's contract recipe (docs/archive/02b-behavior-contract/
 // contract.md §E), boundaries included.
 import {
   sleep, clickButton, clickVerb, waitForVerb, setValue, describeActiveElement,
