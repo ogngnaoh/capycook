@@ -13,15 +13,16 @@ export const FROZEN_BASELINE = '32afe54fef040fe8fb964fd3c2f04fc9e673b910';
 export const PREREGISTRATION_BASELINE = '64654556fed6a3b9e2141790213f78bbafb2d8c4';
 export const PREREGISTRATION_02B_OPENING = '4c3a6f7c043d8fbcdd50852302e2a8f3e5bae79b';
 export const PREREGISTRATION_02B_EXIT = '9aee534af935aeb327321d12ea8cfa23e99246d2';
-export const APPROVED_PREREGISTRATION_BLOBS = [
-  '4b5b914e8b3d54f4dbad846ddc1693cec51e50c6',
-  '0dffce5ae7d85de759bae077b3d9e1aceb51c559',
-  'b54b08d32510e690fe887b9ff05e72b45c7d0d1f',
-  'aef4743448e5bece8ef5f32338a244593060d035',
-  'cc17b3446f47b9403781eb9b73132b200666d8de',
-  '0571364fe6f028fd84009370b197b94d31126443',
-  'be5748ebf5c7cd6681fae255e286561b5a4b5745',
+export const AUTHORIZED_PREREGISTRATION_STATES = [
+  { rank: 0, commit: '64654556fed6a3b9e2141790213f78bbafb2d8c4', blob: '4b5b914e8b3d54f4dbad846ddc1693cec51e50c6' },
+  { rank: 1, commit: '43c50ce051301bb8b004b3d297bb192a8f929e6e', blob: '0dffce5ae7d85de759bae077b3d9e1aceb51c559' },
+  { rank: 2, commit: '18dc1606535b61374c3260aad4541521e2036bb4', blob: 'b54b08d32510e690fe887b9ff05e72b45c7d0d1f' },
+  { rank: 3, commit: '7dd5c512c7ad2d6255fa7ba4f0f53cf7737d070a', blob: 'aef4743448e5bece8ef5f32338a244593060d035' },
+  { rank: 4, commit: '09c66c67b472c912f594aa459198e8cb78bf5860', blob: 'cc17b3446f47b9403781eb9b73132b200666d8de' },
+  { rank: 5, commit: 'f160a74e412bc8d54ee21c6f46df391ad3cb5a47', blob: '0571364fe6f028fd84009370b197b94d31126443' },
+  { rank: 6, commit: '54f6bc743b22fa32cc74f71aa40ee21899a06e31', blob: 'be5748ebf5c7cd6681fae255e286561b5a4b5745' },
 ];
+export const APPROVED_PREREGISTRATION_BLOBS = AUTHORIZED_PREREGISTRATION_STATES.map(({ blob }) => blob);
 export const FROZEN_PATHS = [
   'internal/llm/prompts', 'eval/fixtures/seeds.json', 'internal/eval/runner.go',
   'data/safety', 'eval/fixtures/move_script.json', 'internal/llm/evidence.go',
@@ -117,6 +118,62 @@ function showFile(ref, path, options) {
   return { pass: true, bytes };
 }
 
+function preregistrationBlob(ref, options) {
+  const result = gitCommand(['rev-parse', '--verify', `${ref}:${PREREGISTRATION_PATH}`], options);
+  if (!result.ok) {
+    return failed(`PREREGISTRATION state missing or unreadable at commit ${ref}: ${result.diagnostics}`);
+  }
+  const blob = outputText(result.stdout).trim();
+  if (!OID_PATTERN.test(blob)) return failed(`PREREGISTRATION state at commit ${ref} resolved to invalid blob ${blob || '<empty>'}`);
+  return { pass: true, blob };
+}
+
+function validatePreregistrationAuthorizations(states, baseline, options) {
+  if (!Array.isArray(states) || states.length === 0) {
+    return failed('ordered PREREGISTRATION authorization history is missing or empty');
+  }
+  const commits = new Set();
+  const blobs = new Set();
+  for (let rank = 0; rank < states.length; rank += 1) {
+    const state = states[rank];
+    if (!state || state.rank !== rank || !OID_PATTERN.test(state.commit || '') || !OID_PATTERN.test(state.blob || '')) {
+      return failed(`invalid PREREGISTRATION authorization at rank ${rank}: exact rank, commit, and blob are required`);
+    }
+    if (commits.has(state.commit) || blobs.has(state.blob)) {
+      return failed(`duplicate PREREGISTRATION authorization mapping at rank ${rank}: commit ${state.commit}; blob ${state.blob}`);
+    }
+    commits.add(state.commit);
+    blobs.add(state.blob);
+    const resolved = resolveCommit(state.commit, `authorized PREREGISTRATION rank ${rank} commit`, options);
+    if (!resolved.pass) return resolved;
+    if (resolved.oid !== state.commit) {
+      return failed(`authorized PREREGISTRATION rank ${rank} must use exact commit ${state.commit}, resolved ${resolved.oid}`);
+    }
+    const file = preregistrationBlob(state.commit, options);
+    if (!file.pass) return file;
+    if (file.blob !== state.blob) {
+      return failed(`authorized PREREGISTRATION rank ${rank} commit ${state.commit} has blob ${file.blob}, expected ${state.blob}`);
+    }
+    if (rank > 0) {
+      const parents = gitCommand(['rev-list', '--parents', '-n', '1', state.commit], options);
+      if (!parents.ok) return failed(`unable to inspect authorized PREREGISTRATION rank ${rank} parent: ${parents.diagnostics}`);
+      const fields = outputText(parents.stdout).trim().split(/\s+/).filter(Boolean);
+      if (fields.length !== 2 || fields[0] !== state.commit) {
+        return failed(`authorized PREREGISTRATION rank ${rank} commit ${state.commit} must be a non-merge commit with one parent`);
+      }
+      const parentBlob = preregistrationBlob(fields[1], options);
+      if (!parentBlob.pass) return parentBlob;
+      if (parentBlob.blob !== states[rank - 1].blob) {
+        return failed(`authorized PREREGISTRATION rank ${rank} commit ${state.commit} parent ${fields[1]} has blob ${parentBlob.blob}, expected rank ${rank - 1} blob ${states[rank - 1].blob}`);
+      }
+    }
+  }
+  if (states[0].commit !== baseline) {
+    return failed(`PREREGISTRATION T0 ${baseline} does not equal authorized rank 0 commit ${states[0].commit}`);
+  }
+  return { pass: true, byBlob: new Map(states.map((state) => [state.blob, state])) };
+}
+
 export function checkPermanentInstruments({
   repo = REPO,
   target = 'HEAD',
@@ -157,7 +214,7 @@ export function checkPermanentPreregistration({
   repo = REPO,
   target = 'HEAD',
   preregistrationBaseline = PREREGISTRATION_BASELINE,
-  approvedPreregistrationBlobs = APPROVED_PREREGISTRATION_BLOBS,
+  authorizedPreregistrationStates = AUTHORIZED_PREREGISTRATION_STATES,
   spawn = spawnSync,
 } = {}) {
   const options = { repo, spawn };
@@ -167,6 +224,9 @@ export function checkPermanentPreregistration({
   if (!resolvedTarget.pass) return resolvedTarget;
   const ancestry = requireAncestor(baseline.oid, resolvedTarget.oid, 'PREREGISTRATION T0 pin', options);
   if (!ancestry.pass) return ancestry;
+
+  const authorizations = validatePreregistrationAuthorizations(authorizedPreregistrationStates, baseline.oid, options);
+  if (!authorizations.pass) return authorizations;
 
   const baselineFile = showFile(baseline.oid, PREREGISTRATION_PATH, options);
   if (!baselineFile.pass) return baselineFile;
@@ -187,28 +247,80 @@ export function checkPermanentPreregistration({
   const parent = outputText(parents.stdout).trim().split(/\s+/)[1];
   const range = parent ? `${parent}..${resolvedTarget.oid}` : resolvedTarget.oid;
   const history = gitCommand([
-    'log', '--full-history', '--reverse', '--format=%H', range, '--', PREREGISTRATION_PATH,
+    'rev-list', '--parents', '--topo-order', '--reverse', range,
   ], options);
   if (!history.ok) return failed(`unable to scan PREREGISTRATION history: ${history.diagnostics}`);
 
-  const approved = new Set(approvedPreregistrationBlobs);
-  const commits = outputText(history.stdout).trim().split(/\s+/).filter(Boolean);
-  for (const commit of commits) {
-    const blobResult = gitCommand(['rev-parse', '--verify', `${commit}:${PREREGISTRATION_PATH}`], options);
-    if (!blobResult.ok) {
-      return failed(`PREREGISTRATION state missing or unreadable at commit ${commit}: ${blobResult.diagnostics}`);
+  const lines = outputText(history.stdout).trim().split('\n').filter(Boolean);
+  if (lines.length === 0) return failed(`PREREGISTRATION history from T0 ${baseline.oid} to target ${resolvedTarget.oid} is empty`);
+  let sawBaseline = false;
+  for (const line of lines) {
+    const [commit, ...commitParents] = line.trim().split(/\s+/);
+    if (!OID_PATTERN.test(commit) || commitParents.some((commitParent) => !OID_PATTERN.test(commitParent))) {
+      return failed(`invalid PREREGISTRATION history entry: ${line}`);
     }
-    const blob = outputText(blobResult.stdout).trim();
-    if (!approved.has(blob)) {
-      return failed(`unapproved PREREGISTRATION state at commit ${commit}: blob ${blob}`);
+    const currentBlob = preregistrationBlob(commit, options);
+    if (!currentBlob.pass) return currentBlob;
+    const state = authorizations.byBlob.get(currentBlob.blob);
+    if (!state) {
+      return failed(`unapproved PREREGISTRATION state at commit ${commit}: blob ${currentBlob.blob}`);
+    }
+    if (commit === baseline.oid) {
+      sawBaseline = true;
+      if (state.rank !== 0 || currentBlob.blob !== authorizedPreregistrationStates[0].blob) {
+        return failed(`PREREGISTRATION T0 commit ${commit} has rank ${state.rank} blob ${currentBlob.blob}, expected rank 0 blob ${authorizedPreregistrationStates[0].blob}`);
+      }
+      continue;
+    }
+    if (commitParents.length === 0) return failed(`PREREGISTRATION history commit ${commit} has no parent after T0 ${baseline.oid}`);
+    const parentStates = [];
+    for (const commitParent of commitParents) {
+      const parentBlob = preregistrationBlob(commitParent, options);
+      if (!parentBlob.pass) return parentBlob;
+      const parentState = authorizations.byBlob.get(parentBlob.blob);
+      if (!parentState) {
+        return failed(`unapproved PREREGISTRATION parent state at commit ${commit}: parent ${commitParent} blob ${parentBlob.blob}`);
+      }
+      parentStates.push({ commit: commitParent, blob: parentBlob.blob, rank: parentState.rank });
+    }
+    if (commitParents.length === 1) {
+      const parentState = parentStates[0];
+      if (currentBlob.blob === parentState.blob) continue;
+      const expected = authorizedPreregistrationStates[parentState.rank + 1];
+      const expectedDetail = expected
+        ? `rank ${parentState.rank} -> ${expected.rank} at commit ${expected.commit} to blob ${expected.blob}`
+        : `none after latest authorized rank ${parentState.rank}; state must remain at blob ${parentState.blob}`;
+      if (!expected || commit !== expected.commit || state.rank !== expected.rank || currentBlob.blob !== expected.blob) {
+        return failed(`unauthorized PREREGISTRATION transition at commit ${commit}: parent ${parentState.commit}; parent rank ${parentState.rank} blob ${parentState.blob}; result rank ${state.rank} blob ${currentBlob.blob}; expected authorized transition ${expectedDetail}`);
+      }
+      continue;
+    }
+    const maximumParentRank = Math.max(...parentStates.map(({ rank }) => rank));
+    const inherited = parentStates.some(({ blob }) => blob === currentBlob.blob);
+    if (!inherited || state.rank !== maximumParentRank) {
+      const parentDetail = parentStates.map((parentState) => `${parentState.commit} rank ${parentState.rank} blob ${parentState.blob}`).join(', ');
+      return failed(`invalid PREREGISTRATION merge at commit ${commit}: parent ranks [${parentDetail}]; result rank ${state.rank} blob ${currentBlob.blob}; result must inherit an actual parent blob at maximum parent rank ${maximumParentRank}`);
     }
   }
+  if (!sawBaseline) return failed(`PREREGISTRATION history does not contain T0 commit ${baseline.oid}`);
 
+  const targetBlob = preregistrationBlob(resolvedTarget.oid, options);
+  if (!targetBlob.pass) return targetBlob;
+  const targetState = authorizations.byBlob.get(targetBlob.blob);
+  if (!targetState) {
+    return failed(`unapproved PREREGISTRATION state at target commit ${resolvedTarget.oid}: blob ${targetBlob.blob}`);
+  }
+  const latest = authorizedPreregistrationStates.at(-1);
+  if (targetState.rank !== latest.rank || targetBlob.blob !== latest.blob) {
+    return failed(`PREREGISTRATION target commit ${resolvedTarget.oid} has target rank ${targetState.rank} blob ${targetBlob.blob}; expected latest authorized rank ${latest.rank} at commit ${latest.commit} with blob ${latest.blob}`);
+  }
+
+  const approvedPreregistrationBlobs = authorizedPreregistrationStates.map(({ blob }) => blob);
   return {
     pass: true,
     target: resolvedTarget.oid,
-    approvedPreregistrationBlobs: [...approvedPreregistrationBlobs],
-    detail: `${approvedPreregistrationBlobs.length} approved PREREGISTRATION states cover ${commits.length} target-ancestry entries; sections 1-8 equal T0 bytes`,
+    approvedPreregistrationBlobs,
+    detail: `${authorizedPreregistrationStates.length} approved PREREGISTRATION states cover ${lines.length} target-ancestry entries in ordered parent history; sections 1-8 equal T0 bytes`,
   };
 }
 
@@ -218,9 +330,12 @@ export function checkRepositoryIntegrity({
   frozenBaseline = FROZEN_BASELINE,
   frozenPaths = FROZEN_PATHS,
   preregistrationBaseline = PREREGISTRATION_BASELINE,
-  approvedPreregistrationBlobs = APPROVED_PREREGISTRATION_BLOBS,
+  authorizedPreregistrationStates = AUTHORIZED_PREREGISTRATION_STATES,
   spawn = spawnSync,
 } = {}) {
+  const approvedPreregistrationBlobs = Array.isArray(authorizedPreregistrationStates)
+    ? authorizedPreregistrationStates.map(({ blob }) => blob)
+    : [];
   const shallow = gitCommand(['rev-parse', '--is-shallow-repository'], { repo, spawn });
   if (!shallow.ok) return failed(`unable to determine whether repository history is shallow: ${shallow.diagnostics}`);
   if (outputText(shallow.stdout).trim() !== 'false') return failed('repository history is shallow; full history is required');
@@ -231,7 +346,7 @@ export function checkRepositoryIntegrity({
     repo,
     target: instruments.target,
     preregistrationBaseline,
-    approvedPreregistrationBlobs,
+    authorizedPreregistrationStates,
     spawn,
   });
   if (!preregistration.pass) return failed(preregistration.detail, { target: instruments.target, approvedPreregistrationBlobs: [...approvedPreregistrationBlobs] });
