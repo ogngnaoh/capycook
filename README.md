@@ -243,6 +243,10 @@ cross-checked against the trace stream; span payloads stay attribute-only by des
 
 ## Results
 
+The registered contrast hit a ceiling under sparse citation behavior. Its null result,
+zero-row Tier-2 path, and unmeasurable kappa are the engineering finding: under the
+observed behavior, the frozen instrument could not distinguish the arms.
+
 The grounded arm of the campaign, as it ran — real log, real commands (budget banner,
 live-model + telemetry pins, then the arm summary with its skip reported, not silenced):
 
@@ -277,17 +281,33 @@ rows**, so the pre-registered κ/confusion-matrix machinery had nothing to measu
 The blind-check control — an 18-row stratified Tier-1 sample blind-labeled by an
 author-delegated LLM rater (fresh-context Claude agent, §9 Amendment 3;
 model-validates-machine, cross-family vs the DeepSeek generator/judge) — agreed with
-the verifier on **15/18 (83%)**. All three divergences were subjective flavor-harmony
-claims the rater judged `opinion-non-checkable` where the mechanical empty-source rule
-says `correctly-unverified` — the residual-risk shape Amendment 1's control watches
-for, surfaced here as signal rather than error.
+the verifier on **15/18 (83%)**. The sample contained only empty-source claims, so it
+validated only Tier-1's empty-source → `correctly-unverified` branch; it did not
+exercise pairing resolution or `grounded-mischaracterized` decisions. All three
+divergences were subjective flavor-harmony claims the rater judged
+`opinion-non-checkable` where the mechanical empty-source rule says
+`correctly-unverified` — the residual-risk shape Amendment 1's control watches for,
+surfaced here as signal rather than error.
 
 ### Gate dynamics — H2
 
-*Gate-dynamics telemetry is accumulating (single operator); this subsection is filled
-from `eval replay` — explicit N, single-operator caveat — before publish (S8; Task 5,
-resequenced).*
+Single-operator telemetry: one human (the author) generated every gate decision — descriptive autobiographical-design data with an explicit N, never a bare % and never a quality or user-research claim (PREREG §3 H2 / §8 rule 3).
 
+Frozen-five derivation (spec §4 mapping; the native distribution is primary): cancel folds into reject; alternatives, take_over, blocked, and auto_advanced remain additional labeled rows — PREREG froze only accept/edit/regenerate/reject/redirect.
+
+N=2 gate decisions across 1 sessions, single operator. move_failed=0 (parse/retry exhaustion — tracked beside the distribution, never inside N).
+
+Native distribution (primary):
+
+| category | N | accept | edit | regenerate | cancel | redirect | alternatives | take_over | blocked | auto_advanced | move_failed |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| seed_expand | 2 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| creative (roll-up) | 2 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| TOTAL | 2 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+| category | accept | edit | regenerate | reject | redirect | alternatives | take_over | blocked | auto_advanced |
+|---|---|---|---|---|---|---|---|---|---|
+| TOTAL (frozen five) | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 0 |
 ### Findings
 
 The three §7a rates land at ceiling (1.000 / 0.000 / 0.000) in every arm: the live model
