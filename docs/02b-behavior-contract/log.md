@@ -150,3 +150,26 @@
   B5, NOT a self-verification; the ×2-all-green criterion was not mechanically
   met (judge variance). Guardrails clean at HEAD `efa9c0d` (freeze empty, pin
   intact, PREREGISTRATION untouched, operator DB = 6, self-test 27/27).
+- **2026-07-13 — B5 SHIPPED; 02b COMPLETE.** The USER exercised the B5
+  approval gate after an **independent runtime verification by a fresh session
+  that did NOT write the B4 checks** (the doctrine-clean verifier): the app was
+  rebuilt from B4 source (`9266155`) and driven in a real browser (stub mode,
+  temp DB, injected latency) — auto-first-pass (BC-A-3), empty-intent guard +
+  `aria-describedby` association (BC-A-4/A-9), focus-not-body at dispatch/gate/
+  hold (BC-A-5/B-1), changed-row diff markup (BC-C-16), feedback echo (BC-E-3),
+  the safety hold (garlic-oil → held, rule cited, dish unmutated), the in-app
+  disclaimer (BC-C-26), in-wait SR announcements, and deep-link state persistence
+  were all confirmed; verdict **PASS**. Observed and confirmed the D-7 stub
+  clutter is a fixture wart, not a product defect. On that basis the USER
+  **accepted the assembled B4 evidence and waived the 3 open judge artifacts**
+  (BC-B-8/I-2 transition-capture variance, D-7). Pre-merge guardrail gate green
+  (freeze diff vs `32afe54` empty · pin `965c8eb` byte-intact · PREREGISTRATION
+  untouched since `cb43431` · operator DB still 6/1307 · go vet clean · go test
+  ./... ok · tsc clean · vitest 273/273). **Merged `02b-behavior-contract` →
+  `measure-run` (no-ff, UNPUSHED — D7 holds).** GIF re-check **DEFERRED to pre-S8**
+  (USER ruling): scenes 01/04/07 changed under B4 and need a `demo.mjs` rig fix
+  (`seedToTrial1` manually dispatches after create, which BC-A-3 auto-first-pass
+  broke); the GIFs are public only at S8, so they are re-captured then. 02b folder
+  archival to `docs/archive/` also deferred to the milestone-02 ship (S8 and the
+  GIF work still reference the handoff + gitignored evidence in place). Next:
+  resume milestone 02 S8 (H2 sessions + publish).

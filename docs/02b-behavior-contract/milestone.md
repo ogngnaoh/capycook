@@ -32,8 +32,8 @@ the check (the contract) is ratified before the work begins.
 - B1 — milestone docs + spec + contract draft → **USER ratification gate** — shipped (2026-07-11: draft hardened by a 49-round fresh-context UX/a11y review loop, verdict APPROVE; USER ratified as-is same day, both ⚖ criteria in force)
 - B2 — oracle harness + falsifiability self-test — shipped (2026-07-11: ~44 scenarios/12 files via 10-builder fan-out + 10 fresh-context critics [3 CRITICALs fixed] + 27/27 self-test incl. 10 mutation flips; stub fixtures + stub-mode budget metering; plan+record `b2-oracle-plan.md`)
 - B3 — census run against current UI (informative, non-blocking) — shipped (2026-07-11: run-073, 79 pass / 43 fail / 1 parked over 123 rows; every fail explained — 27 marked + 10 unmarked genuine defects + explained derivatives; guardrails all green; posted to USER)
-- B4 — autonomous fix→judge loop to all-green ×2 or stall report — **loop
-  complete, checkpointed to B5 (2026-07-13)**: all 43 census reds + 5 exit-run
+- B4 — autonomous fix→judge loop to all-green ×2 or stall report — **shipped
+  (loop complete, checkpointed to B5 2026-07-13)**: all 43 census reds + 5 exit-run
   regressions fixed; product verified (113/0 asserts on four clean full runs
   run-027/030/034/036). The ratified ×2-all-green-**judges** criterion was NOT
   mechanically met — irreducible fresh-context judge variance on two
@@ -43,9 +43,18 @@ the check (the contract) is ratified before the work begins.
   self-verification (this session edited the checks/capture). See b4-ledger.md +
   handoff.md.
 - B5 — exit: USER approval gate, GIF re-check, merge → `measure-run`, ship ritual
-  — **active**: USER adjudicates the 3 documented judge-evidence artifacts (accept
-  the assembled evidence, or require the D-7 stub declutter + a B-8/I-2 transition
-  capture rework first), then GIF re-check + merge.
+  — **shipped (2026-07-13)**: USER exercised the approval gate after an
+  independent fresh-session runtime verification (a session that did NOT write the
+  B4 checks drove the real workbench off this branch — auto-first-pass, empty-guard
+  + a11y association, focus management, changed-row diff, feedback echo, safety
+  hold, in-app disclaimer, state persistence all confirmed; verdict PASS), thereby
+  accepting the assembled B4 evidence and waiving the 3 documented judge-evidence
+  artifacts (BC-B-8/I-2 transition-capture variance, D-7 stub clutter). Pre-merge
+  guardrail gate green (freeze empty · pin `965c8eb` byte-intact · PREREGISTRATION
+  untouched · operator DB = 6 · go vet/test · tsc · vitest 273/273). Merged
+  `02b-behavior-contract` → `measure-run` (no-ff, UNPUSHED — D7 holds). GIF
+  re-check DEFERRED to pre-S8: scenes 01/04/07 changed and need a demo-rig fix
+  first; the GIFs go public only at S8.
 
 **Integration notes**
 - **Contract pin (RATIFIED 2026-07-11, as-is):**
@@ -69,13 +78,20 @@ the check (the contract) is ratified before the work begins.
   parks it; loop finishes what it can, then stops with an evidence report + proposed
   ruling. Hard cap: 12 build iterations → checkpoint report regardless.
 
-**Exit criteria**
-- Ratified contract pinned; pin hash recorded here; contract byte-unchanged since.
-- Final `oracle-report.json` all-green across 2 consecutive full runs (asserts +
-  fresh-context judges), evidence dir preserved for the final run.
-- Freeze diff vs `32afe54` empty; `make test`, `make vet`, `cd web && npx vitest run`
-  green; PREREGISTRATION.md byte-untouched.
-- README GIFs whose scenes changed re-captured (≤15s, 800px, 15fps, <5MB each);
-  09-eval-run untouched.
-- USER approval of census-to-green evidence + diff → merge `02b-behavior-contract`
+**Exit criteria** (status at B5 close, 2026-07-13)
+- ✅ Ratified contract pinned; pin hash recorded here; contract byte-unchanged since.
+- ⚖ Final `oracle-report.json` all-green across 2 consecutive full runs (asserts +
+  fresh-context judges), evidence dir preserved for the final run. **ADJUDICATED at
+  the B5 USER gate:** 113/0 asserts across four clean full runs (run-027/030/034/036)
+  + an independent fresh-session runtime verification were accepted in lieu; the
+  judge-side ×2-all-green was NOT mechanically met (irreducible transition-capture
+  variance on BC-B-8/I-2 + the D-7 stub artifact) and was waived by the USER as
+  documented evidence artifacts, not product defects.
+- ✅ Freeze diff vs `32afe54` empty; `make test`, `make vet`, `cd web && npx vitest run`
+  green (273/273); PREREGISTRATION.md byte-untouched (since the 02b baseline `cb43431`).
+- ⏳ README GIFs whose scenes changed re-captured (≤15s, 800px, 15fps, <5MB each);
+  09-eval-run untouched. **DEFERRED to pre-S8** (USER ruling 2026-07-13): scenes
+  01/04/07 changed under B4 and need a `demo.mjs` rig fix first (auto-first-pass
+  broke `seedToTrial1`); the GIFs go public only at the S8 push.
+- ✅ USER approval of census-to-green evidence + diff → merge `02b-behavior-contract`
   → `measure-run` (unpushed; D7 holds).

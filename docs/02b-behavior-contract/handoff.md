@@ -1,53 +1,58 @@
-# Handoff — milestone 02b (behavior-contract)
+# Handoff — milestone 02b (behavior-contract) — SHIPPED 2026-07-13
 
 ## Next session start here
-**B4 loop is COMPLETE and checkpointed to B5 (USER ruling 2026-07-13).** The
-product is thoroughly verified; the ratified ×2-all-green-judges exit criterion
-was NOT mechanically met (irreducible fresh-context judge variance on two
-motion/transition criteria), so it goes to **B5's USER-approval gate** — the
-human verification gate — for adjudication. Do this first next session:
-1. **USER reviews the assembled evidence** (this session cannot self-verify — it
-   edited the checks/capture): 113/0 asserts across four clean full runs
-   (run-027, run-030, run-034, run-036) + `run-036/oracle-report.json` merged
-   judges (6/9) + `run-036/judge/*` stills. Every INDIVIDUAL UI state judged
-   correct; the 3 judge fails are documented evidence artifacts (see b4-ledger.md
-   "Exit runs … → USER checkpoint").
-2. **USER decides** one of: (a) accept the evidence, waive the flaky transition
-   judges (B-8/I-2) + the D-7 stub-clutter for B5, proceed to GIF re-check +
-   merge; OR (b) require a capture/judge rework first — the concrete next fixes
-   are: **D-7** = stop `internal/llm/stub.go:267` accumulating " (brightened per
-   feedback)" (return a distinct concept per iterate_feedback; stub is NOT
-   frozen); **B-8/I-2** = capture the working→gate transition via a rapid DIRECT
-   `judgeShot` burst across the resolve window (the CDP screencast wedges/jumps at
-   the handoff — a before/after pair does not satisfy the strict judge).
-3. If (a): **B5 ship ritual** — GIF re-check (README scenes that changed, ≤15s
-   800px 15fps <5MB; 09-eval-run untouched), then merge `02b-behavior-contract` →
-   `measure-run` (UNPUSHED; D7 holds), mark B4/B5 shipped, resume 02 S8 publish.
+**02b is COMPLETE and merged to `measure-run` (local, UNPUSHED — D7 holds).
+Resume milestone 02 → S8 publish** (`docs/02-measure-run/`). Two things gate S8,
+in order:
+1. **GIF re-check (deferred from B5, do FIRST at S8).** B4 changed 3 README
+   scenes: **01-develop-loop** (auto-first-pass + streaming rationale),
+   **04-post-cook-rework** (BC-E-3 feedback echo now shows in the rework
+   rationale), **07-midstream-cancel** (streaming working state). The demo rig
+   `web/tools/demo.mjs` was NOT updated during B4 — **scene 01's `seedToTrial1`
+   manually types an intent and dispatches after "Develop this dish", but
+   BC-A-3 auto-first-pass now auto-proposes on create, so that flow breaks**
+   (the intent bar isn't present at the gate). Fix scene 01's create flow
+   (create → accept the auto-proposal → Trial 1; drop the manual dispatch),
+   verify 04/07 still run, re-encode to spec (≤15s · 800px · 15fps · <5MB),
+   and eyeball framing for the D-7 stub "(brightened per feedback)" clutter and
+   the 0-kcal first-proposal flash. `09-eval-run` (separate `eval-run.tape`)
+   stays untouched. Scenes 02/05/06/08 are only subtle color-token/badge shifts;
+   03 unchanged — re-capture only if you want pixel-current.
+2. **S8 proper** (per `docs/02-measure-run/handoff.md`): optional H2 operator
+   sessions to the ~8 floor (USER calls it), then `go run ./cmd/eval replay` →
+   README H2 table, then the exit-criteria audit → **USER gate**: merge
+   `measure-run` → master (no-ff) + **push** (D7's one public debut) → tag
+   `v0.2-measure-run` → `gh repo edit` + settings + portfolio linkage.
 
 ## Current state
-- Worktree `../CapyCook-02b` @ `02b-behavior-contract`, HEAD **`efa9c0d`**; main
-  checkout untouched on measure-run. Self-test **27/27 ok:true** @ `efa9c0d`
-  (10/10 mutation flips). Loop record: `b4-ledger.md` (source of truth), `log.md`.
-- **All 43 census reds fixed + 5 exit-run regressions fixed** (BC-J-5 guard, C-8
-  stale scenario, C-10@live-sim wait, G-8 product, H-4 product; builder `4080499`
-  + lead harness commits). **Judge-capture hardened**: A-8 screenshot fallback,
-  G-3 setTheme+judgeShot, G-6 toast wait, B-8 resolved-gate judgeShot.
-- **Asserts: 113/0 on four clean full runs.** Judges: 6/9 on run-036 (B-8, I-2,
-  D-7 fail on evidence variance — NOT product defects; different criteria fail
-  each run). B-8 is the only persistent one (transition-moment capture).
-- Guardrails clean: freeze diff vs `32afe54` empty · contract pin `965c8eb`
-  byte-intact · PREREGISTRATION untouched · **operator DB exactly 6** · make
-  test/vet/tsc/vitest green (BC-J-2).
+- **02b merged into `measure-run`** (no-ff merge commit; branch ref
+  `02b-behavior-contract` @ its B5-ship commit; worktree `../CapyCook-02b`
+  still exists). `measure-run` is **unpushed**.
+- B1–B5 all shipped. B4: all 43 census reds + 5 exit-run regressions fixed;
+  113/0 asserts across four clean full runs (run-027/030/034/036). B5: USER
+  accepted the evidence after an independent fresh-session runtime verification
+  (PASS), waiving the 3 judge-evidence artifacts (BC-B-8/I-2 capture variance,
+  D-7 stub clutter — none a product defect). Full loop record: `b4-ledger.md`;
+  narrative: `log.md`.
+- Guardrails at merge: freeze diff vs `32afe54` empty · contract pin `965c8eb`
+  byte-intact · PREREGISTRATION untouched since `cb43431` · **operator DB still
+  6/1307** · go vet/test green · tsc clean · vitest 273/273.
 
 ## Open concerns
-- **⚠ Not self-verified.** This session heavily edited the oracle checks/capture;
-  the ×2-all-green was never reached. B5's USER approval is the real gate — do
-  not treat the assembled evidence as verification.
-- **Judge variance is the blocker, not the product.** The transition criteria
-  (B-8, I-2) need a fundamentally more reliable capture of the handoff moment
-  (screencast wedges); D-7 needs the stub declutter. All are harness/fixture, not
-  product. Decide at B5 whether to invest in that rework or accept the evidence.
-- Evidence dirs gitignored — run-027/030/034/036 + `selftest-report.json` are the
-  B5 evidence; **do not clean** until B5 resolves. Ports swept (8098 free).
-- Exit-judges driver lives in the session scratchpad
-  (`exit-judges.workflow.mjs`); re-runnable via `{worktree, runDir}`.
+- **Worktree-drift / evidence preservation.** The raw B5 evidence
+  (`evidence/run-027|030|034|036/`, `selftest-report.json`) is **gitignored** and
+  lives ONLY in the `../CapyCook-02b` worktree — it did NOT travel with the merge.
+  Do not remove the worktree until you've decided whether to preserve that
+  evidence (commit un-ignored, or copy out). The committed `b4-ledger.md` +
+  `log.md` already carry the decisive summary.
+- **GIF rig fix is real work**, not a re-record — see start-here item 1. Budget
+  for a `demo.mjs` patch + per-scene verification before S8.
+- **02b folder not archived.** Convention archives shipped-milestone folders to
+  `docs/archive/`; deferred here because S8 + the GIF work still reference this
+  handoff and the in-place evidence. Archive at the milestone-02 ship (and move
+  the gitignored evidence deliberately — `git mv` won't).
+- The B4 tests/harness were written by the B4 sessions' own author-effort
+  (review-flagged, e.g. `cmd/server/main_test.go` LLMBudgetUSD fixture,
+  `hub_test.go`, `orchestrator_test.go`). Green suites are merge hygiene; the
+  real verification of record is the independent runtime drive (see `log.md`
+  2026-07-13) + the USER's B5 approval — not the self-written tests.
