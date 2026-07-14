@@ -1,5 +1,12 @@
 # Milestone 02 Reframe + Repo Showcase — Design
 
+> **HISTORICAL RECORD — 2026-07-14.** This document records the S1–S7 design
+> history. All remaining S8 operational instructions and exit criteria below are
+> superseded by `docs/superpowers/plans/2026-07-14-milestone-02-s8-showcase-release.md`
+> and **must not be executed**. Final release facts: H2 is complete at N=2 with no
+> more collection; the showcase has nine GIFs; there is no external portfolio;
+> Gate B is private-first; and milestone 03 remains parked.
+
 **Date:** 2026-07-08 · **Status:** spec review complete (2026-07-08); factual + honesty edits folded, ready for planning
 **Supersedes:** the "human-led campaign" framing of milestone 02 in `docs/milestones.md` (T1 instrument freeze, operator sessions, labeling campaign **+ second labeler**, κ).
 

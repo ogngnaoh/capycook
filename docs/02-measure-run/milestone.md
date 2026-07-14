@@ -1,6 +1,6 @@
 # Milestone 02 — measure-run
 
-**Goal:** Fill the Results table solo at ~195-claim scale via tiered verification (Tier-1 deterministic verifier · blinded author R1 · DeepSeek judge R2), and make the repo the reviewer surface. Spec: `docs/superpowers/specs/2026-07-08-milestone-02-reframe-and-showcase-design.md`.
+**Goal:** Fill the Results table solo at ~195-claim scale via tiered verification (Tier-1 deterministic verifier · blinded author R1 · DeepSeek judge R2), and make the repo the reviewer surface. Historical design source: `docs/superpowers/specs/2026-07-08-milestone-02-reframe-and-showcase-design.md`; the S8 row's `docs/superpowers/plans/2026-07-14-milestone-02-s8-showcase-release.md` is the current release authority.
 
 ## Scope / Non-goals
 

@@ -1,5 +1,10 @@
 # Behavior Contract + Autonomous Oracle Loop (Milestone 02b) — Design
 
+> **HISTORICAL RECORD — 2026-07-14.** Milestone 02b shipped and was merged. Its
+> references below to resuming H2 or S8 are historical and superseded by
+> `docs/superpowers/plans/2026-07-14-milestone-02-s8-showcase-release.md`.
+> **Do not resume 02b implementation.**
+
 **Date:** 2026-07-11 · **Status:** ratified in principle 2026-07-11 (session plan → this spec); contract itself pends its own USER ratification gate
 **Inserts:** milestone 02b before S8 publish (02a pattern). H2 operator sessions and S8 resume after 02b ships.
 

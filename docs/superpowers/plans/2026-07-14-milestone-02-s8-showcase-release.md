@@ -109,9 +109,16 @@ Begin this sequence only after the USER explicitly approves Gate A.
   the GitHub-rendered README and current media from the private repository.
 - [ ] Reconfirm the preserved private 02b evidence. Only then may the 02b worktree be
   removed; retain its branch for rollback.
+- [ ] Before moving either milestone folder, rewrite the final
+  `docs/02-measure-run/handoff.md` and `docs/02b-behavior-contract/handoff.md` so the
+  archived records are current.
 - [ ] Perform the milestone-02 ship ritual in one commit: mark S8 and milestone 02
-  shipped, update the next-session handoff, and keep milestone 03 parked optional
-  rather than activating it. Push that `master` commit while still private.
+  shipped; move `docs/02-measure-run/` to `docs/archive/02-measure-run/` and
+  `docs/02b-behavior-contract/` to `docs/archive/02b-behavior-contract/`; update
+  `docs/milestones.md` statuses and pointers to those archive paths; and keep
+  milestone 03 parked optional rather than activating it. Keep the local
+  `docs/private-evidence/` directory in place and ignored/untracked; do not move,
+  stage, or commit it. Push that `master` commit while still private.
 - [ ] Require final green private CI, create the milestone-02 release tag on the
   verified private `master`, and push that tag while the repository remains private.
 - [ ] Present the final private CI, tag, settings, render, and rollback evidence to the
@@ -134,6 +141,13 @@ Begin this sequence only after the USER explicitly approves Gate A.
   nine GIFs, diagrams, and other README media in light and dark modes.
 - Milestone 02 is shipped, milestone 03 remains parked optional, rollback branches are
   retained, and any removed 02b worktree had its private evidence reconfirmed first.
+- `docs/02-measure-run/` is archived at `docs/archive/02-measure-run/`,
+  `docs/02b-behavior-contract/` is archived at
+  `docs/archive/02b-behavior-contract/`, both final handoffs were rewritten before
+  those moves, and `docs/milestones.md` points to the archive paths with the shipped
+  statuses.
+- Local `docs/private-evidence/` remains in place and ignored/untracked; it is absent
+  from the ship-ritual commit.
 
 ## Self-review
 
