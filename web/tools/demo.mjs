@@ -124,7 +124,12 @@ async function fillSeed(page) {
 }
 
 // Seed -> workbench with an accepted Trial 1, all on camera. Scene 01 only —
-// every other scene pre-builds this state over the API instead.
+// every other scene pre-builds this state over the API instead. Since BC-A-3
+// (auto first pass), creating a dish auto-fires the first proposal: the
+// workbench opens straight into proposing and parks that proposal at the gate,
+// with no intent typed — so there is no idle intent bar to drive. The scene
+// accepts that auto-fired first pass into Trial 1 (the manual "Try it" dispatch
+// the pre-B4 rig typed here is gone; the create IS the move now).
 async function seedToTrial1(page) {
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle0' });
   log('  seed page loaded');
@@ -133,15 +138,10 @@ async function seedToTrial1(page) {
   await settle(400);
   await clickButton(page, /^Develop this dish/i);
   await page.waitForFunction(() => location.pathname.startsWith('/dishes/'), { timeout: 8000 });
-  await page.waitForSelector('#cc-intent', { timeout: 8000 });
-  log('  workbench ready');
-  await settle(800);
-  await page.type('#cc-intent', 'make it richer and more herb-forward', { delay: 14 });
-  await settle(300);
-  await clickButton(page, /^Try it/i);
+  // The auto-fired first pass lands its proposal at the gate on its own.
   await waitForVerb(page, 'accept');
-  log('  proposal at the pass');
-  await settle(1300);
+  log('  first-pass proposal at the pass');
+  await settle(1600); // read the auto-proposed first draft
   await clickVerb(page, 'accept');
   await waitForTimelineTrial(page, 1);
   log('  Trial 1 accepted');
@@ -439,6 +439,16 @@ async function sceneCancel(page) {
   await clickButton(page, /^Stop$/);
   await page.waitForFunction(() => !document.querySelector('[data-testid="proposing-card"]'), { timeout: 8000 });
   await settle(1300); // cancelled: bench back to Ready, nothing stored
+  // BC-A-13: a cancelled move now RESTORES the typed idea into #cc-intent
+  // (pre-B4 it cleared). Clear the restored text through React's own value
+  // tracker (native setter + a bubbling input event) so state actually
+  // resets — otherwise page.type appends to the restored string and the
+  // retry reads as one garbled run-on intent.
+  await page.$eval('#cc-intent', (el) => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    set.call(el, '');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   await page.type('#cc-intent', 'add a crunchy element', { delay: 14 });
   await settle(200);
   await clickButton(page, /^Try it/i);
