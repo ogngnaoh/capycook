@@ -49,9 +49,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Validate immutable event target and frozen repository history
+      # github.sha is the integrity target for every event that reaches this
+      # job: the pushed commit on a branch, and the PEELED commit on an
+      # annotated-tag push. The frozen-history checks are pin-based, so that
+      # commit is all they need — and unlike the push event payload, it does
+      # not depend on refs/tags/* surviving actions/checkout, which rewrites
+      # annotated tags into lightweight ones before this step runs.
+      - name: Validate frozen repository history at the checked-out commit
         env:
-          GITHUB_EVENT_PATH: ${{ github.event_path }}
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_SHA: ${{ github.sha }}
         run: node web/tools/repository-integrity-ci.mjs

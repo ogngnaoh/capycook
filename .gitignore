@@ -1,6 +1,9 @@
 /bin/
 .env
 
+# macOS Finder droppings
+.DS_Store
+
 # SQLite home (real operator data — never committed; privacy/pre-push guard)
 data/*.db
 data/*.db-*
