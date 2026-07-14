@@ -40,14 +40,18 @@ if (args) {
     fail('event path is missing');
   } else {
     let event;
+    let eventParsed = false;
     try {
       event = JSON.parse(readFileSync(eventPath, 'utf8'));
+      eventParsed = true;
     } catch (error) {
       fail(`cannot read event payload ${eventPath}: ${error.message}`);
     }
-    if (event) {
+    if (eventParsed) {
       const selected = resolveIntegrityEvent({ repo, eventName, event, checkedOutSha });
-      if (!selected.pass) {
+      if (!event || typeof event !== 'object' || Array.isArray(event)) {
+        fail('event payload is missing or invalid');
+      } else if (!selected.pass) {
         fail(selected.detail);
       } else {
         console.log(`repository-integrity: immutable event: ${selected.detail}`);
