@@ -10,6 +10,8 @@ import { REPO } from './server.mjs';
 import { CONTRACT_PIN } from '../registry.mjs';
 
 export const FROZEN_BASELINE = '32afe54';
+export const PREREGISTRATION_02B_OPENING = '4c3a6f7c043d8fbcdd50852302e2a8f3e5bae79b';
+export const PREREGISTRATION_02B_EXIT = '9aee534af935aeb327321d12ea8cfa23e99246d2';
 export const FROZEN_PATHS = [
   'internal/llm/prompts', 'eval/fixtures/seeds.json', 'internal/eval/runner.go',
   'data/safety', 'eval/fixtures/move_script.json', 'internal/llm/evidence.go',
@@ -18,7 +20,7 @@ export const FROZEN_PATHS = [
 export const OPERATOR_BASELINE = 6;
 
 function sh(cmd, args, opts = {}) {
-  const res = spawnSync(cmd, args, { cwd: REPO, encoding: 'utf8', timeout: opts.timeout ?? 600000 });
+  const res = spawnSync(cmd, args, { cwd: opts.cwd ?? REPO, encoding: 'utf8', timeout: opts.timeout ?? 600000 });
   return { status: res.status, out: ((res.stdout || '') + (res.stderr || '')).trim() };
 }
 
@@ -45,14 +47,38 @@ export function checkContractPin() {
   return { id: 'BC-J-3', pass: strict, detail: strict ? `byte-identical to pin ${CONTRACT_PIN.slice(0, 7)}` : 'contract.md at HEAD differs from the ratified pin' };
 }
 
-export function checkPreregistration() {
-  // BC-J-4 says "byte-untouched for the whole MILESTONE" — baseline is the
-  // 02b contract pin, not the older instrument freeze: user-pasted §9
-  // amendments 2 and 3 landed legitimately between 32afe54 and 02b opening.
-  const committed = sh('git', ['diff', `${CONTRACT_PIN}..HEAD`, '--', 'docs/PREREGISTRATION.md']);
-  const working = sh('git', ['diff', 'HEAD', '--', 'docs/PREREGISTRATION.md']);
-  const pass = committed.out === '' && working.out === '';
-  return { id: 'BC-J-4', pass, detail: pass ? `PREREGISTRATION.md untouched since 02b pin ${CONTRACT_PIN.slice(0, 7)}` : 'PREREGISTRATION.md modified during milestone 02b' };
+export function checkPreregistration({
+  repo = REPO,
+  openingRef = PREREGISTRATION_02B_OPENING,
+  exitRef = PREREGISTRATION_02B_EXIT,
+} = {}) {
+  // Inspect every commit in the finite 02b interval so a mutate-then-revert
+  // cannot hide behind byte-identical endpoints. Post-exit amendments are
+  // outside BC-J-4; current uncommitted edits remain independently forbidden.
+  const interval = `${openingRef.slice(0, 7)}..${exitRef.slice(0, 7)}`;
+  const committed = sh('git', [
+    'log', '--full-history', '--format=%H', `${openingRef}^..${exitRef}`, '--',
+    'docs/PREREGISTRATION.md',
+  ], { cwd: repo });
+  const working = sh('git', ['diff', 'HEAD', '--', 'docs/PREREGISTRATION.md'], { cwd: repo });
+
+  const commandFailures = [];
+  if (committed.status !== 0) commandFailures.push(`git log exited ${committed.status}: ${committed.out}`);
+  if (working.status !== 0) commandFailures.push(`git diff exited ${working.status}: ${working.out}`);
+  if (commandFailures.length > 0) {
+    return { id: 'BC-J-4', pass: false, detail: `unable to verify protected 02b interval ${interval}: ${commandFailures.join('; ')}` };
+  }
+  if (committed.out !== '') {
+    return { id: 'BC-J-4', pass: false, detail: `PREREGISTRATION.md touched during protected 02b interval ${interval}: ${committed.out}` };
+  }
+  if (working.out !== '') {
+    return { id: 'BC-J-4', pass: false, detail: 'PREREGISTRATION.md has uncommitted working-tree changes' };
+  }
+  return {
+    id: 'BC-J-4',
+    pass: true,
+    detail: `PREREGISTRATION.md untouched throughout 02b interval ${interval} (working tree clean)`,
+  };
 }
 
 export function checkOperatorDb() {
