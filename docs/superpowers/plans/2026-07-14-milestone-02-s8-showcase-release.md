@@ -39,8 +39,9 @@ documentation and `docs/media/` release assets.
   approved collecting no more sessions.
 - The showcase contains **9 GIFs**: eight product captures and one eval capture.
 - The current packaged assets are `docs/media/hero.png`,
-  `docs/media/social-preview.png`, and the nine files under `docs/media/mp4/` that
-  correspond to GIFs 01–09.
+  `docs/media/social-preview.png` (1280×640; SHA-256
+  `a0d928339ef491c6a13085f071ef6ff50bf102c612ba2cc646e011b7df5c0da9`), and the
+  nine files under `docs/media/mp4/` that correspond to GIFs 01–09.
 - The PREREGISTRATION §9 supporting-outcome deferral was landed unchanged through
   explicit USER delegation at commit `f160a74`.
 - Reporting reconciliation, media refresh, private-evidence preservation, and the
@@ -115,8 +116,13 @@ debut.
   do not push `measure-run`.
 - [ ] Push `master` only, while the repository is still private, and require green CI
   on that private commit.
-- [ ] While private, set/check repository topics and the social preview, then inspect
-  the GitHub-rendered README and current media from the private repository.
+- [ ] While private, set/check repository topics; verify the prepared
+  `docs/media/social-preview.png` is the approved 1280×640 asset with SHA-256
+  `a0d928339ef491c6a13085f071ef6ff50bf102c612ba2cc646e011b7df5c0da9`; and record
+  the expected owner-avatar fallback because this private repository has never had a
+  custom preview. Do not attempt or require an initial social-preview upload while
+  the repository is private.
+- [ ] Inspect the GitHub-rendered README and current media from the private repository.
 - [ ] Reconfirm the preserved private 02b evidence. Only then may the 02b worktree be
   removed; retain its branch for rollback.
 - [ ] Before moving either milestone folder, rewrite the final
@@ -154,8 +160,15 @@ debut.
 - [ ] Present the final private CI, tag, settings, render, and rollback evidence to the
   USER. Do not change visibility without separate explicit USER authorization.
 - [ ] After USER authorization, switch repository visibility to public and pin it.
+- [ ] Immediately after the authorized public transition, upload the prepared
+  `docs/media/social-preview.png` through GitHub Settings → Social preview, verify
+  that the repository's Open Graph image is a
+  `repository-images.githubusercontent.com` URL, and verify logged-out share/render
+  behavior.
 - [ ] From a logged-out browser, verify public access and the README/media render in
-  both light and dark modes. Record the final public URL and any non-blocking caveats.
+  both light and dark modes. Record the final public URL and any non-blocking caveats;
+  this review is incomplete unless the social-preview upload and URL/share checks
+  above pass.
 
 ### Gate B verification and acceptance
 
@@ -163,12 +176,19 @@ debut.
   pushed, first while the repository was private.
 - Required private CI is green both after the no-ff merge and after the ship-ritual
   commit; the tag identifies that final verified private `master` state.
-- Topics, social preview, and the private README/media render were checked before the
-  visibility change.
+- Topics, the approved 1280×640 social-preview asset and hash, the expected
+  owner-avatar fallback, and the private README/media render were checked before the
+  visibility change; no initial private upload was required or attempted.
 - The USER separately authorized public visibility after reviewing private release
   evidence.
+- Immediately after the public transition, the prepared social preview was uploaded
+  through GitHub Settings, its Open Graph image resolved to a
+  `repository-images.githubusercontent.com` URL, and logged-out share/render behavior
+  was verified.
 - Logged-out public access succeeds, and the GitHub page renders the current hero,
-  nine GIFs, diagrams, and other README media in light and dark modes.
+  nine GIFs, diagrams, and other README media in light and dark modes. Public
+  render/access review cannot pass without the social-preview upload, URL, and share
+  verification above.
 - Milestone 02 is shipped, milestone 03 remains parked optional, rollback branches are
   retained, and any removed 02b worktree had its private evidence reconfirmed first.
 - `docs/02-measure-run/` is archived at `docs/archive/02-measure-run/`,
@@ -193,7 +213,8 @@ debut.
 
 - Gate order is explicit: independent review and USER Gate A approval precede every
   Gate B action; public visibility is a second USER-authorized step after private
-  verification.
+  verification, and the initial social-preview upload follows that public transition
+  immediately.
 - The plan adds no product, data, instrument, external-portfolio, or milestone-03
   scope.
 - Final facts and rollback/evidence constraints are stated once and carried into the
