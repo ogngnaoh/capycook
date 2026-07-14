@@ -53,8 +53,9 @@ the check (the contract) is ratified before the work begins.
   guardrail gate green (freeze empty · pin `965c8eb` byte-intact · PREREGISTRATION
   untouched · operator DB = 6 · go vet/test · tsc · vitest 273/273). Merged
   `02b-behavior-contract` → `measure-run` (no-ff, UNPUSHED — D7 holds). GIF
-  re-check DEFERRED to pre-S8: scenes 01/04/07 changed and need a demo-rig fix
-  first; the GIFs go public only at S8.
+  re-check was historically DEFERRED to pre-S8 because scenes 01/04/07 changed
+  and needed a demo-rig fix; S8 completed the re-check at `288b339`, with all
+  eight product GIFs current and the eval GIF unchanged.
 
 **Integration notes**
 - **Contract pin (RATIFIED 2026-07-11, as-is):**
@@ -89,9 +90,10 @@ the check (the contract) is ratified before the work begins.
   documented evidence artifacts, not product defects.
 - ✅ Freeze diff vs `32afe54` empty; `make test`, `make vet`, `cd web && npx vitest run`
   green (273/273); PREREGISTRATION.md byte-untouched (since the 02b baseline `cb43431`).
-- ⏳ README GIFs whose scenes changed re-captured (≤15s, 800px, 15fps, <5MB each);
-  09-eval-run untouched. **DEFERRED to pre-S8** (USER ruling 2026-07-13): scenes
-  01/04/07 changed under B4 and need a `demo.mjs` rig fix first (auto-first-pass
-  broke `seedToTrial1`); the GIFs go public only at the S8 push.
+- ✅ README GIFs whose scenes changed re-captured (≤15s, 800px, 15fps, <5MB each);
+  09-eval-run untouched. **Historically DEFERRED to pre-S8** (USER ruling
+  2026-07-13): scenes 01/04/07 changed under B4 and needed a `demo.mjs` rig fix
+  first (auto-first-pass broke `seedToTrial1`). Completed at S8 commit `288b339`:
+  all eight product GIFs are current and the eval GIF remains unchanged.
 - ✅ USER approval of census-to-green evidence + diff → merge `02b-behavior-contract`
   → `measure-run` (unpushed; D7 holds).

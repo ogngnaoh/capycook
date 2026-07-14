@@ -28,7 +28,7 @@
 
 ## Integration notes
 
-- (a) Both §9 entries are USER-pasted — the builder never edits `docs/PREREGISTRATION.md`.
+- (a) PREREGISTRATION §9 edits require explicit USER authorization. Earlier changes were USER-pasted or USER-delegated as recorded; the supporting ablation-quality deferral was agent-pasted only after the USER's explicit 2026-07-14 delegation at `f160a74`. Agents never silently edit the frozen document.
 - (b) The T1 instrument pin must postdate the S3/S4 instrument edits (prompts, `evidence.tmpl`, `runner.go`) and predate S5.
 - (c) Tier-1 ground truth = `llm.BuildEvidence` re-derivation.
 - (d) `claim_id` embeds the arm → blinded exports use opaque ids.
