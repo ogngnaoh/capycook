@@ -8,7 +8,7 @@
 ## Current state
 
 - Milestone 02 and S8 are shipped; GitHub plus packaged current media remain the complete showcase surface, with no external portfolio site required.
-- Local `master`, `origin/master`, and remote `master` are `c12a95bcebacab516eadd65c5fc3c0204c6e9d13`.
+- Local `master` and `HEAD` are `f8a9cf5990b682444c7483474e4ada38810cf747`, one commit ahead of `origin/master`; `origin/master` and live remote `master` remain `c12a95bcebacab516eadd65c5fc3c0204c6e9d13`, and the handoff commit is not pushed.
 - Private annotated tag `v0.2-measure-run` is tag object `1103edec8430dbc0fc52446d3bed810dee43aa8d` and peels to commit `c12a95b`.
 - Branch CI run `29359524788` is green: Go, web, Docker, and Frozen repository integrity all passed.
 - Tag CI run `29359723939` failed only Frozen repository integrity job `87176404672`; Go, web, and Docker passed. Its full failure log and actual event payload have not yet been independently extracted.
