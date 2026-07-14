@@ -1,5 +1,5 @@
 # CI (end-to-end build task 1.10): Go vet+test, web test+build, docker build,
-# and a guard that fails any push/PR touching the frozen docs/PREREGISTRATION.md.
+# and a full-history repository-integrity guard over immutable event targets.
 name: CI
 
 on:
@@ -40,18 +40,18 @@ jobs:
       - run: docker build .
 
   guard:
-    name: PREREGISTRATION frozen guard
+    name: Frozen repository integrity
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Fail if docs/PREREGISTRATION.md changed vs origin/master
-        run: |
-          git fetch origin master
-          if [ -n "$(git diff origin/master...HEAD -- docs/PREREGISTRATION.md)" ]; then
-            echo "::error file=docs/PREREGISTRATION.md::PREREGISTRATION.md is frozen (body and §9 log); this branch modifies it." >&2
-            git diff --stat origin/master...HEAD -- docs/PREREGISTRATION.md >&2
-            exit 1
-          fi
-          echo "docs/PREREGISTRATION.md unchanged vs origin/master."
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate immutable event target and frozen repository history
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: node web/tools/repository-integrity-ci.mjs
