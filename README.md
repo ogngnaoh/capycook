@@ -404,7 +404,6 @@ you configure**:
 - [`DESIGN.md`](DESIGN.md) — product + system design (what/why, v0.4)
 - [`docs/SPEC.md`](docs/SPEC.md) — the Go/React stack (how)
 - [`docs/PREREGISTRATION.md`](docs/PREREGISTRATION.md) — **frozen** eval methodology
-- [`docs/milestones.md`](docs/milestones.md) — execution order
 - [`DEPLOY.md`](DEPLOY.md) — fork kit: docker compose walkthrough, platform notes, self-hosted Langfuse wiring.
 - [`web/tools/`](web/tools/) — headless capture tooling for the evidence stills and demo GIFs
 

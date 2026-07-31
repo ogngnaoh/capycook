@@ -5,10 +5,6 @@ deterministic/generative split and a pre-registered eval harness. Canonical
 docs: `DESIGN.md` (what/why, v0.4) · `docs/SPEC.md` (the Go/React stack) ·
 `docs/PREREGISTRATION.md` (frozen eval methodology).
 
-## Session start
-- Read `docs/milestones.md`, the active `milestone.md`, and its `handoff.md`.
-- The active milestone is marked `← active` in `docs/milestones.md`.
-
 ## Commands
 - `make build` — compile the server to `bin/capycook`.
 - `make run` — run the server (serves `GET /healthz` → 200).
@@ -23,13 +19,13 @@ docs: `DESIGN.md` (what/why, v0.4) · `docs/SPEC.md` (the Go/React stack) ·
 - Persistence (end-to-end build, phase 1): SQLite via pure-Go `modernc.org/sqlite` behind a store interface; `DB_PATH` env.
 - Model (end-to-end build, phase 3 — the first real-DeepSeek phase): DeepSeek-V4-Pro via OpenAI-compatible client, swappable `llm` iface; stub mode w/ banner when no key.
 - Observability (end-to-end build, phase 3): OTel-Go → OTLP/HTTP → Langfuse (Cloud; self-host compose ships in repo). Eval is hand-rolled Go (SPEC §5).
-- Frontend: React + Vite + Tailwind in `web/`; direction-A "Line of Development" IA (milestone 02a, 2026-07-08) — timeline spine + dish stage + intent bar + gate-as-decision; design source of truth `agent_docs/design/CapyCook-Redesign.dc.html` + `BUILD-SPEC.md`. Tokens: cc warm palette over the Acne structural system. ⚠ Tailwind theme scales are REPLACED, not extended — default-scale classes (`min-h-8`, `font-semibold`, `leading-none`) are silent no-ops; pixel-exact values need bracket classes (`min-h-[32px]`).
+- Frontend: React + Vite + Tailwind in `web/`; direction-A "Line of Development" IA — timeline spine + dish stage + intent bar + gate-as-decision. Tokens: cc warm palette over the Acne structural system. ⚠ Tailwind theme scales are REPLACED, not extended — default-scale classes (`min-h-8`, `font-semibold`, `leading-none`) are silent no-ops; pixel-exact values need bracket classes (`min-h-[32px]`).
 
 ## Repo structure
 - `cmd/server` — HTTP entrypoint. `internal/*` — one package per P0 item (see SPEC §6/§3).
 - `data/` — pinned FlavorGraph + USDA/FoodOn subset (vendored in end-to-end build phase 2).
 - `eval/fixtures/` — versioned benchmark set (PREREGISTRATION §6; seeds drafted phase 4, committed only after user ratification; synthetic test fixtures live in `internal/eval/testdata`, never here).
-- `docs/` — DESIGN, SPEC, PREREGISTRATION, milestones, per-milestone slices/handoff.
+- `docs/` — SPEC, PREREGISTRATION, media (`DESIGN.md` lives at the repo root).
 
 ## Config / secrets
 Env vars (see `.env.example`; `.env` is gitignored): `PORT`, `DEEPSEEK_API_KEY`,

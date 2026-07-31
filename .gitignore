@@ -19,8 +19,3 @@ web/node_modules/
 web/dist/*
 !web/dist/.gitkeep
 web/*.tsbuildinfo
-
-# 02b oracle evidence runs (bulky screenshots/screencasts). Retain the old
-# live-path rule during cleanup; the archived path is the oracle's live default.
-docs/02b-behavior-contract/evidence/
-docs/archive/02b-behavior-contract/evidence/

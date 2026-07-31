@@ -8,11 +8,11 @@
 | **Type** | Product + system design doc (PRD + architecture) |
 | **Author** | _you_ |
 | **Last updated** | 2026-06-30 |
-| **Optimizing for** | **Portfolio flagship** — engineering signal + intellectual honesty + a deployed demo for big-tech (general-SWE / systems) internships. Not a startup; defensibility-against-competitors is explicitly *not* a goal. |
+| **Optimizing for** | Engineering signal + intellectual honesty + a deployed, self-hostable demo. Not a startup; defensibility-against-competitors is explicitly *not* a goal. |
 
 ### Changelog from v0.3.1 (each change mapped to its driver)
 
-- **Portfolio-lens recut applied.** Doc now reads for a resume reviewer, not a market: recruiting/market-sizing language removed; the author is the spec, not a "biased n=1" to apologize for. — *Driver: portfolio-lens re-cut (four reviewers + Critic).*
+- **Positioning recut applied.** Recruiting/market-sizing language removed; the author is the spec, not a "biased n=1" to apologize for.
 - **`cost (USDA)` over-attribution fixed (trust tier-split).** USDA FoodData Central has no price data. Nutrition = USDA authoritative (unchanged); cost = static `[approximate]` table, NOT attributed to USDA. Propagated to §3.2, §8.4, §10, §11, §13, §14, §17 + the deterministic-services checklist. — *Driver: culinary Gap-12; Critic change 1 (honesty-critical).*
 - **Wk-0 user test dropped; replaced by pre-registration.** No recruiting, no n=5, no "0/5 no-go," no "steers scope." v0 phase = scaffold + pre-register the eval methodology/hypothesis before any run. Locked-decision #4 retired. — *Driver: positioning C2/A7; Critic confirm.*
 - **Hero gate-dynamics relabeled as operator/autobiographical-design telemetry.** Report explicit N + per-move-category breakdown, never a bare % (n=1 operator). Benchmark-based provenance/hallucination stays the top hero leg. — *Driver: eval Decision 1; Critic change (honest middle).*
