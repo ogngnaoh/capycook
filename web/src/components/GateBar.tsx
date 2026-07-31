@@ -9,8 +9,7 @@ import { opLineLabel } from '../lib/pathLabels'
 // dispatches through here. It speaks in modes, not states — decide (the
 // two front-line moves + the disclosure), another (the four revision/
 // mode-switch verbs), and three real editors (tweak/redirect/takeover) that
-// used to be separate panels bolted onto Workbench. Design markup lines
-// 424-486 + 908-921 (agent_docs/design/CapyCook-Redesign.dc.html).
+// used to be separate panels bolted onto Workbench.
 export type GateMode = 'decide' | 'another' | 'tweak' | 'redirect' | 'takeover'
 
 // Two hard-won behaviors carried over verbatim from the pre-redesign bar:

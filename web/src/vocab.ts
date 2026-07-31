@@ -1,7 +1,7 @@
 import type { GateVerb, MoveType } from './types'
 
 // The house glossary — every string a human reads, in the development
-// kitchen's own vocabulary (agent_docs/2026-07-07-gate-c-redesign-brief.md §6).
+// kitchen's own vocabulary.
 // Register: "chef de cuisine writing a station card" — declarative present,
 // no exclamation marks, the model is "the kitchen", the user is the chef.
 // Wire enums/slugs never change; surfaces show these labels with the slug
